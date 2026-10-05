@@ -47,7 +47,7 @@ export function reportEmail(name: string, report: DiagnosticReport) {
 <tr><td style="padding:28px 32px;border-bottom:1px solid #e4e0d6;font-weight:700;font-size:18px;color:#0e1311">GROWX <span style="color:#0f6b4f">ERA</span></td></tr>
 <tr><td style="padding:32px">
 <p style="margin:0 0 16px;font-size:16px;color:#0e1311">Hi ${esc(first)},</p>
-<p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#3d4541">Here is your Growth Diagnostic™ report. It is a preliminary diagnosis based on your answers, a starting point for a deeper look, not financial advice.</p>
+<p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#3d4541">Here is your Growth Diagnostic report. It is a preliminary diagnosis based on your answers, a starting point for a deeper look, not financial advice.</p>
 <div style="font-size:12px;color:#6b726e;font-family:monospace;letter-spacing:.08em">YOUR GROWTH SCORE</div>
 <div style="font-size:64px;font-weight:700;line-height:1;color:#0e1311;margin:6px 0">${report.overallScore}<span style="font-size:20px;color:#6b726e">/100</span></div>
 <div style="font-size:16px;font-weight:600;color:#0f6b4f">${esc(report.stage.label)}</div>
