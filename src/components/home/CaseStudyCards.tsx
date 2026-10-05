@@ -12,7 +12,7 @@ export function CaseStudyCards({ limit }: { limit?: number }) {
         <li key={c.slug}>
           <Link href={`/case-studies/${c.slug}`} className="group block h-full border border-line bg-card p-6 transition-colors hover:border-ink sm:p-8">
             <p className="font-mono text-xs uppercase tracking-[0.12em] text-ink-3">
-              {c.sector} · {c.market}
+              {[c.sector, c.market].filter(Boolean).join(" · ")}
             </p>
             <h3 className="mt-5 text-h3 font-semibold">{c.title}</h3>
             <dl className="mt-6 grid grid-cols-2 gap-px border border-line bg-line">

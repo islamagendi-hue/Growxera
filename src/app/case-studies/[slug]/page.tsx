@@ -11,7 +11,7 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: PageProps<"/case-studies/[slug]">): Promise<Metadata> {
   const c = getCaseStudy((await params).slug);
   if (!c) return {};
-  return { title: c.title, description: `${c.sector} · ${c.market}: ${c.result ?? c.title}`, alternates: { canonical: `/case-studies/${c.slug}` } };
+  return { title: c.title, description: `${[c.sector, c.market].filter(Boolean).join(" · ")}: ${c.result ?? c.title}`, alternates: { canonical: `/case-studies/${c.slug}` } };
 }
 
 export default async function CaseStudyPage({ params }: PageProps<"/case-studies/[slug]">) {
@@ -36,6 +36,7 @@ export default async function CaseStudyPage({ params }: PageProps<"/case-studies
       ],
       ["Result", c.result && <p key="r">{c.result}</p>],
       ["Business impact", c.businessImpact && <p key="b">{c.businessImpact}</p>],
+      ["Stack", c.stack?.length && <p key="s">{c.stack.join(" · ")}</p>],
     ] as [string, React.ReactNode][]
   ).filter(([, body]) => !!body);
   return (
@@ -43,9 +44,10 @@ export default async function CaseStudyPage({ params }: PageProps<"/case-studies
       <section className="border-b border-line">
         <Container className="py-16 sm:py-24">
           <p className="eyebrow">
-            Case study · {c.sector} · {c.market}
+            {["Case study", c.sector, c.market].filter(Boolean).join(" · ")}
           </p>
           <h1 className="mt-6 max-w-[20ch] text-h2 font-semibold">{c.title}</h1>
+          {c.role && <p className="mt-6 max-w-2xl leading-relaxed text-ink-2">{c.role}</p>}
           <dl className={`mt-12 grid max-w-3xl grid-cols-2 gap-px border border-line bg-line ${c.metrics.length >= 4 ? "lg:max-w-none lg:grid-cols-4" : ""}`}>
             {c.metrics.map((m) => (
               <div key={m.label} className="bg-paper p-5">

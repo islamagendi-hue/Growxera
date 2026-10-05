@@ -5,6 +5,7 @@ import { IllustrativeReport } from "@/components/home/IllustrativeReport";
 import { CtaLink } from "@/components/ui/CtaLink";
 import { Container, Section } from "@/components/ui/Section";
 import { SITE } from "@/config/site";
+import { TRACK_RECORD } from "@/content/case-studies";
 import { BOTTLENECKS, CAPABILITIES, HOW_WE_WORK, MVP_BUILD, OFFERINGS, PROBLEM_ORIGINS } from "@/content/site-content";
 
 export const metadata: Metadata = { title: { absolute: SITE.title }, alternates: { canonical: "/" } };
@@ -195,7 +196,23 @@ export default function Home() {
         title="Problem. Diagnosis. Intervention. Result."
         lead="Every case study follows the same structure and leads with the numbers that matter: revenue, CAC, conversion, retention, AOV, LTV, payback and margin."
       >
+        <div className="mb-10">
+          <dl className="grid grid-cols-2 gap-px border border-line bg-line lg:grid-cols-4">
+            {TRACK_RECORD.map((t) => (
+              <div key={t.label} className="flex flex-col-reverse bg-paper p-5 sm:p-6">
+                <dt className="mt-2 text-sm text-ink-3">{t.label}</dt>
+                <dd className="tabular font-mono text-3xl font-medium">{t.value}</dd>
+              </div>
+            ))}
+          </dl>
+          <p className="mt-3 text-xs text-ink-3">Track record of the Growx Era team in mobile apps, SaaS and e-commerce across KSA and the GCC.</p>
+        </div>
         <CaseStudyCards limit={2} />
+        <div className="mt-10">
+          <CtaLink href="/case-studies" cta="case_studies_all" variant="ghost">
+            All case studies
+          </CtaLink>
+        </div>
       </Section>
 
       {/* FINAL CTA */}
