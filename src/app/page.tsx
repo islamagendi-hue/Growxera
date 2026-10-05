@@ -6,7 +6,7 @@ import { CtaLink } from "@/components/ui/CtaLink";
 import { Container, Section } from "@/components/ui/Section";
 import { SITE } from "@/config/site";
 import { TRACK_RECORD } from "@/content/case-studies";
-import { BOTTLENECKS, CAPABILITIES, HOW_WE_WORK, MVP_BUILD, OFFERINGS, PROBLEM_ORIGINS } from "@/content/site-content";
+import { BOTTLENECKS, CAPABILITIES, HOW_WE_WORK, OFFERINGS, STANDALONE_SERVICES, PROBLEM_ORIGINS } from "@/content/site-content";
 
 export const metadata: Metadata = { title: { absolute: SITE.title }, alternates: { canonical: "/" } };
 
@@ -165,18 +165,20 @@ export default function Home() {
             </li>
           ))}
         </ol>
-        <div className="mt-px flex flex-col gap-4 border border-line bg-paper p-6 sm:p-8 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <p className="font-mono text-xs text-ink-3">Also</p>
-            <p className="mt-2 text-h3 font-semibold">
-              {MVP_BUILD.name} <span className="text-accent">· {MVP_BUILD.line}</span>
-            </p>
-            <p className="mt-2 max-w-2xl leading-relaxed text-ink-2">{MVP_BUILD.text}</p>
+        {STANDALONE_SERVICES.map((svc) => (
+          <div key={svc.id} className="mt-px flex flex-col gap-4 border border-line bg-paper p-6 sm:p-8 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="font-mono text-xs text-ink-3">Also</p>
+              <p className="mt-2 text-h3 font-semibold">
+                {svc.name} <span className="text-accent">· {svc.line}</span>
+              </p>
+              <p className="mt-2 max-w-2xl leading-relaxed text-ink-2">{svc.text}</p>
+            </div>
+            <CtaLink href={`/services#${svc.id}`} cta={`${svc.id}_more`} variant="ghost" className="shrink-0">
+              Learn more
+            </CtaLink>
           </div>
-          <CtaLink href="/services" cta="mvp_build_more" variant="ghost">
-            See MVP Build
-          </CtaLink>
-        </div>
+        ))}
         <div className="mt-10">
           <p className="eyebrow">Supporting capabilities</p>
           <ul className="mt-4 flex flex-wrap gap-2">

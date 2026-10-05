@@ -31,9 +31,11 @@ export function Header() {
         )}
         <div className="flex items-center gap-3">
           {!inDiagnostic && (
-            <CtaLink href="/diagnostic" cta="header_diagnose" className="hidden !min-h-10 !px-4 text-sm sm:inline-flex">
-              Diagnose your growth
-            </CtaLink>
+            <span className="hidden sm:block">
+              <CtaLink href="/diagnostic" cta="header_diagnose" className="!min-h-10 !px-4 text-sm">
+                Diagnose your growth
+              </CtaLink>
+            </span>
           )}
           {inDiagnostic ? (
             <Link href="/" className="text-sm text-ink-2 hover:text-ink">

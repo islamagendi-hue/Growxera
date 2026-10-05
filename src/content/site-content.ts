@@ -60,17 +60,31 @@ export const OFFERINGS = [
   },
 ];
 
-/** Standalone offer alongside the three stages: building a first product to test demand. */
-export const MVP_BUILD = {
-  name: "MVP Build",
-  line: "Launch the first version, fast.",
-  text: "For founders and teams with a new product or idea: we scope, design and build a minimum viable product (web or mobile app), launch it, and set up the measurement to learn whether it works before you invest more.",
-  deliverables: [
-    "Scope and core-feature prioritisation",
-    "Design and build of a web or mobile MVP",
-    "Launch, analytics and first growth experiments",
-  ],
-};
+/** Standalone services offered alongside the three stages. */
+export const STANDALONE_SERVICES = [
+  {
+    id: "mvp",
+    name: "MVP Build",
+    line: "Launch the first version, fast.",
+    text: "For founders and teams with a new product or idea: we scope, design and build a minimum viable product (web or mobile app), launch it, and set up the measurement to learn whether it works before you invest more.",
+    deliverables: [
+      "Scope and core-feature prioritisation",
+      "Design and build of a web or mobile MVP",
+      "Launch, analytics and first growth experiments",
+    ],
+  },
+  {
+    id: "tracking",
+    name: "Tracking Implementation & Event Mapping",
+    line: "Data you can trust before you scale.",
+    text: "We map every event that matters across your funnel, implement the tracking end to end, and make sure attribution is accurate, so marketing spend, experiments and decisions run on real numbers. We have done this on every project we have worked on.",
+    deliverables: [
+      "Event map and tracking plan across the full funnel",
+      "Implementation in your analytics, attribution and CRM tools",
+      "QA of events and attribution, plus funnel and cohort dashboards",
+    ],
+  },
+];
 
 export const CAPABILITIES = [
   "GTM",

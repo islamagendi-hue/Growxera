@@ -50,6 +50,7 @@ export const CASE_STUDIES: CaseStudy[] = [
       { label: "LTV:CAC", value: "4:1", detail: "CAC payback under 1 month" },
     ],
     intervention: [
+      "Event mapping and tracking implementation across the funnel, so every result above is measured on reliable data.",
       "Led a cross-functional growth team of 7 across Product, CRM, Content, Engineering, SEO and B2B.",
       "Built a company-wide North Star Metric and growth KPI framework across the full funnel.",
       "Ran a WhatsApp-to-app migration loop as the go-to-market strategy.",
@@ -79,6 +80,7 @@ export const CASE_STUDIES: CaseStudy[] = [
     problem:
       "The store sold through a single channel, its own website, so growth was capped by how much traffic that one site could attract and convert.",
     intervention: [
+      "Event mapping and tracking implementation across the funnel, so every result above is measured on reliable data.",
       "Opened Amazon as a new sales channel, putting the range in front of shoppers already searching for perfume there.",
       "Launched Meta as an acquisition channel to reach new customers beyond the website's existing traffic.",
       "Introduced samples as a growth lever, lowering the risk of buying a fragrance online without smelling it first.",
@@ -98,6 +100,7 @@ export const CASE_STUDIES: CaseStudy[] = [
       { label: "Branches", value: "6" },
     ],
     intervention: [
+      "Event mapping and tracking implementation across the funnel, so every result above is measured on reliable data.",
       "Built a CRM automation system across SMS, email and WhatsApp.",
       "Ran cohort optimization cycles to reduce churn.",
       "Designed segmentation and lifecycle journeys to improve engagement on every channel.",
@@ -120,6 +123,7 @@ export const CASE_STUDIES: CaseStudy[] = [
       { label: "Retention levers found", value: "3" },
     ],
     intervention: [
+      "Event mapping and tracking implementation across the funnel, so every result above is measured on reliable data.",
       "Built a full-funnel growth system from acquisition through retention.",
       "Re-engineered the onboarding journey and removed friction in time-to-first-value.",
       "Implemented cohort tracking, which surfaced 3 high-impact retention levers that shaped the next quarter's roadmap.",

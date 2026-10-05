@@ -2,11 +2,11 @@ import type { Metadata } from "next";
 import { CtaBand } from "@/components/ui/CtaBand";
 import { PageHero } from "@/components/ui/PageHero";
 import { Section } from "@/components/ui/Section";
-import { CAPABILITIES, MVP_BUILD, OFFERINGS } from "@/content/site-content";
+import { CAPABILITIES, OFFERINGS, STANDALONE_SERVICES } from "@/content/site-content";
 
 export const metadata: Metadata = {
   title: "Services",
-  description: "Growth Diagnostic, Growth Transformation and Growth Partnership, plus MVP builds for new products: one path from finding the problem to scaling the solution.",
+  description: "Growth Diagnostic, Growth Transformation and Growth Partnership, plus MVP builds and tracking implementation: one path from finding the problem to scaling the solution.",
   alternates: { canonical: "/services" },
 };
 
@@ -43,16 +43,17 @@ export default function Services() {
             </li>
           ))}
         </ol>
-        <div className="mt-px grid gap-6 border border-line bg-paper-2 p-6 sm:p-10 lg:grid-cols-12">
+        {STANDALONE_SERVICES.map((svc) => (
+        <div key={svc.id} id={svc.id} className="mt-px grid scroll-mt-24 gap-6 border border-line bg-paper-2 p-6 sm:p-10 lg:grid-cols-12">
           <p className="font-mono text-sm text-ink-3 lg:col-span-2">Also</p>
           <div className="lg:col-span-4">
-            <h2 className="text-h3 font-semibold">{MVP_BUILD.name}</h2>
-            <p className="mt-1 text-accent">{MVP_BUILD.line}</p>
+            <h2 className="text-h3 font-semibold">{svc.name}</h2>
+            <p className="mt-1 text-accent">{svc.line}</p>
           </div>
           <div className="lg:col-span-6">
-            <p className="leading-relaxed text-ink-2">{MVP_BUILD.text}</p>
+            <p className="leading-relaxed text-ink-2">{svc.text}</p>
             <ul className="mt-5 space-y-2">
-              {MVP_BUILD.deliverables.map((d) => (
+              {svc.deliverables.map((d) => (
                 <li key={d} className="flex gap-3 text-sm">
                   <span aria-hidden className="text-accent">
                     →
@@ -63,6 +64,7 @@ export default function Services() {
             </ul>
           </div>
         </div>
+        ))}
       </Section>
       <Section tone="card" eyebrow="Supporting capabilities" title="Applied where the diagnosis points.">
         <ul className="grid grid-cols-2 gap-px border border-line bg-line sm:grid-cols-5">
