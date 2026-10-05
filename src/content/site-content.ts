@@ -60,6 +60,18 @@ export const OFFERINGS = [
   },
 ];
 
+/** Standalone offer alongside the three stages: building a first product to test demand. */
+export const MVP_BUILD = {
+  name: "MVP Build",
+  line: "Launch the first version, fast.",
+  text: "For founders and teams with a new product or idea: we scope, design and build a minimum viable product (web or mobile app), launch it, and set up the measurement to learn whether it works before you invest more.",
+  deliverables: [
+    "Scope and core-feature prioritisation",
+    "Design and build of a web or mobile MVP",
+    "Launch, analytics and first growth experiments",
+  ],
+};
+
 export const CAPABILITIES = [
   "GTM",
   "Growth Strategy",

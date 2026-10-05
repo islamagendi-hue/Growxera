@@ -20,16 +20,30 @@ export interface CaseStudy {
   title: string;
   /** Up to four headline results, shown on cards. */
   metrics: CaseMetric[];
-  problem: string;
-  diagnosis: string;
-  intervention: string[];
-  result: string;
-  businessImpact: string;
+  /** Narrative sections are optional: only what the client has confirmed is shown. */
+  problem?: string;
+  diagnosis?: string;
+  intervention?: string[];
+  result?: string;
+  businessImpact?: string;
   /** Period the results were measured over, e.g. "Q1–Q2 2026". */
   period?: string;
 }
 
-export const CASE_STUDIES: CaseStudy[] = [];
+export const CASE_STUDIES: CaseStudy[] = [
+  {
+    slug: "mobile-app-1m-in-3-months",
+    client: "Mobile app",
+    sector: "Mobile app",
+    market: "Saudi Arabia",
+    title: "A mobile app that generated SAR 1M in revenue in 3 months",
+    metrics: [
+      { label: "Revenue", value: "SAR 1M" },
+      { label: "Timeframe", value: "3 months" },
+    ],
+    result: "SAR 1 million in revenue within the first three months.",
+  },
+];
 
 export function getCaseStudy(slug: string) {
   return CASE_STUDIES.find((c) => c.slug === slug);

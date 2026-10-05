@@ -11,17 +11,19 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: PageProps<"/case-studies/[slug]">): Promise<Metadata> {
   const c = getCaseStudy((await params).slug);
   if (!c) return {};
-  return { title: c.title, description: `${c.sector} · ${c.market}: ${c.result}`, alternates: { canonical: `/case-studies/${c.slug}` } };
+  return { title: c.title, description: `${c.sector} · ${c.market}: ${c.result ?? c.title}`, alternates: { canonical: `/case-studies/${c.slug}` } };
 }
 
 export default async function CaseStudyPage({ params }: PageProps<"/case-studies/[slug]">) {
   const c = getCaseStudy((await params).slug);
   if (!c) notFound();
-  const sections: [string, React.ReactNode][] = [
-    ["Problem", <p key="p">{c.problem}</p>],
-    ["Diagnosis", <p key="d">{c.diagnosis}</p>],
+  const sections = (
     [
-      "Intervention",
+      ["Problem", c.problem && <p key="p">{c.problem}</p>],
+      ["Diagnosis", c.diagnosis && <p key="d">{c.diagnosis}</p>],
+      [
+        "Intervention",
+        c.intervention?.length && (
       <ul key="i" className="space-y-2">
         {c.intervention.map((x) => (
           <li key={x} className="flex gap-3">
@@ -29,11 +31,13 @@ export default async function CaseStudyPage({ params }: PageProps<"/case-studies
             {x}
           </li>
         ))}
-      </ul>,
-    ],
-    ["Result", <p key="r">{c.result}</p>],
-    ["Business impact", <p key="b">{c.businessImpact}</p>],
-  ];
+      </ul>
+        ),
+      ],
+      ["Result", c.result && <p key="r">{c.result}</p>],
+      ["Business impact", c.businessImpact && <p key="b">{c.businessImpact}</p>],
+    ] as [string, React.ReactNode][]
+  ).filter(([, body]) => !!body);
   return (
     <>
       <section className="border-b border-line">
@@ -42,7 +46,7 @@ export default async function CaseStudyPage({ params }: PageProps<"/case-studies
             Case study · {c.sector} · {c.market}
           </p>
           <h1 className="mt-6 max-w-[20ch] text-h2 font-semibold">{c.title}</h1>
-          <dl className="mt-12 grid grid-cols-2 gap-px border border-line bg-line lg:grid-cols-4">
+          <dl className={`mt-12 grid max-w-3xl grid-cols-2 gap-px border border-line bg-line ${c.metrics.length >= 4 ? "lg:max-w-none lg:grid-cols-4" : ""}`}>
             {c.metrics.map((m) => (
               <div key={m.label} className="bg-paper p-5">
                 <dt className="text-sm text-ink-3">{m.label}</dt>
@@ -54,6 +58,7 @@ export default async function CaseStudyPage({ params }: PageProps<"/case-studies
           {c.period && <p className="mt-4 text-xs text-ink-3">Measured over {c.period}.</p>}
         </Container>
       </section>
+      {sections.length > 0 && (
       <Container className="py-16 sm:py-20">
         <ol className="divide-y divide-line border-y border-line">
           {sections.map(([title, body], i) => (
@@ -65,6 +70,7 @@ export default async function CaseStudyPage({ params }: PageProps<"/case-studies
           ))}
         </ol>
       </Container>
+      )}
       <CtaBand source={`case_${c.slug}`} />
     </>
   );
