@@ -4,6 +4,8 @@ Website and **Growth Diagnostic™** for Growx Era, the Growth & Transformation 
 
 Next.js 16 (App Router) · TypeScript · Tailwind CSS 4 · Supabase Postgres · Vercel.
 
+This repo also contains **LeanApp**, a separate growth-infrastructure SaaS for mobile apps, in [`apps/platform`](apps/platform) with its SDK in [`sdks/javascript`](sdks/javascript). It has its own dependencies and does not affect the website. See [docs/README.md](docs/README.md).
+
 ## Run locally
 
 ```bash
