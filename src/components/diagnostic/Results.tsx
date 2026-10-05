@@ -47,7 +47,7 @@ export function Results({
             <p className="eyebrow">Growth Diagnostic™ · Preliminary diagnosis</p>
             <div className="flex gap-4 text-sm print:hidden">
               <button type="button" onClick={() => window.print()} className="text-ink-2 underline-offset-4 hover:underline">
-                Save as PDF
+                Download PDF report
               </button>
               <button type="button" onClick={onRestart} className="text-ink-2 underline-offset-4 hover:underline">
                 Start over

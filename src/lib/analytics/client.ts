@@ -21,6 +21,7 @@ type Props = Record<string, string | number | boolean | null | undefined>;
 declare global {
   interface Window {
     dataLayer?: Record<string, unknown>[];
+    gtag?: (...args: unknown[]) => void;
   }
 }
 
@@ -64,6 +65,7 @@ export function getConsent(): ConsentState | undefined {
 
 export function setConsent(analytics: boolean) {
   write(ls(), CONSENT_KEY, { analytics, version: POLICY_VERSION, at: new Date().toISOString() });
+  window.gtag?.("consent", "update", { analytics_storage: analytics ? "granted" : "denied" });
   window.dispatchEvent(new Event(CONSENT_EVENT));
 }
 
@@ -111,6 +113,7 @@ export function track(event: AnalyticsEvent, props: Props = {}) {
   };
   window.dataLayer = window.dataLayer ?? [];
   window.dataLayer.push({ event, ...props });
+  window.gtag?.("event", event, props);
   const body = JSON.stringify(payload);
   try {
     if (navigator.sendBeacon) {

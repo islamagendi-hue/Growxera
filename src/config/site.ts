@@ -22,4 +22,5 @@ export const NAV = [
   { href: "/services", label: "Services" },
   { href: "/case-studies", label: "Case studies" },
   { href: "/experimentation-lab", label: "Experiment Lab" },
+  { href: "/insights", label: "Insights" },
 ];

@@ -38,7 +38,7 @@ export function CtaLink({
       }}
     >
       {children}
-      {variant !== "ghost" && <span aria-hidden>→</span>}
+      {variant !== "ghost" && <span aria-hidden className="rtl:-scale-x-100">→</span>}
     </Link>
   );
 }

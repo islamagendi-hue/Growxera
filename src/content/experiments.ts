@@ -224,3 +224,20 @@ const IDEAS: Record<ExperimentModel, Row[]> = {
 export const EXPERIMENTS: Experiment[] = EXPERIMENT_MODELS.flatMap(({ id: model }) =>
   IDEAS[model].map(([stage, title, hypothesis, metric, effort]) => ({ model, stage, title, hypothesis, metric, effort })),
 ).map((e, i) => ({ id: i + 1, ...e }));
+
+/** "3,17,42" → the experiments, in order, ignoring unknown ids. */
+export function parsePlan(ids: string): Experiment[] {
+  const byId = new Map(EXPERIMENTS.map((e) => [e.id, e]));
+  return [...new Set(ids.split(",").map(Number))].flatMap((id) => byId.get(id) ?? []).slice(0, 40);
+}
+
+export function planText(plan: Experiment[]): string {
+  return plan.map((e) => `#${String(e.id).padStart(3, "0")} ${e.title} (${e.metric})`).join("\n");
+}
+
+/** Pre-filled contact message for a plan chosen in the Experimentation Lab. */
+export function planMessage(ids: string): string | undefined {
+  const plan = parsePlan(ids);
+  if (!plan.length) return undefined;
+  return `I'd like help running this experiment plan from the Experimentation Lab:\n${planText(plan)}`.slice(0, 2000);
+}

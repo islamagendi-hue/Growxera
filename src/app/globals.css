@@ -98,3 +98,19 @@
 .animate-rise {
   animation: rise 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
+
+/* Arabic pages: Arabic typeface, no Latin letter-spacing, roomier line height. */
+.lang-ar {
+  font-family: var(--font-plex-arabic), var(--font-sans);
+}
+.lang-ar h1,
+.lang-ar h2,
+.lang-ar h3 {
+  letter-spacing: 0;
+  line-height: 1.3;
+}
+.lang-ar .ar-eyebrow {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-accent);
+}

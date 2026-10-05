@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { LeadForm } from "@/components/diagnostic/LeadForm";
 
-export function ContactForm() {
+export function ContactForm({ defaultMessage }: { defaultMessage?: string }) {
   const [sent, setSent] = useState(false);
   if (sent) {
     return (
@@ -12,5 +12,5 @@ export function ContactForm() {
       </div>
     );
   }
-  return <LeadForm source="contact" submitLabel="Send message" showMessage onSuccess={() => setSent(true)} />;
+  return <LeadForm source="contact" submitLabel="Send message" showMessage defaultMessage={defaultMessage} onSuccess={() => setSent(true)} />;
 }

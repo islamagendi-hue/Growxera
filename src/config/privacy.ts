@@ -3,7 +3,7 @@
  * Bump POLICY_VERSION whenever the privacy notice or consent wording changes:
  * every stored consent records the version the person agreed to.
  */
-export const POLICY_VERSION = "2026-10-05";
+export const POLICY_VERSION = "2026-10-05.2";
 
 /** Analytics are opt-in: no analytics events are sent until the visitor accepts. */
 export const ANALYTICS_REQUIRES_CONSENT = true;
@@ -22,5 +22,5 @@ export const CONSENT_TEXT = {
     "I agree that Growx Era may store my details and diagnostic answers to prepare my report and contact me about it, as described in the Privacy Notice.",
   marketing: "Send me occasional growth insights by email or WhatsApp. I can unsubscribe at any time.",
   analytics:
-    "We use first-party analytics to understand how the diagnostic is used and improve it. No advertising cookies.",
+    "We use analytics, including Google Analytics, to understand how the site and diagnostic are used and improve them. No advertising cookies.",
 };

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { CtaLink } from "@/components/ui/CtaLink";
 import { Container } from "@/components/ui/Section";
 import { SITE } from "@/config/site";
+import { planMessage } from "@/content/experiments";
 import { ContactForm } from "./ContactForm";
 
 export const metadata: Metadata = {
@@ -10,7 +11,9 @@ export const metadata: Metadata = {
   alternates: { canonical: "/contact" },
 };
 
-export default function Contact() {
+export default async function Contact({ searchParams }: PageProps<"/contact">) {
+  const plan = (await searchParams).plan;
+  const defaultMessage = typeof plan === "string" ? planMessage(plan) : undefined;
   return (
     <section>
       <Container className="grid gap-12 py-16 sm:py-24 lg:grid-cols-12">
@@ -37,7 +40,7 @@ export default function Contact() {
           </div>
         </div>
         <div className="border border-line bg-card p-6 sm:p-10 lg:col-span-7">
-          <ContactForm />
+          <ContactForm defaultMessage={defaultMessage} />
         </div>
       </Container>
     </section>

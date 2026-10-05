@@ -6,7 +6,7 @@ import { ConsentSettingsButton } from "./ConsentBanner";
 
 export function Footer() {
   return (
-    <footer className="border-t border-line bg-paper">
+    <footer className="border-t border-line bg-paper print:hidden">
       <Container className="grid gap-10 py-14 sm:grid-cols-2 lg:grid-cols-12">
         <div className="lg:col-span-5">
           <Wordmark className="text-xl" />
@@ -18,6 +18,7 @@ export function Footer() {
           <Link href="/services" className="hover:underline">Services</Link>
           <Link href="/case-studies" className="hover:underline">Case studies</Link>
           <Link href="/experimentation-lab" className="hover:underline">Experimentation Lab</Link>
+          <Link href="/insights" className="hover:underline">Insights</Link>
           <Link href="/contact" className="hover:underline">Contact</Link>
           <Link href="/privacy" className="hover:underline">Privacy notice</Link>
         </nav>

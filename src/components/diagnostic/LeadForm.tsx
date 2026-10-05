@@ -16,6 +16,7 @@ export function LeadForm({
   answers,
   submitLabel,
   showMessage = false,
+  defaultMessage,
   onSuccess,
 }: {
   source: "diagnostic" | "contact";
@@ -23,6 +24,7 @@ export function LeadForm({
   answers?: Answers;
   submitLabel: string;
   showMessage?: boolean;
+  defaultMessage?: string;
   onSuccess: (report: DiagnosticReport | null) => void;
 }) {
   const [errors, setErrors] = useState<Partial<Record<Fields, string>>>({});
@@ -131,7 +133,7 @@ export function LeadForm({
           <span className="text-sm font-medium">
             What would you like to discuss? <span className="font-normal text-ink-3">(optional)</span>
           </span>
-          <textarea name="message" rows={4} className={`${inputClass} py-3`} onInput={onFirstInput} />
+          <textarea name="message" rows={defaultMessage ? 8 : 4} defaultValue={defaultMessage} maxLength={2000} className={`${inputClass} py-3`} onInput={onFirstInput} />
         </label>
       )}
       {/* Honeypot: hidden from people and assistive tech. */}

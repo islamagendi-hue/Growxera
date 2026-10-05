@@ -54,8 +54,9 @@ export default function Privacy() {
             </li>
             <li>
               <strong className="text-ink">Analytics, only if you accept them</strong>: pseudonymous usage events (for
-              example, which diagnostic step was completed) linked to a random identifier. We do not store your IP
-              address with these events and we do not use advertising cookies.
+              example, which diagnostic step was completed) linked to a random identifier, and Google Analytics 4, which
+              sets its own cookies and is provided by Google. We do not store your IP address with our own events and
+              we do not use advertising cookies.
             </li>
           </ul>
         </section>
@@ -114,7 +115,7 @@ export default function Privacy() {
           <p>
             We use browser storage for essential functions: remembering your privacy choice, keeping your diagnostic
             progress while you complete it, and holding campaign attribution until you submit a form. Analytics
-            storage is used only after you accept it. You can change your choice at any time from &ldquo;Privacy
+            storage, including Google Analytics cookies, is used only after you accept it. You can change your choice at any time from &ldquo;Privacy
             settings&rdquo; in the footer.
           </p>
         </section>

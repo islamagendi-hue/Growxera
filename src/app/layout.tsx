@@ -3,6 +3,7 @@ import { IBM_Plex_Mono, Inter_Tight } from "next/font/google";
 import { AttributionCapture } from "@/components/site/AttributionCapture";
 import { ConsentBanner } from "@/components/site/ConsentBanner";
 import { Footer } from "@/components/site/Footer";
+import { GoogleAnalytics } from "@/components/site/GoogleAnalytics";
 import { Header } from "@/components/site/Header";
 import { SITE } from "@/config/site";
 import "./globals.css";
@@ -76,6 +77,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         </main>
         <Footer />
         <ConsentBanner />
+        <GoogleAnalytics />
       </body>
     </html>
   );

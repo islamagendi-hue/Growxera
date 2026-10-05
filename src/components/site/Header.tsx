@@ -13,15 +13,16 @@ export function Header() {
   const [openOn, setOpenOn] = useState<string | null>(null);
   const open = openOn === pathname;
   const inDiagnostic = pathname.startsWith("/diagnostic");
+  const isArabic = pathname === "/ar" || pathname.startsWith("/ar/");
 
   return (
-    <header className="sticky top-0 z-40 border-b border-line/80 bg-paper/90 backdrop-blur supports-[backdrop-filter]:bg-paper/75">
+    <header className="sticky top-0 z-40 print:hidden border-b border-line/80 bg-paper/90 backdrop-blur supports-[backdrop-filter]:bg-paper/75">
       <Container className="flex h-16 items-center justify-between gap-6">
         <Link href="/" className="text-lg" aria-label="Growx Era home">
           <Wordmark />
         </Link>
         {!inDiagnostic && (
-          <nav aria-label="Main" className="hidden items-center gap-8 md:flex">
+          <nav aria-label="Main" className="hidden items-center gap-6 xl:gap-8 lg:flex">
             {NAV.map((n) => (
               <Link key={n.href} href={n.href} className="text-sm text-ink-2 transition-colors hover:text-ink">
                 {n.label}
@@ -30,6 +31,16 @@ export function Header() {
           </nav>
         )}
         <div className="flex items-center gap-3">
+          {!inDiagnostic && (
+            <Link
+              href={isArabic ? "/" : "/ar"}
+              hrefLang={isArabic ? "en" : "ar"}
+              lang={isArabic ? "en" : "ar"}
+              className="px-1 text-sm text-ink-2 hover:text-ink"
+            >
+              {isArabic ? "English" : "العربية"}
+            </Link>
+          )}
           {!inDiagnostic && (
             <span className="hidden sm:block">
               <CtaLink href="/diagnostic" cta="header_diagnose" className="!min-h-10 !px-4 text-sm">
@@ -44,7 +55,7 @@ export function Header() {
           ) : (
             <button
               type="button"
-              className="-mr-2 flex h-11 w-11 items-center justify-center md:hidden"
+              className="-mr-2 flex h-11 w-11 items-center justify-center lg:hidden"
               aria-expanded={open}
               aria-controls="mobile-nav"
               aria-label={open ? "Close menu" : "Open menu"}
@@ -59,7 +70,7 @@ export function Header() {
         </div>
       </Container>
       {open && (
-        <nav id="mobile-nav" aria-label="Mobile" className="border-t border-line bg-paper md:hidden">
+        <nav id="mobile-nav" aria-label="Mobile" className="border-t border-line bg-paper lg:hidden">
           <Container className="flex flex-col py-4">
             {NAV.map((n) => (
               <Link key={n.href} href={n.href} className="border-b border-line py-4 text-lg">
