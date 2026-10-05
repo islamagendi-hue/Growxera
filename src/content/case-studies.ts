@@ -74,9 +74,16 @@ export const CASE_STUDIES: CaseStudy[] = [
     metrics: [
       { label: "Monthly revenue", value: "SAR 100K → 700K" },
       { label: "Growth", value: "7×" },
+      { label: "Sales channels", value: "1 → 3", detail: "Website, Amazon, Meta" },
     ],
-    intervention: ["Opened new sales channels.", "Added new growth levers."],
-    result: "Monthly revenue grew from SAR 100K to SAR 700K.",
+    problem:
+      "The store sold through a single channel, its own website, so growth was capped by how much traffic that one site could attract and convert.",
+    intervention: [
+      "Opened Amazon as a new sales channel, putting the range in front of shoppers already searching for perfume there.",
+      "Launched Meta as an acquisition channel to reach new customers beyond the website's existing traffic.",
+      "Introduced samples as a growth lever, lowering the risk of buying a fragrance online without smelling it first.",
+    ],
+    result: "Monthly revenue grew from SAR 100K to SAR 700K, a 7× increase.",
   },
   {
     slug: "multi-branch-lifecycle-crm",
