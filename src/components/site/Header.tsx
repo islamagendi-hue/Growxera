@@ -36,7 +36,7 @@ export function Header() {
               href={isArabic ? "/" : "/ar"}
               hrefLang={isArabic ? "en" : "ar"}
               lang={isArabic ? "en" : "ar"}
-              className="px-1 text-sm text-ink-2 hover:text-ink"
+              className="px-1 py-2.5 text-sm text-ink-2 hover:text-ink"
             >
               {isArabic ? "English" : "العربية"}
             </Link>

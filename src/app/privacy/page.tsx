@@ -16,7 +16,7 @@ const TBD = ({ children }: { children: React.ReactNode }) => (
 export default function Privacy() {
   const contact = SITE.contactEmail ? <a className="underline" href={`mailto:${SITE.contactEmail}`}>{SITE.contactEmail}</a> : <TBD>privacy contact email</TBD>;
   return (
-    <Container className="py-16 sm:py-24">
+    <Container className="py-[3.4375rem] sm:py-[5.5625rem]">
       <article className="mx-auto max-w-[70ch] space-y-8 leading-relaxed text-ink-2 [&_h2]:mt-12 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:text-ink [&_li]:ml-5 [&_li]:list-disc [&_ul]:space-y-2">
         <header>
           <p className="eyebrow">Version {POLICY_VERSION}</p>

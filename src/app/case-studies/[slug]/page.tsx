@@ -42,7 +42,7 @@ export default async function CaseStudyPage({ params }: PageProps<"/case-studies
   return (
     <>
       <section className="border-b border-line">
-        <Container className="py-16 sm:py-24">
+        <Container className="py-[3.4375rem] sm:py-[5.5625rem]">
           <p className="eyebrow">
             {["Case study", c.sector, c.market].filter(Boolean).join(" · ")}
           </p>
@@ -61,7 +61,7 @@ export default async function CaseStudyPage({ params }: PageProps<"/case-studies
         </Container>
       </section>
       {sections.length > 0 && (
-      <Container className="py-16 sm:py-20">
+      <Container className="py-[3.4375rem] sm:py-[5.5625rem]">
         <ol className="divide-y divide-line border-y border-line">
           {sections.map(([title, body], i) => (
             <li key={title} className="grid gap-4 py-10 md:grid-cols-12">

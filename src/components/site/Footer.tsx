@@ -7,12 +7,12 @@ import { ConsentSettingsButton } from "./ConsentBanner";
 export function Footer() {
   return (
     <footer className="border-t border-line bg-paper print:hidden">
-      <Container className="grid gap-10 py-14 sm:grid-cols-2 lg:grid-cols-12">
+      <Container className="grid gap-[2.125rem] py-[3.4375rem] sm:grid-cols-2 lg:grid-cols-12">
         <div className="lg:col-span-5">
           <Wordmark className="text-xl" />
           <p className="mt-4 max-w-[38ch] text-ink-2">Growth &amp; Transformation Partner for ambitious businesses across the GCC.</p>
         </div>
-        <nav aria-label="Footer" className="grid grid-cols-2 gap-x-8 gap-y-3 text-sm lg:col-span-4">
+        <nav aria-label="Footer" className="grid grid-cols-2 gap-x-8 text-sm lg:col-span-4 [&>a]:py-2.5 lg:[&>a]:py-1.5">
           <Link href="/diagnostic" className="hover:underline">Growth Diagnostic</Link>
           <Link href="/how-we-work" className="hover:underline">How we work</Link>
           <Link href="/services" className="hover:underline">Services</Link>

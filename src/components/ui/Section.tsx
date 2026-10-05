@@ -25,10 +25,10 @@ export function Section({
 }) {
   const toneClass = tone === "ink" ? "bg-ink text-paper" : tone === "card" ? "bg-paper-2" : "";
   return (
-    <section id={id} className={`scroll-mt-20 py-20 sm:py-28 ${toneClass} ${className}`}>
+    <section id={id} className={`scroll-mt-20 py-[3.4375rem] sm:py-[5.5625rem] ${toneClass} ${className}`}>
       <Container>
         {(eyebrow || title) && (
-          <header className="mb-12 grid gap-6 sm:mb-16 lg:grid-cols-12">
+          <header className="mb-[2.125rem] grid gap-[1.3125rem] sm:mb-[3.4375rem] lg:grid-cols-12">
             {eyebrow && (
               <p className={`eyebrow lg:col-span-3 ${tone === "ink" ? "!text-paper/60" : ""}`}>
                 {index && <span className="mr-3">{index}</span>}

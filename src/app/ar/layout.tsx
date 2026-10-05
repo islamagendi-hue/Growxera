@@ -1,16 +1,7 @@
-import { IBM_Plex_Sans_Arabic } from "next/font/google";
-
-const plexArabic = IBM_Plex_Sans_Arabic({
-  variable: "--font-plex-arabic",
-  subsets: ["arabic"],
-  weight: ["400", "500", "600", "700"],
-  display: "swap",
-});
-
-/** Arabic section of the site: right-to-left, Arabic typeface. */
+/** Arabic section of the site: right-to-left. Dubai Font (the site font) covers Arabic. */
 export default function ArabicLayout({ children }: LayoutProps<"/ar">) {
   return (
-    <div lang="ar" dir="rtl" className={`${plexArabic.variable} lang-ar`}>
+    <div lang="ar" dir="rtl" className="lang-ar">
       {children}
     </div>
   );

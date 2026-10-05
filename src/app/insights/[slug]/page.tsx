@@ -36,7 +36,7 @@ export default async function InsightPage({ params }: PageProps<"/insights/[slug
   return (
     <>
       <article>
-        <Container className="py-16 sm:py-24">
+        <Container className="py-[3.4375rem] sm:py-[5.5625rem]">
           <Link href="/insights" className="text-sm text-ink-3 hover:text-ink">
             ← Insights
           </Link>

@@ -18,8 +18,8 @@ export default function Home() {
       {/* HERO */}
       <section className="relative overflow-hidden border-b border-line">
         <div aria-hidden className="grid-lines pointer-events-none absolute inset-0 opacity-60" />
-        <Container className="relative grid gap-14 py-16 sm:py-24 lg:grid-cols-12 lg:gap-10 lg:py-28">
-          <div className="lg:col-span-7">
+        <Container className="relative grid gap-[3.4375rem] py-[3.4375rem] sm:py-[5.5625rem] lg:grid-cols-[1.618fr_1fr] lg:gap-[2.125rem] lg:py-[5.5625rem]">
+          <div>
             <p className="eyebrow">Growth &amp; Transformation Partner · GCC</p>
             <h1 className="mt-6 text-display font-semibold">
               Build Your Next Era of Growth<span className="text-accent">.</span>
@@ -40,7 +40,7 @@ export default function Home() {
               Your business doesn&apos;t need more marketing. It needs a better growth system.
             </p>
           </div>
-          <div className="lg:col-span-5 lg:pt-6">
+          <div className="lg:pt-6">
             <IllustrativeReport />
           </div>
         </Container>
@@ -96,7 +96,7 @@ export default function Home() {
       </Section>
 
       {/* DIAGNOSTIC TOOL */}
-      <section id="diagnostic" className="scroll-mt-20 bg-paper-2 py-20 sm:py-28">
+      <section id="diagnostic" className="scroll-mt-20 bg-paper-2 py-[3.4375rem] sm:py-[5.5625rem]">
         <Container className="grid gap-12 lg:grid-cols-12">
           <div className="lg:col-span-6">
             <p className="eyebrow">
@@ -224,7 +224,7 @@ export default function Home() {
         index="08"
         eyebrow="Experimentation Lab"
         title={`${EXPERIMENTS.length} growth experiments, ready to test.`}
-        lead="Hypotheses and decision metrics grouped by business model: mobile apps, SaaS, e-commerce, marketplaces, food delivery, EdTech, lead generation and multi-branch services."
+        lead="Hypotheses and decision metrics grouped by business model: mobile apps, SaaS, e-commerce, marketplaces, food delivery, EdTech, fintech, real estate, clinics, lead generation and multi-branch services."
       >
         <CtaLink href="/experimentation-lab" cta="home_experiment_lab" variant="ghost">
           Open the Experimentation Lab

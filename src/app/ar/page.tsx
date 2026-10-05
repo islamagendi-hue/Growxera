@@ -56,7 +56,7 @@ export default function ArabicHome() {
       {/* HERO */}
       <section className="relative overflow-hidden border-b border-line">
         <div aria-hidden className="grid-lines pointer-events-none absolute inset-0 opacity-60" />
-        <Container className="relative py-16 sm:py-24 lg:py-28">
+        <Container className="relative py-[3.4375rem] sm:py-[5.5625rem]">
           <p className="ar-eyebrow">شريك النمو والتحول · الخليج</p>
           <h1 className="mt-6 max-w-[18ch] text-display font-semibold">
             ابنِ المرحلة القادمة من نمو شركتك<span className="text-accent">.</span>
@@ -79,7 +79,7 @@ export default function ArabicHome() {
       </section>
 
       {/* PROBLEM */}
-      <section className="py-20 sm:py-28">
+      <section className="py-[3.4375rem] sm:py-[5.5625rem]">
         <Container>
           <p className="ar-eyebrow">المشكلة</p>
           <h2 className="mt-4 max-w-[20ch] text-h2 font-semibold">نادراً ما يتعطل النمو في مكان واحد.</h2>
@@ -98,7 +98,7 @@ export default function ArabicHome() {
       </section>
 
       {/* SYSTEM */}
-      <section className="bg-paper-2 py-20 sm:py-28">
+      <section className="bg-paper-2 py-[3.4375rem] sm:py-[5.5625rem]">
         <Container>
           <p className="ar-eyebrow">نظام النمو</p>
           <h2 className="mt-4 max-w-[22ch] text-h2 font-semibold">7 أبعاد تحدد سرعة نمو أي شركة.</h2>
@@ -115,7 +115,7 @@ export default function ArabicHome() {
       </section>
 
       {/* SERVICES */}
-      <section id="services" className="scroll-mt-20 py-20 sm:py-28">
+      <section id="services" className="scroll-mt-20 py-[3.4375rem] sm:py-[5.5625rem]">
         <Container>
           <p className="ar-eyebrow">الخدمات</p>
           <h2 className="mt-4 max-w-[22ch] text-h2 font-semibold">مسار واحد، من التشخيص إلى الشراكة.</h2>
@@ -142,7 +142,7 @@ export default function ArabicHome() {
       </section>
 
       {/* TRACK RECORD + CASES */}
-      <section className="bg-paper-2 py-20 sm:py-28">
+      <section className="bg-paper-2 py-[3.4375rem] sm:py-[5.5625rem]">
         <Container>
           <p className="ar-eyebrow">دراسات الحالة</p>
           <h2 className="mt-4 max-w-[22ch] text-h2 font-semibold">نتائج حقيقية بالأرقام.</h2>
@@ -174,12 +174,12 @@ export default function ArabicHome() {
       </section>
 
       {/* LAB */}
-      <section className="py-20 sm:py-28">
+      <section className="py-[3.4375rem] sm:py-[5.5625rem]">
         <Container>
           <p className="ar-eyebrow">معمل التجارب</p>
           <h2 className="mt-4 max-w-[22ch] text-h2 font-semibold">{EXPERIMENTS.length} فكرة لتجارب نمو جاهزة للاختبار.</h2>
           <p className="mt-6 max-w-[60ch] text-lg leading-relaxed text-ink-2">
-            فرضيات ومقاييس قرار مصنّفة حسب نموذج العمل: تطبيقات الجوال، SaaS، المتاجر الإلكترونية، المنصات (Marketplace)، المطاعم والتوصيل، التعليم الإلكتروني، توليد العملاء المحتملين، والأعمال متعددة الفروع. اختر الأفكار وكوّن خطتك.
+            فرضيات ومقاييس قرار مصنّفة حسب نموذج العمل: تطبيقات الجوال، SaaS، المتاجر الإلكترونية، المنصات (Marketplace)، المطاعم والتوصيل، التعليم الإلكتروني، التقنية المالية، العقارات، العيادات، توليد العملاء المحتملين، والأعمال متعددة الفروع. اختر الأفكار وكوّن خطتك.
           </p>
           <div className="mt-10">
             <CtaLink href="/experimentation-lab" cta="ar_lab" variant="ghost">

@@ -121,6 +121,112 @@ export const INSIGHTS: Insight[] = [
       },
     ],
   },
+  {
+    slug: "retention-before-acquisition",
+    title: "Why retention is the cheapest growth channel you are not using",
+    description: "Every customer who comes back is one you do not have to buy again. How to see retention clearly and the first levers to pull.",
+    date: "2026-10-05",
+    readMinutes: 5,
+    topic: "Retention",
+    sections: [
+      {
+        paragraphs: [
+          "Most growth budgets go to acquisition because it is visible: spend goes in, customers come out. Retention is quieter, but it decides whether that spend compounds or disappears.",
+          "If customers buy once and never return, every month starts from zero. If a meaningful share comes back, each new customer is worth more, you can afford a higher CAC, and growth gets cheaper over time.",
+        ],
+      },
+      {
+        heading: "Look at cohorts, not averages",
+        paragraphs: [
+          "An average repeat rate hides everything that matters. Group customers by the month they first bought and track what share comes back in month one, two, three and onwards. Flattening curves mean you are building a base; curves that fall to zero mean you are renting customers.",
+          "Compare cohorts by acquisition channel too. A cheap channel that brings customers who never return can be more expensive than it looks.",
+        ],
+      },
+      {
+        heading: "The first levers",
+        paragraphs: [
+          "Start with the moments right after the first purchase: a clear onboarding or how-to message, a reminder when the customer is likely to need you again, and a fast response when something goes wrong.",
+          "Then build lifecycle journeys on the channels your customers actually read. In the GCC that usually means WhatsApp alongside SMS and email, segmented by behaviour rather than sent to everyone.",
+        ],
+      },
+      {
+        heading: "Measure it like a channel",
+        paragraphs: [
+          "Give retention a target metric, an owner and a budget, just like paid acquisition. Run experiments on it every week. It is rarely the most exciting channel, but it is often the most profitable.",
+        ],
+      },
+    ],
+  },
+  {
+    slug: "north-star-metric",
+    title: "Choosing a North Star Metric your whole team can move",
+    description: "One metric that captures the value customers get, broken into inputs each team owns. How to pick it and avoid the common traps.",
+    date: "2026-10-05",
+    readMinutes: 4,
+    topic: "Strategy",
+    sections: [
+      {
+        paragraphs: [
+          "When every team optimises its own numbers, growth work pulls in different directions. Marketing chases sign-ups, product chases features, sales chases deals. A North Star Metric gives everyone the same target.",
+        ],
+      },
+      {
+        heading: "What makes a good North Star",
+        paragraphs: [
+          "It reflects value delivered to customers, not just revenue captured. It leads revenue rather than lagging it. And it can be moved by the teams that look at it every week. Completed bookings per week, active learners or repeat orders are typical examples.",
+          "Avoid vanity metrics such as downloads or page views. They can rise while the business gets worse.",
+        ],
+      },
+      {
+        heading: "Break it into inputs",
+        paragraphs: [
+          "A North Star is only useful when it is broken into the inputs that drive it: new customers, activation rate, frequency, retention. Give each input an owner, and the experiments in each team's backlog will start to line up.",
+        ],
+      },
+      {
+        heading: "Review it weekly",
+        paragraphs: [
+          "Put the metric and its inputs on one page and review them in the same weekly meeting where experiments are decided. If a change does not move an input, question whether it belongs on the roadmap at all.",
+        ],
+      },
+    ],
+  },
+  {
+    slug: "whatsapp-growth-gcc",
+    title: "Using WhatsApp as a growth channel in the GCC, without spamming",
+    description: "WhatsApp is where GCC customers already talk. How to use it across acquisition, conversion and retention while keeping trust.",
+    date: "2026-10-05",
+    readMinutes: 5,
+    topic: "Channels",
+    sections: [
+      {
+        paragraphs: [
+          "In Saudi Arabia and across the GCC, WhatsApp is often the first place customers go to ask a question, place an order or complain. Treating it as a side channel leaves growth on the table.",
+        ],
+      },
+      {
+        heading: "Across the funnel",
+        paragraphs: [
+          "For acquisition, click-to-WhatsApp ads start a real conversation instead of a cold form. For conversion, fast answers to pre-purchase questions remove the doubts that stop people from buying. For retention, reminders, order updates and personal offers bring customers back.",
+          "WhatsApp can also be a bridge: businesses that start by taking orders in chat can move those customers into an app or website with a clear reason to switch.",
+        ],
+      },
+      {
+        heading: "Keep trust first",
+        paragraphs: [
+          "Only message people who opted in, make it easy to stop, and keep messages useful and personal. Broadcasting the same promotion to everyone erodes trust quickly and can get a number restricted.",
+          "Segment by behaviour: a reminder to someone who abandoned a cart is welcome; a generic discount to someone who bought yesterday is noise.",
+        ],
+      },
+      {
+        heading: "Measure it properly",
+        paragraphs: [
+          "Track WhatsApp like any other channel: conversations started, conversion to order, revenue attributed and opt-out rate. Without that, it is impossible to know whether it is growing the business or just keeping the team busy.",
+        ],
+      },
+    ],
+  },
+
 ];
 
 export function getInsight(slug: string) {

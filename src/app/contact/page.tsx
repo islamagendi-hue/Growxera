@@ -16,7 +16,7 @@ export default async function Contact({ searchParams }: PageProps<"/contact">) {
   const defaultMessage = typeof plan === "string" ? planMessage(plan) : undefined;
   return (
     <section>
-      <Container className="grid gap-12 py-16 sm:py-24 lg:grid-cols-12">
+      <Container className="grid gap-12 py-[3.4375rem] sm:py-[5.5625rem] lg:grid-cols-12">
         <div className="lg:col-span-5">
           <p className="eyebrow">Contact</p>
           <h1 className="mt-6 text-h2 font-semibold">Talk to Growx Era.</h1>

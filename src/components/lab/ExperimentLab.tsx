@@ -43,7 +43,7 @@ function Chips<T extends string>({
               type="button"
               aria-pressed={active}
               onClick={() => onChange(o.id)}
-              className={`border px-3 py-1.5 text-sm transition-colors ${
+              className={`min-h-11 border px-3 text-sm transition-colors sm:min-h-9 ${
                 active ? "border-ink bg-ink text-paper" : "border-line-strong hover:border-ink"
               }`}
             >
@@ -75,7 +75,7 @@ export function ExperimentLab() {
   return (
     <div>
       <nav aria-label="Business models" className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-        <ul className="flex min-w-max gap-px border border-line bg-line sm:grid sm:min-w-0 sm:grid-cols-3">
+        <ul className="flex min-w-max gap-px border border-line bg-line sm:grid sm:min-w-0 sm:grid-cols-3 lg:grid-cols-4">
           {[{ id: "all" as const, label: "All models" }, ...EXPERIMENT_MODELS].map((m) => {
             const active = model === m.id;
             const count = m.id === "all" ? results.length : results.filter((e) => e.model === m.id).length;
@@ -132,7 +132,7 @@ export function ExperimentLab() {
                   type="button"
                   aria-pressed={plan.includes(e.id)}
                   onClick={() => togglePlan(e.id)}
-                  className={`mt-5 min-h-10 border px-3 text-sm transition-colors ${
+                  className={`mt-5 min-h-11 border px-3 text-sm transition-colors ${
                     plan.includes(e.id) ? "border-accent bg-accent-soft text-accent-ink" : "border-line-strong hover:border-ink"
                   }`}
                 >

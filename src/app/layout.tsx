@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
-import { IBM_Plex_Mono, Inter_Tight } from "next/font/google";
+import { IBM_Plex_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import { AttributionCapture } from "@/components/site/AttributionCapture";
 import { ConsentBanner } from "@/components/site/ConsentBanner";
 import { Footer } from "@/components/site/Footer";
@@ -8,7 +9,17 @@ import { Header } from "@/components/site/Header";
 import { SITE } from "@/config/site";
 import "./globals.css";
 
-const interTight = Inter_Tight({ variable: "--font-inter-tight", subsets: ["latin"], display: "swap" });
+/** Dubai Font (dubaifont.com), self-hosted: covers both Latin and Arabic. */
+const dubai = localFont({
+  variable: "--font-dubai",
+  display: "swap",
+  src: [
+    { path: "./fonts/Dubai-Light.woff2", weight: "300", style: "normal" },
+    { path: "./fonts/Dubai-Regular.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/Dubai-Medium.woff2", weight: "500", style: "normal" },
+    { path: "./fonts/Dubai-Bold.woff2", weight: "700", style: "normal" },
+  ],
+});
 const plexMono = IBM_Plex_Mono({ variable: "--font-plex-mono", subsets: ["latin"], weight: ["400", "500"], display: "swap" });
 
 export const metadata: Metadata = {
@@ -58,7 +69,7 @@ const jsonLd = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${interTight.variable} ${plexMono.variable} antialiased`}>
+    <html lang="en" className={`${dubai.variable} ${plexMono.variable} antialiased`}>
       <body className="flex min-h-dvh flex-col">
         <a
           href="#main"

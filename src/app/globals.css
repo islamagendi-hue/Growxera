@@ -20,18 +20,25 @@
   --color-alert: #a8492a;
   --color-alert-soft: #f4e2da;
 
-  --font-sans: var(--font-inter-tight), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-dubai), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-plex-mono), ui-monospace, monospace;
 
-  --text-display: clamp(2.75rem, 7vw, 6rem);
-  --text-display--line-height: 0.98;
-  --text-display--letter-spacing: -0.035em;
-  --text-h2: clamp(2rem, 4.2vw, 3.5rem);
-  --text-h2--line-height: 1.04;
-  --text-h2--letter-spacing: -0.03em;
-  --text-h3: clamp(1.25rem, 2vw, 1.5rem);
-  --text-h3--line-height: 1.2;
-  --text-h3--letter-spacing: -0.015em;
+  /*
+   * Golden-ratio type scale (φ = 1.618, half step √φ ≈ 1.272) from a 16px base:
+   * 12.6 · 16 · 20.4 · 25.9 · 33 · 41.9 · 53.3 · 67.8 · 86.3
+   * Body line height is φ. Spacing rhythm follows Fibonacci: 8 · 13 · 21 · 34 · 55 · 89.
+   */
+  --text-lg: 1.272rem;
+  --text-lg--line-height: 1.618;
+  --text-display: clamp(2.618rem, 6.2vw, 5.393rem);
+  --text-display--line-height: 1.05;
+  --text-display--letter-spacing: -0.02em;
+  --text-h2: clamp(2.058rem, 3.4vw, 2.618rem);
+  --text-h2--line-height: 1.15;
+  --text-h2--letter-spacing: -0.015em;
+  --text-h3: clamp(1.272rem, 1.8vw, 1.618rem);
+  --text-h3--line-height: 1.25;
+  --text-h3--letter-spacing: -0.01em;
 }
 
 @layer base {
@@ -43,6 +50,7 @@
     background: var(--color-paper);
     color: var(--color-ink);
     font-family: var(--font-sans);
+    line-height: 1.618;
     font-feature-settings: "ss01", "cv11";
     text-rendering: optimizeLegibility;
   }
@@ -71,7 +79,7 @@
 @layer components {
   .eyebrow {
     font-family: var(--font-mono);
-    font-size: 0.75rem;
+    font-size: 0.786rem;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--color-ink-3);
@@ -101,7 +109,7 @@
 
 /* Arabic pages: Arabic typeface, no Latin letter-spacing, roomier line height. */
 .lang-ar {
-  font-family: var(--font-plex-arabic), var(--font-sans);
+  font-family: var(--font-sans);
 }
 .lang-ar h1,
 .lang-ar h2,
