@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CtaLink } from "@/components/ui/CtaLink";
 import { SITE } from "@/config/site";
 import { track } from "@/lib/analytics/client";
@@ -27,6 +27,7 @@ export function Results({
   onRestart: () => void;
 }) {
   const unlocked = !!report;
+  const [emailedTo, setEmailedTo] = useState<string | null>(null);
   const viewed = useRef<string | null>(null);
   useEffect(() => {
     const key = `${sessionId}:${unlocked}`;
@@ -54,6 +55,11 @@ export function Results({
               </button>
             </div>
           </div>
+          {emailedTo && (
+            <p role="status" className="mt-6 border-l-2 border-accent bg-accent-soft px-4 py-3 text-sm print:hidden">
+              We&apos;ve emailed a copy of this report to <strong>{emailedTo}</strong>.
+            </p>
+          )}
           <div className="mt-10 grid gap-12 lg:grid-cols-12">
             <div className="lg:col-span-5">
               <h1 className="eyebrow !text-ink">Your Growth Score</h1>
@@ -153,7 +159,10 @@ export function Results({
                 sessionId={sessionId}
                 answers={answers}
                 submitLabel="Show my full report"
-                onSuccess={(r) => r && onUnlocked(r)}
+                onSuccess={(r, to) => {
+                  if (to) setEmailedTo(to);
+                  if (r) onUnlocked(r);
+                }}
               />
             </div>
           </div>

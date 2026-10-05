@@ -66,8 +66,8 @@ export default function Privacy() {
           <ul>
             <li>To generate your diagnostic result: you request it by completing the diagnostic.</li>
             <li>
-              To store your details, prepare your full report and contact you about it: based on your explicit consent,
-              given on the form. Consent is recorded with the wording and policy version you agreed to.
+              To store your details, prepare your full report, email you a copy of it and contact you about it: based on
+              your explicit consent, given on the form. Consent is recorded with the wording and policy version you agreed to.
             </li>
             <li>To send growth insights by email or WhatsApp: only if you separately opt in. You can opt out at any time.</li>
             <li>To understand and improve the diagnostic: only if you accept analytics.</li>
@@ -79,9 +79,10 @@ export default function Privacy() {
           <h2>Who processes it</h2>
           <ul>
             <li>Vercel Inc. (website hosting).</li>
-            <li>Supabase Inc. (database), hosted in the <TBD>Supabase region</TBD> region.</li>
+            <li>Supabase Inc. (database), hosted in the United States (us-east-1) region.</li>
+            <li>Resend (sending your diagnostic report by email).</li>
             <li>
-              <TBD>Any CRM, email/WhatsApp provider or notification tool connected to lead capture</TBD>.
+              <TBD>Any CRM, WhatsApp provider or notification tool connected to lead capture</TBD>.
             </li>
           </ul>
           <p>

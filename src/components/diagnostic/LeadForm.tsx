@@ -25,7 +25,7 @@ export function LeadForm({
   submitLabel: string;
   showMessage?: boolean;
   defaultMessage?: string;
-  onSuccess: (report: DiagnosticReport | null) => void;
+  onSuccess: (report: DiagnosticReport | null, emailedTo?: string) => void;
 }) {
   const [errors, setErrors] = useState<Partial<Record<Fields, string>>>({});
   const [formError, setFormError] = useState<string | null>(null);
@@ -88,7 +88,7 @@ export function LeadForm({
         return;
       }
       track("lead_submitted", { source, sessionId, marketing_consent: lead.consentMarketing });
-      onSuccess(data.report ?? null);
+      onSuccess(data.report ?? null, data.emailSent ? lead.email : undefined);
     } catch {
       setFormError("We couldn't reach the server. Check your connection and try again.");
     } finally {

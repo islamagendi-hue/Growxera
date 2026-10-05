@@ -1,6 +1,7 @@
 import { CONSENT_TEXT, POLICY_VERSION } from "@/config/privacy";
 import { buildReport } from "@/lib/diagnostic/engine";
 import { sanitizeAnswers } from "@/lib/diagnostic/questions";
+import { sendReportEmail } from "@/lib/server/email";
 import { clientKey, rateLimit } from "@/lib/server/rate-limit";
 import { leadRequestSchema } from "@/lib/server/schemas";
 import { insert, updateById } from "@/lib/server/store";
@@ -75,9 +76,12 @@ export async function POST(req: Request) {
     return Response.json({ error: "We couldn't save your details. Please try again." }, { status: 503 });
   }
 
-  await notify({ leadId, source: data.source, name: lead.name, email: lead.email, company: lead.company, phone: lead.phone, report });
+  const [emailSent] = await Promise.all([
+    report ? sendReportEmail(lead.email, lead.name, report) : Promise.resolve(false),
+    notify({ leadId, source: data.source, name: lead.name, email: lead.email, company: lead.company, phone: lead.phone, report }),
+  ]);
 
-  return Response.json({ ok: true, leadId, report });
+  return Response.json({ ok: true, leadId, report, emailSent });
 }
 
 /** Optional: forwards a lead summary to LEAD_WEBHOOK_URL (Slack, Make, Zapier, CRM). */
