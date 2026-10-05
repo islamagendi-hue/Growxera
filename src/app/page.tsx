@@ -224,7 +224,7 @@ export default function Home() {
         index="08"
         eyebrow="Experimentation Lab"
         title={`${EXPERIMENTS.length} growth experiments, ready to test.`}
-        lead="Hypotheses and decision metrics for e-commerce, mobile apps, SaaS, lead generation and multi-branch services. Filter by your model and funnel stage."
+        lead="Hypotheses and decision metrics grouped by business model: mobile apps, SaaS, e-commerce, marketplaces, food delivery, EdTech, lead generation and multi-branch services."
       >
         <CtaLink href="/experimentation-lab" cta="home_experiment_lab" variant="ghost">
           Open the Experimentation Lab

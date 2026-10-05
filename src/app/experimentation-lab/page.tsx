@@ -7,7 +7,7 @@ import { EXPERIMENTS, EXPERIMENT_MODELS } from "@/content/experiments";
 
 export const metadata: Metadata = {
   title: "Experimentation Lab",
-  description: `${EXPERIMENTS.length} growth experiment ideas for e-commerce, mobile apps, SaaS, lead generation and multi-branch services, each with a hypothesis and a decision metric.`,
+  description: `${EXPERIMENTS.length} growth experiment ideas grouped by business model (mobile apps, SaaS, e-commerce, marketplaces, food delivery, EdTech, lead generation, multi-branch services), each with a hypothesis and a decision metric.`,
   alternates: { canonical: "/experimentation-lab" },
 };
 
