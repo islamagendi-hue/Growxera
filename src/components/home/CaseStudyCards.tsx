@@ -15,7 +15,7 @@ export function CaseStudyCards({ limit }: { limit?: number }) {
               {[c.sector, c.market].filter(Boolean).join(" · ")}
             </p>
             <h3 className="mt-5 text-h3 font-semibold">{c.title}</h3>
-            <dl className="mt-6 grid grid-cols-2 gap-px border border-line bg-line">
+            <dl className={`mt-6 grid gap-px border border-line bg-line ${c.metrics.length === 3 ? "grid-cols-3" : "grid-cols-2"}`}>
               {c.metrics.slice(0, 4).map((m) => (
                 <div key={m.label} className="bg-card p-3">
                   <dt className="text-xs text-ink-3">{m.label}</dt>

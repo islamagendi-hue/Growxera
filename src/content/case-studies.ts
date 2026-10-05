@@ -72,7 +72,7 @@ export const CASE_STUDIES: CaseStudy[] = [
     sector: "E-commerce · Perfume",
     title: "A perfume store that grew monthly revenue from SAR 100K to SAR 700K",
     metrics: [
-      { label: "Monthly revenue", value: "SAR 100K → 700K" },
+      { label: "Monthly revenue (SAR)", value: "100K → 700K" },
       { label: "Growth", value: "7×" },
       { label: "Sales channels", value: "1 → 3", detail: "Website, Amazon, Meta" },
     ],

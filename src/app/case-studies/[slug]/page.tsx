@@ -48,7 +48,7 @@ export default async function CaseStudyPage({ params }: PageProps<"/case-studies
           </p>
           <h1 className="mt-6 max-w-[20ch] text-h2 font-semibold">{c.title}</h1>
           {c.role && <p className="mt-6 max-w-2xl leading-relaxed text-ink-2">{c.role}</p>}
-          <dl className={`mt-12 grid max-w-3xl grid-cols-2 gap-px border border-line bg-line ${c.metrics.length >= 4 ? "lg:max-w-none lg:grid-cols-4" : ""}`}>
+          <dl className={`mt-12 grid max-w-3xl grid-cols-2 gap-px border border-line bg-line ${c.metrics.length >= 4 ? "lg:max-w-none lg:grid-cols-4" : c.metrics.length === 3 ? "sm:max-w-none sm:grid-cols-3" : ""}`}>
             {c.metrics.map((m) => (
               <div key={m.label} className="bg-paper p-5">
                 <dt className="text-sm text-ink-3">{m.label}</dt>

@@ -19,7 +19,7 @@ export default function CaseStudies() {
       <PageHero
         eyebrow="Case studies"
         title="Problem → Diagnosis → Intervention → Result."
-        lead="Case studies will be published here as engagements complete and clients approve them. Each leads with quantified business impact."
+        lead={CASE_STUDIES.length ? "Real growth work across mobile apps, e-commerce, multi-branch services and EdTech in KSA and the GCC. Company names are withheld; every number is as reported." : "Case studies will be published here as engagements complete and clients approve them. Each leads with quantified business impact."}
       />
       <Section>
         <CaseStudyCards />
