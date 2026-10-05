@@ -6,6 +6,7 @@ import { CtaLink } from "@/components/ui/CtaLink";
 import { Container, Section } from "@/components/ui/Section";
 import { SITE } from "@/config/site";
 import { TRACK_RECORD } from "@/content/case-studies";
+import { EXPERIMENTS } from "@/content/experiments";
 import { BOTTLENECKS, CAPABILITIES, HOW_WE_WORK, OFFERINGS, STANDALONE_SERVICES, PROBLEM_ORIGINS } from "@/content/site-content";
 
 export const metadata: Metadata = { title: { absolute: SITE.title }, alternates: { canonical: "/" } };
@@ -215,6 +216,19 @@ export default function Home() {
             All case studies
           </CtaLink>
         </div>
+      </Section>
+
+      {/* EXPERIMENTATION LAB */}
+      <Section
+        tone="card"
+        index="08"
+        eyebrow="Experimentation Lab"
+        title={`${EXPERIMENTS.length} growth experiments, ready to test.`}
+        lead="Hypotheses and decision metrics for e-commerce, mobile apps, SaaS, lead generation and multi-branch services. Filter by your model and funnel stage."
+      >
+        <CtaLink href="/experimentation-lab" cta="home_experiment_lab" variant="ghost">
+          Open the Experimentation Lab
+        </CtaLink>
       </Section>
 
       {/* FINAL CTA */}

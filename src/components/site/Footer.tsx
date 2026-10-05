@@ -17,6 +17,7 @@ export function Footer() {
           <Link href="/how-we-work" className="hover:underline">How we work</Link>
           <Link href="/services" className="hover:underline">Services</Link>
           <Link href="/case-studies" className="hover:underline">Case studies</Link>
+          <Link href="/experimentation-lab" className="hover:underline">Experimentation Lab</Link>
           <Link href="/contact" className="hover:underline">Contact</Link>
           <Link href="/privacy" className="hover:underline">Privacy notice</Link>
         </nav>
