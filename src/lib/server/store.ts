@@ -71,3 +71,19 @@ export async function updateById(table: Table, id: string, patch: Record<string,
   if (storageMode === "local") return insert(table, { id, _patch: true, ...patch });
   return false;
 }
+
+/**
+ * Reads the full report behind a shareable link. The link token is the lead id
+ * (a random UUID issued only after the lead form), never the session id, so the
+ * gated report can't be opened by skipping the form.
+ */
+export async function findReportByLeadId(leadId: string): Promise<unknown | null> {
+  if (storageMode !== "supabase") return null;
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/diagnostic_sessions?lead_id=eq.${encodeURIComponent(leadId)}&select=report&limit=1`,
+    { headers: headers({ Prefer: "" }), cache: "no-store" },
+  );
+  if (!res.ok) throw new StoreError(`read report failed: ${res.status}`);
+  const rows = (await res.json()) as { report: unknown }[];
+  return rows[0]?.report ?? null;
+}

@@ -77,7 +77,7 @@ export async function POST(req: Request) {
   }
 
   const [emailSent] = await Promise.all([
-    report ? sendReportEmail(lead.email, lead.name, report) : Promise.resolve(false),
+    report ? sendReportEmail(lead.email, lead.name, report, data.diagnosticSessionId ? leadId : undefined) : Promise.resolve(false),
     notify({ leadId, source: data.source, name: lead.name, email: lead.email, company: lead.company, phone: lead.phone, report }),
   ]);
 

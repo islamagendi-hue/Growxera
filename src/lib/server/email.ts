@@ -17,9 +17,12 @@ export const emailEnabled = () => !!process.env.RESEND_API_KEY;
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
-export function reportEmail(name: string, report: DiagnosticReport) {
+/** Public link to the full report on the site; anyone with the link can open it. */
+export const reportUrl = (leadId: string) => `${SITE.url}/report/${leadId}`;
+
+export function reportEmail(name: string, report: DiagnosticReport, leadId?: string) {
   const first = name.trim().split(/\s+/)[0] || "there";
-  const ctaUrl = SITE.bookingUrl || `${SITE.url}/contact`;
+  const ctaUrl = leadId ? reportUrl(leadId) : SITE.bookingUrl || `${SITE.url}/contact`;
   const opp = report.estimatedOpportunity;
   const oppLine = opp
     ? `${formatMoney(opp.monthlyLow, report.currency)} – ${formatMoney(opp.monthlyHigh, report.currency)} per month`
@@ -61,6 +64,7 @@ ${oppLine ? `<div style="font-size:12px;color:#6b726e;font-family:monospace;lett
 <div style="font-size:12px;color:#6b726e;font-family:monospace;letter-spacing:.08em">TOP OPPORTUNITIES</div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px">${opps}</table>
 <a href="${esc(ctaUrl)}" style="display:inline-block;background:#0e1311;color:#f4f2ec;text-decoration:none;padding:14px 22px;font-size:15px;font-weight:600">Talk through your results →</a>
+${leadId ? `<p style="margin:12px 0 0;font-size:12px;color:#6b726e;line-height:1.6">This button opens your full report on our site. Anyone you forward this email to can open it too.</p>` : ""}
 <p style="margin:24px 0 0;font-size:14px;color:#3d4541;line-height:1.6">Reply to this email if you have any questions.<br>The Growx Era team</p>
 </td></tr>
 <tr><td style="padding:20px 32px;border-top:1px solid #e4e0d6;font-size:12px;color:#6b726e;line-height:1.6">You received this because you requested your Growth Diagnostic report on ${esc(SITE.url.replace(/^https?:\/\//, ""))}. <a href="${esc(SITE.url)}/privacy" style="color:#6b726e">Privacy notice</a>.</td></tr>
@@ -90,10 +94,10 @@ ${oppLine ? `<div style="font-size:12px;color:#6b726e;font-family:monospace;lett
 }
 
 /** Returns true when the email was accepted by the provider. Never throws. */
-export async function sendReportEmail(to: string, name: string, report: DiagnosticReport): Promise<boolean> {
+export async function sendReportEmail(to: string, name: string, report: DiagnosticReport, leadId?: string): Promise<boolean> {
   const key = process.env.RESEND_API_KEY?.trim();
   if (!key) return false;
-  const { subject, html, text } = reportEmail(name, report);
+  const { subject, html, text } = reportEmail(name, report, leadId);
   try {
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",

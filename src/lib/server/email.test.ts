@@ -26,6 +26,12 @@ describe("report email", () => {
     expect(text).toContain("Primary bottleneck");
   });
 
+  it("links the button to the shareable report page", () => {
+    const { html, text } = reportEmail("Sara", report, "0b5e3c1a-2f4d-4e6b-8a9c-1d2e3f4a5b6c");
+    expect(html).toContain("/report/0b5e3c1a-2f4d-4e6b-8a9c-1d2e3f4a5b6c");
+    expect(text).toContain("/report/0b5e3c1a-2f4d-4e6b-8a9c-1d2e3f4a5b6c");
+  });
+
   it("escapes the name", () => {
     const { html } = reportEmail("<script>alert(1)</script>", report);
     expect(html).not.toContain("<script>alert");

@@ -22,9 +22,10 @@ export function Results({
   preview: ReportPreview;
   report?: DiagnosticReport;
   sessionId: string;
-  answers: Answers;
-  onUnlocked: (r: DiagnosticReport) => void;
-  onRestart: () => void;
+  answers?: Answers;
+  onUnlocked?: (r: DiagnosticReport) => void;
+  /** Omitted on a shared report link, where "Start over" becomes a link to the diagnostic. */
+  onRestart?: () => void;
 }) {
   const unlocked = !!report;
   const [emailedTo, setEmailedTo] = useState<string | null>(null);
@@ -50,9 +51,15 @@ export function Results({
               <button type="button" onClick={() => window.print()} className="text-ink-2 underline-offset-4 hover:underline">
                 Download PDF report
               </button>
-              <button type="button" onClick={onRestart} className="text-ink-2 underline-offset-4 hover:underline">
-                Start over
-              </button>
+              {onRestart ? (
+                <button type="button" onClick={onRestart} className="text-ink-2 underline-offset-4 hover:underline">
+                  Start over
+                </button>
+              ) : (
+                <a href="/diagnostic" className="text-ink-2 underline-offset-4 hover:underline">
+                  Take the diagnostic
+                </a>
+              )}
             </div>
           </div>
           {emailedTo && (
@@ -161,7 +168,7 @@ export function Results({
                 submitLabel="Show my full report"
                 onSuccess={(r, to) => {
                   if (to) setEmailedTo(to);
-                  if (r) onUnlocked(r);
+                  if (r) onUnlocked?.(r);
                 }}
               />
             </div>
