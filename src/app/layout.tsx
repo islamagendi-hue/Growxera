@@ -12,7 +12,7 @@ const plexMono = IBM_Plex_Mono({ variable: "--font-plex-mono", subsets: ["latin"
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE.url),
-  title: { default: SITE.title, template: "%s · Growx_era" },
+  title: { default: SITE.title, template: "%s · Growx Era" },
   description: SITE.description,
   applicationName: SITE.name,
   alternates: { canonical: "/" },

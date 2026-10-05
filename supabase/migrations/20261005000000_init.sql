@@ -1,4 +1,4 @@
--- Growx_era: Growth Diagnostic data model.
+-- Growx Era: Growth Diagnostic data model.
 -- All tables have RLS enabled with NO policies: only the server (service role)
 -- can read or write. Never expose the service-role key to the browser.
 

@@ -141,7 +141,7 @@ export function Results({
                   `Estimated revenue opportunity in ${preview.currency}, where your data supports it`,
                 ].map((t) => (
                   <li key={t} className="flex gap-3">
-                    <span aria-hidden className="text-accent">_</span>
+                    <span aria-hidden className="text-accent">→</span>
                     {t}
                   </li>
                 ))}
@@ -166,7 +166,7 @@ export function Results({
           <div className="lg:col-span-7">
             <h2 className="text-h2 font-semibold">Want us to turn this diagnosis into a growth plan?</h2>
             <p className="mt-6 max-w-[54ch] text-lg leading-relaxed text-paper/70">
-              Your diagnostic gives you the signal. Growx_era can validate the diagnosis, quantify the opportunity, and
+              Your diagnostic gives you the signal. Growx Era can validate the diagnosis, quantify the opportunity, and
               build the roadmap to capture it.
             </p>
           </div>
@@ -175,7 +175,7 @@ export function Results({
               Book a Growth Diagnostic
             </CtaLink>
             <CtaLink href="/contact" cta="results_talk" variant="ghost" className="!text-paper decoration-paper/40">
-              Talk to Growx_era
+              Talk to Growx Era
             </CtaLink>
           </div>
         </div>
@@ -242,7 +242,7 @@ function FullReport({ report }: { report: DiagnosticReport }) {
       <section className="border-b border-line">
         <div className="mx-auto max-w-[1240px] px-4 py-10 text-sm text-ink-3 sm:px-6 lg:px-10">
           <p>
-            Methodology: scores use Growx_era&apos;s initial weighting (Market 10%, Value 10%, Acquisition 15%, Activation 15%,
+            Methodology: scores use Growx Era&apos;s initial weighting (Market 10%, Value 10%, Acquisition 15%, Activation 15%,
             Retention 15%, Expansion 15%, Scale 20%). The primary bottleneck is chosen by Impact × Severity × Dependency, so the
             lowest score is not automatically the bottleneck. Scoring version {report.scoringVersion}.
           </p>

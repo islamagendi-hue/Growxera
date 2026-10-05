@@ -1,10 +1,10 @@
 /** Brand and site-wide settings. Public values only: never put secrets here. */
 export const SITE = {
-  name: "Growx_era",
+  name: "Growx Era",
   wordmark: { left: "GROWX", right: "ERA" },
-  title: "Growx_era — Growth & Transformation Partner",
+  title: "Growx Era — Growth & Transformation Partner",
   description:
-    "Growx_era helps ambitious businesses diagnose growth bottlenecks, build growth systems, and unlock their next stage of growth.",
+    "Growx Era helps ambitious businesses diagnose growth bottlenecks, build growth systems, and unlock their next stage of growth.",
   url: (
     process.env.NEXT_PUBLIC_SITE_URL ??
     (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : "http://localhost:3000")

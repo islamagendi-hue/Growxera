@@ -32,7 +32,7 @@ The MVP is the smallest version of the site that can run the full commercial jou
 All must be true before the production domain points at this build.
 
 ### Product
-- [ ] Growx_era has reviewed the question bank, weights, stage labels and benchmark curves in `src/lib/diagnostic/config.ts`.
+- [ ] Growx Era has reviewed the question bank, weights, stage labels and benchmark curves in `src/lib/diagnostic/config.ts`.
 - [ ] 5+ internal test diagnostics across all four business models produce results the team agrees with.
 - [ ] Booking link (`NEXT_PUBLIC_BOOKING_URL`) set and tested.
 - [ ] Copy review (English) complete; no placeholder text remains outside the clearly marked case-study placeholders.

@@ -17,7 +17,7 @@ export function Header() {
   return (
     <header className="sticky top-0 z-40 border-b border-line/80 bg-paper/90 backdrop-blur supports-[backdrop-filter]:bg-paper/75">
       <Container className="flex h-16 items-center justify-between gap-6">
-        <Link href="/" className="text-lg" aria-label="Growx_era home">
+        <Link href="/" className="text-lg" aria-label="Growx Era home">
           <Wordmark />
         </Link>
         {!inDiagnostic && (

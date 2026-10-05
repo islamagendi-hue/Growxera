@@ -1,6 +1,6 @@
-# Growx_era
+# Growx Era
 
-Website and **Growth Diagnostic™** for Growx_era, the Growth & Transformation Partner for ambitious GCC businesses.
+Website and **Growth Diagnostic™** for Growx Era, the Growth & Transformation Partner for ambitious GCC businesses.
 
 Next.js 16 (App Router) · TypeScript · Tailwind CSS 4 · Supabase Postgres · Vercel.
 

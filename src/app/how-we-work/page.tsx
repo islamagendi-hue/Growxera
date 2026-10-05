@@ -7,7 +7,7 @@ import { HOW_WE_WORK } from "@/content/site-content";
 
 export const metadata: Metadata = {
   title: "How We Work",
-  description: "Diagnose the bottleneck, transform the growth system, and scale what works. How a Growx_era engagement runs.",
+  description: "Diagnose the bottleneck, transform the growth system, and scale what works. How a Growx Era engagement runs.",
   alternates: { canonical: "/how-we-work" },
 };
 

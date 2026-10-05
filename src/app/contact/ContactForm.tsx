@@ -8,7 +8,7 @@ export function ContactForm() {
     return (
       <div role="status" className="border-l-2 border-accent bg-accent-soft p-6">
         <p className="font-medium">Thank you. We&apos;ve received your message.</p>
-        <p className="mt-2 text-ink-2">Someone from Growx_era will be in touch shortly.</p>
+        <p className="mt-2 text-ink-2">Someone from Growx Era will be in touch shortly.</p>
       </div>
     );
   }

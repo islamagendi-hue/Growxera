@@ -5,8 +5,8 @@ import { SITE } from "@/config/site";
 import { ContactForm } from "./ContactForm";
 
 export const metadata: Metadata = {
-  title: "Talk to Growx_era",
-  description: "Talk to Growx_era about diagnosing and fixing what's holding your growth back.",
+  title: "Talk to Growx Era",
+  description: "Talk to Growx Era about diagnosing and fixing what's holding your growth back.",
   alternates: { canonical: "/contact" },
 };
 
@@ -16,7 +16,7 @@ export default function Contact() {
       <Container className="grid gap-12 py-16 sm:py-24 lg:grid-cols-12">
         <div className="lg:col-span-5">
           <p className="eyebrow">Contact</p>
-          <h1 className="mt-6 text-h2 font-semibold">Talk to Growx_era.</h1>
+          <h1 className="mt-6 text-h2 font-semibold">Talk to Growx Era.</h1>
           <p className="mt-6 max-w-[42ch] text-lg leading-relaxed text-ink-2">
             Tell us where growth feels stuck. If you haven&apos;t yet, the free Growth Diagnostic gives us both a head start.
           </p>

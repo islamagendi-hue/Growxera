@@ -18,7 +18,7 @@ export function CtaBand({ source }: { source: string }) {
             variant="ghost"
             className="!text-paper decoration-paper/40 sm:ml-4"
           >
-            Talk to Growx_era
+            Talk to Growx Era
           </CtaLink>
         </div>
       </Container>

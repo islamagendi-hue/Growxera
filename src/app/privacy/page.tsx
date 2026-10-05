@@ -5,7 +5,7 @@ import { SITE } from "@/config/site";
 
 export const metadata: Metadata = {
   title: "Privacy Notice",
-  description: "How Growx_era collects, uses and protects personal data.",
+  description: "How Growx Era collects, uses and protects personal data.",
   alternates: { canonical: "/privacy" },
 };
 
@@ -31,7 +31,7 @@ export default function Privacy() {
         <section>
           <h2>Who we are</h2>
           <p>
-            Growx_era (<TBD>legal entity name, commercial registration number, registered address</TBD>) is the
+            Growx Era (<TBD>legal entity name, commercial registration number, registered address</TBD>) is the
             controller of the personal data described here. Contact us about privacy at {contact}.
           </p>
         </section>
@@ -123,7 +123,7 @@ export default function Privacy() {
           <h2>Security</h2>
           <p>
             Data is encrypted in transit and stored in a database that is only accessible from our servers. Access is
-            limited to the Growx_era team members who need it.
+            limited to the Growx Era team members who need it.
           </p>
         </section>
 

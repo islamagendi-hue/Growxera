@@ -1,5 +1,5 @@
 /**
- * Shared types for the Growx_era Growth Diagnostic.
+ * Shared types for the Growx Era Growth Diagnostic.
  * Pure types only: safe to import from client and server code.
  */
 

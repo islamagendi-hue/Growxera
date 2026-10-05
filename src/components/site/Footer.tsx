@@ -30,7 +30,7 @@ export function Footer() {
         </div>
       </Container>
       <Container className="flex flex-col gap-2 border-t border-line py-6 text-xs text-ink-3 sm:flex-row sm:justify-between">
-        <p>© {new Date().getFullYear()} Growx_era. All rights reserved.</p>
+        <p>© {new Date().getFullYear()} Growx Era. All rights reserved.</p>
         <p>Growth Diagnostic™ results are preliminary estimates, not financial advice.</p>
       </Container>
     </footer>

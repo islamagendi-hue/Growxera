@@ -33,7 +33,7 @@ export default function Services() {
                   {o.deliverables.map((d) => (
                     <li key={d} className="flex gap-3 text-sm">
                       <span aria-hidden className="text-accent">
-                        _
+                        →
                       </span>
                       {d}
                     </li>

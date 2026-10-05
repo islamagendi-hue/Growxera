@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { CaseStudyPlaceholders } from "@/components/home/CaseStudyPlaceholders";
+import { CaseStudyCards } from "@/components/home/CaseStudyCards";
 import { GrowthSystem } from "@/components/home/GrowthSystem";
 import { IllustrativeReport } from "@/components/home/IllustrativeReport";
 import { CtaLink } from "@/components/ui/CtaLink";
@@ -69,7 +69,7 @@ export default function Home() {
         id="system"
         tone="ink"
         index="02"
-        eyebrow="The Growx_era system"
+        eyebrow="The Growx Era system"
         title="Seven dimensions. One growth system."
         lead="Every engagement and every diagnostic runs on the same framework, so we can see where growth is constrained and what fixing it is worth."
       >
@@ -98,7 +98,7 @@ export default function Home() {
         <Container className="grid gap-12 lg:grid-cols-12">
           <div className="lg:col-span-6">
             <p className="eyebrow">
-              <span className="mr-3">04</span>Growx_era Growth Diagnostic™
+              <span className="mr-3">04</span>Growx Era Growth Diagnostic™
             </p>
             <h2 className="mt-6 text-h2 font-semibold">Find Your Growth Bottleneck</h2>
             <p className="mt-6 max-w-[48ch] text-lg leading-relaxed text-ink-2">
@@ -183,7 +183,7 @@ export default function Home() {
         title="Problem. Diagnosis. Intervention. Result."
         lead="Every case study follows the same structure and leads with the numbers that matter: revenue, CAC, conversion, retention, AOV, LTV, payback and margin."
       >
-        <CaseStudyPlaceholders limit={2} />
+        <CaseStudyCards limit={2} />
       </Section>
 
       {/* FINAL CTA */}
@@ -203,7 +203,7 @@ export default function Home() {
               variant="ghost"
               className="!text-paper decoration-paper/40 hover:decoration-paper"
             >
-              Talk to Growx_era
+              Talk to Growx Era
             </CtaLink>
           </div>
         </Container>

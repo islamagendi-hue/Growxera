@@ -1,12 +1,12 @@
 /**
  * Growth Diagnostic configuration.
  *
- * Everything here is an INITIAL assumption, owned by Growx_era, and meant to be
+ * Everything here is an INITIAL assumption, owned by Growx Era, and meant to be
  * tuned as real diagnostics accumulate. Change numbers here, bump
  * SCORING_VERSION, and the engine, UI and stored reports follow; no component
  * code needs to change.
  *
- * Benchmark curves are Growx_era working heuristics for scoring, not published
+ * Benchmark curves are Growx Era working heuristics for scoring, not published
  * industry statistics. They should be calibrated against real client data.
  */
 import type { BusinessModel, Dimension, Level } from "./types";
@@ -181,7 +181,7 @@ export const IMPACT_THRESHOLDS = { high: 0.45, medium: 0.22 };
 export const CONFIDENCE_THRESHOLDS = { high: 0.75, medium: 0.45 };
 export const LEVEL_POINTS: Record<Level, number> = { high: 3, medium: 2, low: 1 };
 
-/** Opportunity templates per dimension. Effort is Growx_era's default delivery estimate. */
+/** Opportunity templates per dimension. Effort is Growx Era's default delivery estimate. */
 export const OPPORTUNITY_LIBRARY: Record<
   Dimension,
   { title: string | Partial<Record<BusinessModel, string>> & { default: string }; summary: string; effort: Level }

@@ -324,7 +324,7 @@ function Intro({ onStart, resume, topRef }: { onStart: () => void; resume?: () =
   return (
     <div ref={topRef} className="mx-auto grid max-w-[1240px] gap-12 px-4 py-16 sm:px-6 sm:py-24 lg:grid-cols-12 lg:px-10">
       <div className="lg:col-span-7">
-        <p className="eyebrow">Growx_era Growth Diagnostic™</p>
+        <p className="eyebrow">Growx Era Growth Diagnostic™</p>
         <h1 className="mt-6 text-h2 font-semibold sm:text-[clamp(2.5rem,5.5vw,4.5rem)]">Find Your Growth Bottleneck</h1>
         <p className="mt-6 max-w-[52ch] text-lg leading-relaxed text-ink-2">
           Answer a structured set of questions about your business. You&apos;ll get a preliminary Growth Score across
