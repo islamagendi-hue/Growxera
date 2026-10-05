@@ -91,7 +91,7 @@ ${oppLine ? `<div style="font-size:12px;color:#6b726e;font-family:monospace;lett
 
 /** Returns true when the email was accepted by the provider. Never throws. */
 export async function sendReportEmail(to: string, name: string, report: DiagnosticReport): Promise<boolean> {
-  const key = process.env.RESEND_API_KEY;
+  const key = process.env.RESEND_API_KEY?.trim();
   if (!key) return false;
   const { subject, html, text } = reportEmail(name, report);
   try {

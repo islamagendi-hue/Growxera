@@ -15,8 +15,10 @@ import path from "node:path";
 
 export type Table = "diagnostic_sessions" | "leads" | "consent_records" | "analytics_events";
 
-const SUPABASE_URL = process.env.SUPABASE_URL?.replace(/\/$/, "");
-const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+// Values pasted into a dashboard often carry stray whitespace or quotes.
+const clean = (v?: string) => v?.trim().replace(/^["']|["']$/g, "").trim() || undefined;
+const SUPABASE_URL = clean(process.env.SUPABASE_URL)?.replace(/\/$/, "");
+const SERVICE_KEY = clean(process.env.SUPABASE_SERVICE_ROLE_KEY);
 
 export const storageMode: "supabase" | "local" | "disabled" =
   SUPABASE_URL && SERVICE_KEY ? "supabase" : process.env.NODE_ENV === "production" ? "disabled" : "local";
