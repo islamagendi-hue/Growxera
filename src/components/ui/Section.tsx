@@ -10,6 +10,7 @@ export function Section({
   eyebrow,
   title,
   lead,
+  aside,
   children,
   tone = "paper",
   className = "",
@@ -19,6 +20,8 @@ export function Section({
   eyebrow?: string;
   title?: ReactNode;
   lead?: ReactNode;
+  /** A chart or mockup shown beside the title on wide screens, below it on phones. */
+  aside?: ReactNode;
   children?: ReactNode;
   tone?: "paper" | "ink" | "card";
   className?: string;
@@ -35,7 +38,7 @@ export function Section({
                 {eyebrow}
               </p>
             )}
-            <div className="lg:col-span-9">
+            <div className={aside ? "lg:col-span-5" : "lg:col-span-9"}>
               {title && <h2 className="max-w-[18ch] text-h2 font-semibold">{title}</h2>}
               {lead && (
                 <p className={`mt-6 max-w-[60ch] text-lg leading-relaxed ${tone === "ink" ? "text-paper/70" : "text-ink-2"}`}>
@@ -43,6 +46,7 @@ export function Section({
                 </p>
               )}
             </div>
+            {aside && <div className="mt-4 lg:col-span-4 lg:mt-0">{aside}</div>}
           </header>
         )}
         {children}

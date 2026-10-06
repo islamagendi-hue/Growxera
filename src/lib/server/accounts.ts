@@ -6,8 +6,8 @@ import "server-only";
 import { CONSENT_TEXT, POLICY_VERSION } from "@/config/privacy";
 import type { DiagnosticReport } from "@/lib/diagnostic/types";
 import { findAccountByEmail, issueLinkToken, LINK_TTL_MINUTES, normalizeEmail, recentLinkCount, type Account } from "./auth";
-import { noAccountEmail, reportReadyEmail, sendEmail, signInEmail } from "./email";
-import { eq, insert, select, selectOne, update } from "./store";
+import { dataDeletedEmail, noAccountEmail, reportReadyEmail, sendEmail, signInEmail } from "./email";
+import { eq, ieq, inList, insert, remove, select, selectOne, update } from "./store";
 
 /** Per-address cap on sign-in emails, so the form can't be used to flood an inbox. */
 export const MAX_LINKS_PER_15_MIN = 5;
@@ -124,4 +124,48 @@ export async function updateProfile(account: Account, patch: { name: string; com
     phone: patch.phone || null,
     website: patch.website || null,
   });
+}
+
+// ── Deleting data ───────────────────────────────────────────────────────────
+
+export type EraseScope = "data" | "account";
+
+/**
+ * Self-service erasure, confirmed twice by the signed-in person.
+ *   "data":    deletes every saved diagnostic, report request and advisor
+ *              request linked to the account or its email; the account stays.
+ *   "account": all of the above, then the account itself, its sessions and
+ *              sign-in links.
+ * Anonymous analytics events hold no contact details and are not linked to the account.
+ */
+export async function eraseAccountData(account: Account, scope: EraseScope): Promise<{ diagnostics: number }> {
+  const email = account.email;
+  const leadIds = [
+    ...new Set([
+      ...(await select<{ id: string }>("leads", [ieq("email", email)], { columns: "id" })),
+      ...(await select<{ id: string }>("leads", [eq("account_id", account.id)], { columns: "id" })),
+    ].map((l) => l.id)),
+  ];
+
+  let diagnostics = await remove("diagnostic_sessions", [eq("account_id", account.id)]);
+  if (leadIds.length) {
+    diagnostics += await remove("diagnostic_sessions", [inList("lead_id", leadIds)]);
+    await remove("consent_records", [inList("lead_id", leadIds)]);
+    await remove("leads", [inList("id", leadIds)]);
+  }
+  await remove("advisor_requests", [eq("account_id", account.id)]);
+  await remove("advisor_requests", [ieq("email", email)]);
+
+  if (scope === "account") {
+    await remove("consent_records", [eq("account_id", account.id)]);
+    await remove("auth_sessions", [eq("account_id", account.id)]);
+    await remove("auth_tokens", [ieq("email", email)]);
+    await remove("accounts", [eq("id", account.id)]);
+  }
+
+  // A receipt, so the person knows it happened (and can tell us if it wasn't them).
+  await sendEmail(email, dataDeletedEmail(account.name, scope), { tag: "data-deleted" }).catch((err) =>
+    console.error("[accounts] deletion receipt failed", err),
+  );
+  return { diagnostics };
 }

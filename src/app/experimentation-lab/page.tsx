@@ -3,6 +3,7 @@ import { ExperimentLab } from "@/components/lab/ExperimentLab";
 import { CtaBand } from "@/components/ui/CtaBand";
 import { PageHero } from "@/components/ui/PageHero";
 import { Section } from "@/components/ui/Section";
+import { IceBacklog } from "@/components/visuals/ExperimentVisuals";
 import { EXPERIMENTS, EXPERIMENT_MODELS } from "@/content/experiments";
 
 export const metadata: Metadata = {
@@ -27,6 +28,7 @@ export default function ExperimentationLab() {
         eyebrow="How we run it"
         title="Ideas are cheap. A testing system is not."
         lead="We prioritise with ICE (impact, confidence, ease), run a weekly testing cadence, and keep every result in one learning log, so wins compound and losses are only paid for once."
+        aside={<IceBacklog />}
       />
       <CtaBand source="experimentation_lab" />
     </>

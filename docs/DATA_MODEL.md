@@ -67,3 +67,12 @@ New columns: `diagnostic_sessions.account_id`, `.context` (industry → model �
 History: every diagnostic is a new `diagnostic_sessions` row with its full `report` snapshot; nothing is overwritten. A report is attached to an account only while unclaimed (`account_id is null`). Comparison (`src/lib/diagnostic/compare.ts`) reads two snapshots and never changes them.
 
 Booking hours live in `src/lib/booking/slots.ts` (`WEEKLY_HOURS`, Riyadh time). Emails: login/signup link, report ready (with a one-time link that signs in and saves the report), question received, booking confirmation and a reminder scheduled through Resend 3 hours before. Optional env `ADVISOR_EMAIL` receives advisor notifications (falls back to the contact email).
+
+## Self-service deletion
+
+Signed-in people can delete their own data from **My profile → Delete your data**, in two steps (choose, then type `DELETE`). `POST /api/account/delete` re-checks the typed confirmation and the session, then `eraseAccountData` (src/lib/server/accounts.ts) removes:
+
+- `data`: diagnostic sessions linked to the account or to leads with the account's email (case-insensitive), those leads and their consent records, and advisor requests by account or email. The account stays.
+- `account`: all of the above, plus the account's consent records, sessions, sign-in links and the account row. Cookies are cleared.
+
+A receipt email is sent either way. Anonymous analytics events carry no contact details and are kept for their normal retention period. For people without an account, `erase_lead_by_email` still covers requests made by email.

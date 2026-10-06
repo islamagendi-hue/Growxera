@@ -138,6 +138,22 @@ export interface BookingDetails {
   message?: string;
 }
 
+export function dataDeletedEmail(name: string, scope: "data" | "account"): Email {
+  const what =
+    scope === "account"
+      ? "Your Growx Era account and everything saved in it (your diagnostics, reports, advisor requests and profile) have been permanently deleted."
+      : "Your saved diagnostics, reports and advisor requests have been permanently deleted. Your account is still open, so you can run a new diagnostic whenever you like.";
+  const subject = scope === "account" ? "Your Growx Era account has been deleted" : "Your Growx Era data has been deleted";
+  return {
+    subject,
+    html: layout(
+      HI(name) + P(esc(what)) + P(`If you didn&#39;t ask for this, <a href="${esc(SITE.url)}/contact" style="color:#0f6b4f">contact us</a> straight away.`),
+      "You are receiving this because a deletion was confirmed from your account.",
+    ),
+    text: `Hi ${firstName(name)},\n\n${what}\n\nIf you didn't ask for this, contact us straight away: ${SITE.url}/contact\n\nGrowx Era · ${host()}`,
+  };
+}
+
 export function bookingConfirmationEmail(b: BookingDetails, reminder = false): Email {
   const when = formatSlot(b.slotStart);
   const subject = reminder ? `Reminder: your free 30-minute review, ${when}` : `Confirmed: your free 30-minute review, ${when}`;

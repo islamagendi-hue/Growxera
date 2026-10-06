@@ -113,7 +113,7 @@ export default function Privacy() {
           <ul>
             <li>Diagnostics not linked to contact details: {RETENTION.anonymousDiagnosticsDays} days.</li>
             <li>Contact details and linked diagnostics: up to {Math.round(RETENTION.leadsDays / 365)} years after our last interaction, unless you ask us to delete them sooner.</li>
-            <li>Accounts and saved diagnostics: while your account is active, until you ask us to delete it.</li>
+            <li>Accounts and saved diagnostics: while your account is active, until you delete them or ask us to.</li>
             <li>Sign-in links: deleted a day after they expire. Sessions: deleted when they expire or you log out.</li>
             <li>Analytics events: {RETENTION.analyticsEventsDays} days.</li>
           </ul>
@@ -126,6 +126,12 @@ export default function Privacy() {
             to have it deleted, and to withdraw your consent at any time (this does not affect processing already
             carried out). Email {contact} and we will respond within the period required by law. You may also lodge a
             complaint with the Saudi Data &amp; AI Authority (SDAIA) or your local data protection authority.
+          </p>
+          <p>
+            <strong>Delete it yourself.</strong> If you have an account, go to My account → My profile → Delete your
+            data. It takes two steps: choose whether to delete your saved data (diagnostics, reports, progress history and
+            advisor requests) or your whole account, then type DELETE to confirm. Deletion is immediate and permanent, and
+            we email you a receipt. Without an account, email {contact} and we will delete it for you.
           </p>
         </section>
 

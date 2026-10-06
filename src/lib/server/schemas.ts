@@ -122,3 +122,9 @@ export const uploadSummarySchema = z
     applied: z.array(z.string().max(40)).max(20),
   })
   .strip();
+
+/** Self-service deletion: what to delete, plus the typed confirmation. */
+export const deleteRequestSchema = z.object({
+  scope: z.enum(["data", "account"]),
+  confirm: z.string().trim().refine((v) => v.toUpperCase() === "DELETE"),
+});

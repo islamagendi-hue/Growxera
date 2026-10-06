@@ -53,11 +53,14 @@ export class StoreError extends Error {}
 export type Filter =
   | { col: string; op: "eq" | "neq" | "gt" | "gte" | "lt" | "lte"; value: string | number | boolean }
   | { col: string; op: "is"; value: null }
+  | { col: string; op: "ieq"; value: string }
   | { col: string; op: "in"; value: (string | number)[] };
 
 export const eq = (col: string, value: string | number | boolean): Filter => ({ col, op: "eq", value });
 export const isNull = (col: string): Filter => ({ col, op: "is", value: null });
 export const gt = (col: string, value: string | number): Filter => ({ col, op: "gt", value });
+/** Case-insensitive equality (emails). */
+export const ieq = (col: string, value: string): Filter => ({ col, op: "ieq", value });
 export const inList = (col: string, value: (string | number)[]): Filter => ({ col, op: "in", value });
 
 export interface SelectOptions {
@@ -71,6 +74,7 @@ function toQuery(filters: Filter[], opts: SelectOptions = {}): string {
   const q = new URLSearchParams();
   for (const f of filters) {
     if (f.op === "is") q.append(f.col, "is.null");
+    else if (f.op === "ieq") q.append(f.col, `ilike.${f.value.replace(/[\\%_*]/g, (c) => `\\${c}`)}`);
     else if (f.op === "in") q.append(f.col, `in.(${f.value.map((v) => `"${String(v).replace(/"/g, "")}"`).join(",")})`);
     else q.append(f.col, `${f.op}.${String(f.value)}`);
   }
@@ -94,6 +98,8 @@ export function matches(row: Row, filters: Filter[]): boolean {
         return v === null || v === undefined;
       case "in":
         return f.value.map(String).includes(String(v));
+      case "ieq":
+        return typeof v === "string" && v.toLowerCase() === f.value.toLowerCase();
       case "eq":
         return v !== undefined && v !== null && String(v) === String(f.value);
       case "neq":
@@ -226,6 +232,30 @@ export async function update<T = Row>(table: Table, filters: Filter[], patch: Ro
     });
   }
   return [];
+}
+
+/** Deletes every row matching all filters and returns how many were deleted. */
+export async function remove(table: Table, filters: Filter[]): Promise<number> {
+  if (!filters.length) throw new StoreError("delete without filters is not allowed");
+  if (storageMode === "supabase") {
+    // Return only ids so deleting reports doesn't send them back over the wire.
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${toQuery(filters, { columns: "id" })}`, {
+      method: "DELETE",
+      headers: headers({ Prefer: "return=representation" }),
+      cache: "no-store",
+    });
+    if (!res.ok) throw new StoreError(`delete ${table} failed: ${res.status} ${await res.text().catch(() => "")}`);
+    return ((await res.json()) as unknown[]).length;
+  }
+  if (storageMode === "local") {
+    return locked(async () => {
+      const all = await readTable(table);
+      const kept = all.filter((r) => !matches(r, filters));
+      if (kept.length !== all.length) await writeTable(table, kept);
+      return all.length - kept.length;
+    });
+  }
+  return 0;
 }
 
 export async function updateById(table: Table, id: string, patch: Row): Promise<boolean> {

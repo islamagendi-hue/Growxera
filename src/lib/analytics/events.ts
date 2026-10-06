@@ -15,6 +15,7 @@ export const ANALYTICS_EVENTS = [
   "diagnostic_upload_read",
   "diagnostic_upload_failed",
   "diagnostic_upload_applied",
+  "account_data_deleted",
   "sign_in_requested",
   "advisor_question_sent",
   "consultation_booked",

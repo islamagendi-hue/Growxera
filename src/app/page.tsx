@@ -11,6 +11,11 @@ import { EXPERIMENTS } from "@/content/experiments";
 import { FAQ } from "@/content/faq";
 import { BOTTLENECKS, CAPABILITIES, HOW_WE_WORK, OFFERINGS, STANDALONE_SERVICES, PROBLEM_ORIGINS } from "@/content/site-content";
 import { CountUp } from "@/components/ui/CountUp";
+import { ExperimentsAtAGlance } from "@/components/visuals/ExperimentVisuals";
+import { GrowthCurve } from "@/components/visuals/GrowthCurve";
+import { LeakyFunnel } from "@/components/visuals/LeakyFunnel";
+import { RoadmapMockup } from "@/components/visuals/RoadmapMockup";
+import { WeakestLink } from "@/components/visuals/WeakestLink";
 
 export const metadata: Metadata = { title: { absolute: SITE.title }, alternates: { canonical: "/" } };
 
@@ -55,6 +60,7 @@ export default function Home() {
         eyebrow="The problem"
         title="Growth rarely breaks in one place."
         lead="When revenue stalls, the instinct is to buy more traffic. But the constraint can sit anywhere in the system, and pushing more volume into a leaking system makes it more expensive, not more profitable."
+        aside={<LeakyFunnel />}
       >
         <ul className="grid grid-cols-2 border-l border-t border-line sm:grid-cols-4">
           {PROBLEM_ORIGINS.map((p, i) => (
@@ -82,7 +88,13 @@ export default function Home() {
       </Section>
 
       {/* BOTTLENECKS */}
-      <Section index="03" eyebrow="Growth bottlenecks" title="Where is your growth stuck?">
+      <Section
+        index="03"
+        eyebrow="Growth bottlenecks"
+        title="Where is your growth stuck?"
+        lead="Each pattern below points to a different constraint. Fixing the wrong one burns budget; fixing the right one lifts everything behind it."
+        aside={<WeakestLink />}
+      >
         <ul className="grid gap-px border border-line bg-line sm:grid-cols-2 lg:grid-cols-3">
           {BOTTLENECKS.map((b) => (
             <li key={b.title} className="flex flex-col bg-paper p-6 sm:p-8">
@@ -151,7 +163,7 @@ export default function Home() {
       </Section>
 
       {/* HOW WE WORK */}
-      <Section index="05" eyebrow="How we work" title="Diagnose. Transform. Scale.">
+      <Section index="05" eyebrow="How we work" title="Diagnose. Transform. Scale." aside={<GrowthCurve />}>
         <ol className="grid gap-10 md:grid-cols-3 md:gap-8">
           {HOW_WE_WORK.map((s) => (
             <li key={s.n} className="border-t border-ink pt-6">
@@ -175,6 +187,7 @@ export default function Home() {
         eyebrow="Services"
         title="One path, from diagnosis to partnership."
         lead="We don't sell disconnected services. Each stage builds on the last."
+        aside={<RoadmapMockup />}
       >
         <ol className="grid gap-px border border-line bg-line lg:grid-cols-3">
           {OFFERINGS.map((o, i) => (
@@ -245,6 +258,7 @@ export default function Home() {
         eyebrow="Experimentation Lab"
         title={`${EXPERIMENTS.length} growth experiments, ready to test.`}
         lead="Hypotheses and decision metrics grouped by business model: mobile apps, SaaS, e-commerce, marketplaces, food delivery, EdTech, fintech, real estate, clinics, lead generation and multi-branch services."
+        aside={<ExperimentsAtAGlance />}
       >
         <CtaLink href="/experimentation-lab" cta="home_experiment_lab" variant="ghost">
           Open the Experimentation Lab

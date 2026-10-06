@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CtaBand } from "@/components/ui/CtaBand";
 import { Container } from "@/components/ui/Section";
+import { DiagnosticTeaser } from "@/components/visuals/DiagnosticTeaser";
 import { SITE } from "@/config/site";
 import { INSIGHTS, getInsight } from "@/content/insights";
 
@@ -45,17 +46,22 @@ export default async function InsightPage({ params }: PageProps<"/insights/[slug
           </p>
           <h1 className="mt-6 max-w-[22ch] text-h2 font-semibold">{a.title}</h1>
           <p className="mt-6 max-w-[60ch] text-lg leading-relaxed text-ink-2">{a.description}</p>
-          <div className="mt-12 max-w-[68ch] space-y-10 border-t border-line pt-10">
-            {a.sections.map((s, i) => (
-              <section key={i}>
-                {s.heading && <h2 className="text-h3 font-semibold">{s.heading}</h2>}
-                {s.paragraphs.map((p) => (
-                  <p key={p} className="mt-4 text-[1.0625rem] leading-[1.75] text-ink-2">
-                    {p}
-                  </p>
-                ))}
-              </section>
-            ))}
+          <div className="mt-12 grid gap-12 border-t border-line pt-10 lg:grid-cols-[minmax(0,68ch)_1fr] lg:gap-16">
+            <div className="space-y-10">
+              {a.sections.map((s, i) => (
+                <section key={i}>
+                  {s.heading && <h2 className="text-h3 font-semibold">{s.heading}</h2>}
+                  {s.paragraphs.map((p) => (
+                    <p key={p} className="mt-4 text-[1.0625rem] leading-[1.75] text-ink-2">
+                      {p}
+                    </p>
+                  ))}
+                </section>
+              ))}
+            </div>
+            <aside className="lg:sticky lg:top-28 lg:self-start">
+              <DiagnosticTeaser source={`insight_${a.slug}`} />
+            </aside>
           </div>
         </Container>
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }} />

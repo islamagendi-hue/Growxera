@@ -6,7 +6,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 vi.mock("next/headers", () => ({ cookies: async () => ({ get: () => undefined }) }));
 
-import { MAX_LINKS_PER_15_MIN, sendSignInLink } from "./accounts";
+import { eraseAccountData, MAX_LINKS_PER_15_MIN, sendSignInLink } from "./accounts";
 import {
   accountForSessionToken,
   attachDiagnostic,
@@ -164,5 +164,51 @@ describe("sessions", () => {
     expect(await accountForSessionToken(newToken())).toBeNull();
     await revokeSession(token);
     expect(await accountForSessionToken(token)).toBeNull();
+  });
+});
+
+describe("self-service deletion", () => {
+  async function setup() {
+    const to = email();
+    const res = await consumeLinkToken(await issueLinkToken({ email: to, purpose: "signup", pending: { name: "A", company: "B" } }));
+    if (!res.ok) throw new Error("signup failed");
+    const leadId = crypto.randomUUID();
+    // A report requested before the account existed, with the email typed in capitals.
+    await insert("leads", { id: leadId, email: to.toUpperCase(), account_id: null });
+    await insert("diagnostic_sessions", { id: crypto.randomUUID(), lead_id: leadId, account_id: null });
+    await insert("diagnostic_sessions", { id: crypto.randomUUID(), lead_id: null, account_id: res.account.id });
+    await insert("consent_records", { lead_id: leadId, account_id: null });
+    await insert("advisor_requests", { id: crypto.randomUUID(), email: to, account_id: res.account.id });
+    // Someone else's data must survive.
+    await insert("diagnostic_sessions", { id: crypto.randomUUID(), lead_id: null, account_id: "someone-else" });
+    const { token } = await createSession(res.account.id);
+    return { to, account: res.account, leadId, token };
+  }
+  const count = async (table: Parameters<typeof select>[0], col: string, value: string) =>
+    (await select(table, [{ col, op: "eq", value }])).length;
+
+  it("deletes saved data but keeps the account", async () => {
+    const { to, account, leadId, token } = await setup();
+    const { diagnostics } = await eraseAccountData(account, "data");
+    expect(diagnostics).toBe(2);
+    expect(await count("diagnostic_sessions", "account_id", account.id)).toBe(0);
+    expect(await count("diagnostic_sessions", "lead_id", leadId)).toBe(0);
+    expect(await count("leads", "id", leadId)).toBe(0);
+    expect(await count("consent_records", "lead_id", leadId)).toBe(0);
+    expect(await count("advisor_requests", "email", to)).toBe(0);
+    expect(await count("diagnostic_sessions", "account_id", "someone-else")).toBeGreaterThan(0);
+    expect((await accountForSessionToken(token))?.id).toBe(account.id);
+    expect(outbox().some((m) => m.includes(to) && m.includes("data has been deleted"))).toBe(true);
+  });
+
+  it("deletes the account, its sessions and sign-in links", async () => {
+    const { to, account, token } = await setup();
+    await eraseAccountData(account, "account");
+    expect(await findAccountByEmail(to)).toBeNull();
+    expect(await accountForSessionToken(token)).toBeNull();
+    expect(await count("auth_sessions", "account_id", account.id)).toBe(0);
+    expect(await count("auth_tokens", "email", to)).toBe(0);
+    expect(await count("diagnostic_sessions", "account_id", account.id)).toBe(0);
+    expect(outbox().some((m) => m.includes(to) && m.includes("account has been deleted"))).toBe(true);
   });
 });

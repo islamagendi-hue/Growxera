@@ -38,6 +38,24 @@ export default async function Contact({ searchParams }: PageProps<"/contact">) {
               </CtaLink>
             )}
           </div>
+          <div className="mt-14 border-t border-line pt-8">
+            <p className="eyebrow">What happens next</p>
+            <ol className="mt-5 space-y-5">
+              {[
+                ["We read your message", "And your diagnostic report, if you've run one, so we start from your numbers."],
+                ["We reply by email", "With a first view of where the constraint may be and what we'd look at."],
+                ["A free 30-minute review, if useful", "A call to agree the first moves. No obligation."],
+              ].map(([t, d], i) => (
+                <li key={t} className="grid grid-cols-[2rem_1fr] gap-3">
+                  <span className="font-mono text-sm text-accent">0{i + 1}</span>
+                  <div>
+                    <p className="font-medium">{t}</p>
+                    <p className="mt-1 text-sm leading-relaxed text-ink-2">{d}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </div>
         </div>
         <div className="border border-line bg-card p-6 sm:p-10 lg:col-span-7">
           <ContactForm defaultMessage={defaultMessage} />

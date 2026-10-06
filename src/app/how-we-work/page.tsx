@@ -3,6 +3,8 @@ import { GrowthSystem } from "@/components/home/GrowthSystem";
 import { CtaBand } from "@/components/ui/CtaBand";
 import { PageHero } from "@/components/ui/PageHero";
 import { Section } from "@/components/ui/Section";
+import { GrowthCurve } from "@/components/visuals/GrowthCurve";
+import { KpiDashboard } from "@/components/visuals/KpiDashboard";
 import { HOW_WE_WORK } from "@/content/site-content";
 
 export const metadata: Metadata = {
@@ -18,6 +20,7 @@ export default function HowWeWork() {
         eyebrow="How we work"
         title="We find what's holding growth back, then build the system to fix it."
         lead="Most growth problems are system problems. We work across the full system, from market to scale, and start every engagement with a diagnosis rather than a channel plan."
+        aside={<GrowthCurve />}
       />
       <Section index="01" eyebrow="The process" title="Three stages, one direction.">
         <ol className="divide-y divide-line border-y border-line">
@@ -36,7 +39,13 @@ export default function HowWeWork() {
       <Section tone="card" index="02" eyebrow="The framework" title="The seven dimensions we work across.">
         <GrowthSystem tone="paper" />
       </Section>
-      <Section index="03" eyebrow="Principles" title="How we think about growth.">
+      <Section
+        index="03"
+        eyebrow="Principles"
+        title="How we think about growth."
+        lead="Every engagement is judged on the numbers that reach the P&L, reviewed every week with your team from one trusted source."
+        aside={<KpiDashboard />}
+      >
         <ul className="grid gap-8 md:grid-cols-3">
           {[
             ["Diagnosis before prescription", "We don't recommend a channel, a tool or a campaign until we know where the constraint is."],

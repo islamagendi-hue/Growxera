@@ -133,3 +133,28 @@
   font-weight: 500;
   color: var(--color-accent);
 }
+
+/* Charts: a line that draws itself. */
+@keyframes draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+}
+.animate-draw {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+  animation: draw 1.6s cubic-bezier(0.3, 0.6, 0.2, 1) 0.2s backwards;
+}
+.animate-fade {
+  animation: rise 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) 0.9s backwards;
+}
+/* Inside <Reveal>, chart animations wait until the block is on screen. */
+[data-reveal]:not([data-shown]) :is(.animate-grow, .animate-draw, .animate-fade) {
+  animation-play-state: paused;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-draw,
+  .animate-fade {
+    animation: none;
+  }
+}
