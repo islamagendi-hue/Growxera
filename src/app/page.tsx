@@ -23,7 +23,12 @@ export default function Home() {
         <div aria-hidden className="grid-lines pointer-events-none absolute inset-0 opacity-60" />
         <Container className="relative grid gap-[3.4375rem] py-[3.4375rem] sm:py-[5.5625rem] lg:grid-cols-[1.618fr_1fr] lg:gap-[2.125rem] lg:py-[5.5625rem]">
           <div>
-            <p className="eyebrow">Growth Systems | Building &amp; Scaling</p>
+            <p className="eyebrow">
+              <span className="block sm:inline">Growth Systems</span>
+              <span aria-hidden className="hidden sm:inline"> | </span>
+              <span className="sr-only sm:hidden"> | </span>
+              <span className="block sm:inline">Building &amp; Scaling</span>
+            </p>
             <h1 className="mt-6 text-display font-semibold">
               Build Your Next Era of Growth<span className="text-accent">.</span>
             </h1>
@@ -224,7 +229,7 @@ export default function Home() {
             {TRACK_RECORD.map((t) => (
               <div key={t.label} className="flex flex-col-reverse bg-paper p-5 sm:p-6">
                 <dt className="mt-2 text-sm text-ink-3">{t.label}</dt>
-                <dd className="tabular font-mono text-3xl font-medium"><CountUp value={t.value} /></dd>
+                <dd className="tabular whitespace-nowrap font-mono text-xl font-medium sm:text-3xl"><CountUp value={t.value} /></dd>
               </div>
             ))}
           </dl>
