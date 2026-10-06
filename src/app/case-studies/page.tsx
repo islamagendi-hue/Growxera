@@ -21,17 +21,20 @@ export default function CaseStudies() {
         eyebrow="Case studies"
         title={
           <>
-            {["Problem", "Diagnosis", "Solution"].map((w) => (
-              <span key={w}>
-                <span className="whitespace-nowrap">
-                  {w}
-                  <span aria-hidden className="ml-[0.45em] inline-block align-[0.1em] text-[0.6em] font-normal text-accent">
-                    →
-                  </span>
-                </span>{" "}
+            {[
+              ["Problem", "Diagnosis"],
+              ["Solution", "Result"],
+            ].map(([a, b], i) => (
+              <span key={a} className="block whitespace-nowrap">
+                {a}
+                <span aria-hidden className="mx-[0.45em] inline-block align-[0.1em] text-[0.6em] font-normal text-accent">
+                  →
+                </span>
+                <span className="sr-only"> to </span>
+                {b}
+                {i === 1 && <span className="text-accent">.</span>}
               </span>
             ))}
-            Result<span className="text-accent">.</span>
           </>
         }
         lead={CASE_STUDIES.length ? "Real growth work across mobile apps, e-commerce, multi-branch services and EdTech in KSA and the GCC. Company names are withheld; every number is as reported." : "Case studies will be published here as engagements complete and clients approve them. Each leads with quantified business impact."}
