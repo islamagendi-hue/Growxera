@@ -2,7 +2,7 @@
 export const SITE = {
   name: "Growx Era",
   wordmark: { left: "GROWX", right: "ERA" },
-  title: "Growx Era — Growth & Transformation Partner",
+  title: "Growx Era | Growth Systems | Building & Scaling",
   description:
     "Growx Era helps ambitious businesses diagnose growth bottlenecks, build growth systems, and unlock their next stage of growth.",
   url: (

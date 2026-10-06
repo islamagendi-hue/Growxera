@@ -23,7 +23,7 @@ export default function Home() {
         <div aria-hidden className="grid-lines pointer-events-none absolute inset-0 opacity-60" />
         <Container className="relative grid gap-[3.4375rem] py-[3.4375rem] sm:py-[5.5625rem] lg:grid-cols-[1.618fr_1fr] lg:gap-[2.125rem] lg:py-[5.5625rem]">
           <div>
-            <p className="eyebrow">Growth &amp; Transformation Partner · GCC</p>
+            <p className="eyebrow">Growth Systems | Building &amp; Scaling</p>
             <h1 className="mt-6 text-display font-semibold">
               Build Your Next Era of Growth<span className="text-accent">.</span>
             </h1>
