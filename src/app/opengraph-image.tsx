@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 
-export const alt = "Growx Era — Growth & Transformation Partner";
+export const alt = "Growx Era | Growth Systems | Building & Scaling";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -26,7 +26,7 @@ export default function OpengraphImage() {
         <div style={{ display: "flex", flexDirection: "column" }}>
           <div style={{ fontSize: 88, fontWeight: 700, lineHeight: 1, letterSpacing: -3 }}>Build Your Next Era of Growth.</div>
           <div style={{ marginTop: 28, fontSize: 30, color: "rgba(244,242,236,0.7)" }}>
-            Growth &amp; Transformation Partner · Growth Diagnostic™
+            Growth Systems | Building &amp; Scaling
           </div>
         </div>
         <div style={{ display: "flex", gap: 18, fontSize: 20, letterSpacing: 4, color: "rgba(244,242,236,0.55)" }}>
