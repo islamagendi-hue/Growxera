@@ -21,7 +21,7 @@ export const NAV = [
   { href: "/diagnostic", label: "Growth Diagnostic" },
   { href: "/how-we-work", label: "How it works" },
   { href: "/case-studies", label: "Case studies" },
-  { href: "/specialist", label: "Talk to a specialist" },
+  { href: "/advisor", label: "Talk to an advisor" },
 ];
 
 export const ACCOUNT_NAV = [

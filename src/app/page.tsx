@@ -137,15 +137,15 @@ export default function Home() {
       <Section
         eyebrow="Inside the product"
         title="From diagnosis to progress, in one place."
-        lead="Run the diagnostic, read your report, act on ranked recommendations, track progress month to month, and talk to a specialist when you want a second pair of eyes."
+        lead="Run the diagnostic, read your report, act on ranked recommendations, track progress month to month, and talk to an advisor when you want a second pair of eyes."
       >
         <ProductMockups />
         <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-8">
           <CtaLink href="/diagnostic" cta="tour_start">
             Start Free Growth Diagnostic
           </CtaLink>
-          <CtaLink href="/specialist" cta="tour_specialist" variant="ghost">
-            Talk to a specialist
+          <CtaLink href="/advisor" cta="tour_advisor" variant="ghost">
+            Talk to an advisor
           </CtaLink>
         </div>
       </Section>

@@ -13,7 +13,7 @@ export default async function ProfilePage() {
       <div className="grid gap-12 lg:grid-cols-12">
         <div className="lg:col-span-4">
           <h1 className="text-h2 font-semibold">My profile</h1>
-          <p className="mt-2 text-ink-2">Your details and company information. Specialists see these when you book a review.</p>
+          <p className="mt-2 text-ink-2">Your details and company information. Advisors see these when you book a review.</p>
           <dl className="mt-8 space-y-4 text-sm">
             <div>
               <dt className="text-ink-3">Email (used to log in)</dt>

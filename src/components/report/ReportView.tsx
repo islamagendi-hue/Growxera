@@ -14,7 +14,7 @@ import type {
   ReportPreview,
 } from "@/lib/diagnostic/types";
 import { formatMoney, formatNumber } from "@/lib/format";
-import { SpecialistCta, specialistHref } from "./SpecialistCta";
+import { AdvisorCta, advisorHref } from "./AdvisorCta";
 import { CountUp } from "@/components/ui/CountUp";
 
 const LEVEL_LABEL: Record<Level, string> = { high: "High", medium: "Medium", low: "Low" };
@@ -43,7 +43,7 @@ export function ReportView({
 }: {
   preview: ReportPreview;
   report?: DiagnosticReport;
-  /** The diagnostic session id, passed to the specialist so they can read the report. */
+  /** The diagnostic session id, passed to the advisor so they can read the report. */
   reportId?: string;
   notice?: ReactNode;
   actions?: ReactNode;
@@ -100,7 +100,7 @@ export function ReportView({
                 </p>
                 <p className="mt-5 text-lg leading-relaxed text-ink-2">{preview.bottleneckExplanation}</p>
                 <div className="mt-6">
-                  <SpecialistCta reportId={reportId} context={`bottleneck:${preview.bottleneck}`} />
+                  <AdvisorCta reportId={reportId} context={`bottleneck:${preview.bottleneck}`} />
                 </div>
               </div>
               <div className="mt-6 grid grid-cols-2 gap-px border border-line bg-line">
@@ -155,7 +155,7 @@ export function ReportView({
 }
 
 function JourneySteps({ current }: { current: 1 | 2 }) {
-  const steps = ["Diagnose", "Understand your results", "Talk to a specialist"];
+  const steps = ["Diagnose", "Understand your results", "Talk to an advisor"];
   return (
     <ol className="mt-8 grid grid-cols-3 gap-px border border-line bg-line text-xs sm:text-sm print:hidden" aria-label="Your next steps">
       {steps.map((s, i) => {
@@ -205,7 +205,7 @@ function FullReport({ report, reportId }: { report: DiagnosticReport; reportId?:
                 ))}
               </ol>
             ) : (
-              <p className="mt-6 text-ink-2">No significant gaps were found in the areas you answered. A specialist review can look for the less visible gains.</p>
+              <p className="mt-6 text-ink-2">No significant gaps were found in the areas you answered. An advisor review can look for the less visible gains.</p>
             )
           ) : (
             <ol className="mt-10 grid gap-px border border-line bg-line lg:grid-cols-3">
@@ -315,7 +315,7 @@ function Benchmarks({ items, reportId }: { items: BenchmarkSnapshot[]; reportId?
         </ul>
         {worst && (
           <div className="mt-6">
-            <SpecialistCta reportId={reportId} context={`benchmark:${worst.metric}`} message={`${worst.label} is below the range for businesses like yours.`} />
+            <AdvisorCta reportId={reportId} context={`benchmark:${worst.metric}`} message={`${worst.label} is below the range for businesses like yours.`} />
           </div>
         )}
       </div>
@@ -350,7 +350,7 @@ function RecommendationCard({ r, n, reportId }: { r: RecommendationSnapshot; n: 
         )}
         {n === 1 && (
           <div className="mt-6">
-            <SpecialistCta reportId={reportId} context={`recommendation:${r.id}`} message="This is your highest-impact move. A specialist can help you plan it." />
+            <AdvisorCta reportId={reportId} context={`recommendation:${r.id}`} message="This is your highest-impact move. An advisor can help you plan it." />
           </div>
         )}
       </div>
@@ -439,21 +439,21 @@ function NextSteps({ reportId, hasReport }: { reportId?: string; hasReport: bool
     <section className="bg-ink text-paper print:hidden">
       <div className={`${wrap} grid gap-10 py-16 sm:py-20 lg:grid-cols-12`}>
         <div className="lg:col-span-6">
-          <p className="eyebrow !text-paper/60">Step 3 · Talk to a specialist</p>
+          <p className="eyebrow !text-paper/60">Step 3 · Talk to an advisor</p>
           <h2 className="mt-4 text-h2 font-semibold">Turn this diagnosis into a plan.</h2>
           <p className="mt-6 max-w-[54ch] text-lg leading-relaxed text-paper/70">
             {hasReport
-              ? "A Growx Era specialist reads your report before replying, so you don't have to explain your business from scratch."
-              : "Get your full report first, then a specialist can walk you through it."}
+              ? "A Growx Era advisor reads your report before replying, so you don't have to explain your business from scratch."
+              : "Get your full report first, then an advisor can walk you through it."}
           </p>
         </div>
         <div className="grid gap-px self-end border border-paper/20 bg-paper/20 sm:grid-cols-2 lg:col-span-6">
-          <Link href={specialistHref("ask", reportId, "report")} className="group bg-ink p-6 hover:bg-paper/5">
-            <p className="font-medium">Ask a specialist</p>
+          <Link href={advisorHref("ask", reportId, "report")} className="group bg-ink p-6 hover:bg-paper/5">
+            <p className="font-medium">Ask an advisor</p>
             <p className="mt-2 text-sm text-paper/60">Send a question about your results. We reply by email.</p>
             <p className="mt-4 text-sm text-accent-bright">Ask a question →</p>
           </Link>
-          <Link href={specialistHref("book", reportId, "report")} className="group bg-ink p-6 hover:bg-paper/5">
+          <Link href={advisorHref("book", reportId, "report")} className="group bg-ink p-6 hover:bg-paper/5">
             <p className="font-medium">Book a Free 30-Minute Review</p>
             <p className="mt-2 text-sm text-paper/60">Pick a time. We go through your report and the first moves together.</p>
             <p className="mt-4 text-sm text-accent-bright">Choose a time →</p>

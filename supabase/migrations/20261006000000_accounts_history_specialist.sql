@@ -1,4 +1,4 @@
--- Growx Era: accounts, passwordless sign-in, diagnostic history and specialist requests.
+-- Growx Era: accounts, passwordless sign-in, diagnostic history and advisor requests.
 -- Additive only: new tables and nullable columns. Existing rows and code keep working.
 -- Same security model as the init migration: RLS on, no policies, server-only access.
 
@@ -61,8 +61,8 @@ alter table public.leads add column if not exists account_id uuid references pub
 -- Consent given at account signup (no lead row), and the 'signup' source.
 alter table public.consent_records add column if not exists account_id uuid references public.accounts(id) on delete cascade;
 
--- ── Specialist questions and consultation bookings ─────────────────────────
-create table if not exists public.specialist_requests (
+-- ── Advisor questions and consultation bookings ─────────────────────────
+create table if not exists public.advisor_requests (
   id                     uuid primary key default gen_random_uuid(),
   created_at             timestamptz not null default now(),
   kind                   text not null check (kind in ('question', 'consultation')),
@@ -78,21 +78,21 @@ create table if not exists public.specialist_requests (
   slot_minutes           smallint,
   timezone               text
 );
-create index if not exists specialist_requests_created_idx on public.specialist_requests (created_at desc);
+create index if not exists advisor_requests_created_idx on public.advisor_requests (created_at desc);
 -- One booking per slot: a second request for the same time fails instead of double-booking.
-create unique index if not exists specialist_requests_slot_uidx on public.specialist_requests (slot_start)
+create unique index if not exists advisor_requests_slot_uidx on public.advisor_requests (slot_start)
   where kind = 'consultation' and status in ('new', 'confirmed');
 
 alter table public.accounts            enable row level security;
 alter table public.auth_tokens         enable row level security;
 alter table public.auth_sessions       enable row level security;
-alter table public.specialist_requests enable row level security;
+alter table public.advisor_requests enable row level security;
 
 -- ── Reporting ───────────────────────────────────────────────────────────────
-create or replace view public.v_specialist_pipeline with (security_invoker = true) as
+create or replace view public.v_advisor_pipeline with (security_invoker = true) as
 select r.created_at, r.kind, r.status, r.name, r.email, r.company, r.topic, r.slot_start,
        d.overall_score, d.bottleneck, d.industry
-from public.specialist_requests r
+from public.advisor_requests r
 left join public.diagnostic_sessions d on d.id = r.diagnostic_session_id
 order by r.created_at desc;
 
@@ -122,7 +122,7 @@ begin
   delete from public.diagnostic_sessions
     where lead_id in (select id from public.leads where lower(email) = lower(target_email))
        or account_id in (select id from public.accounts where lower(email) = lower(target_email));
-  delete from public.specialist_requests where lower(email) = lower(target_email);
+  delete from public.advisor_requests where lower(email) = lower(target_email);
   delete from public.leads where lower(email) = lower(target_email);
   get diagnostics n = row_count;
   delete from public.accounts where lower(email) = lower(target_email);

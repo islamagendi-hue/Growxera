@@ -9,7 +9,7 @@ const ITEMS = [
   { href: "/account/progress", label: "My progress" },
   { href: "/diagnostic", label: "New diagnostic" },
   { href: "/account/profile", label: "My profile" },
-  { href: "/specialist", label: "Talk to a specialist" },
+  { href: "/advisor", label: "Talk to an advisor" },
 ];
 
 export function AccountNav() {

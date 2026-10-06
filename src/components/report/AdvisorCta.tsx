@@ -2,27 +2,27 @@
 import Link from "next/link";
 import { track } from "@/lib/analytics/client";
 
-/** Where the specialist CTAs point. The report id carries the diagnostic context. */
-export function specialistHref(intent: "ask" | "book", reportId?: string, topic?: string) {
+/** Where the advisor CTAs point. The report id carries the diagnostic context. */
+export function advisorHref(intent: "ask" | "book", reportId?: string, topic?: string) {
   const q = new URLSearchParams();
   if (reportId) q.set("report", reportId);
   if (topic) q.set("topic", topic);
   const qs = q.toString();
-  return `/specialist${qs ? `?${qs}` : ""}#${intent}`;
+  return `/advisor${qs ? `?${qs}` : ""}#${intent}`;
 }
 
 /**
  * A quiet, contextual nudge tied to a specific finding: one line explaining why,
  * and two actions. Never a pop-up.
  */
-export function SpecialistCta({
+export function AdvisorCta({
   reportId,
   context,
   message = "This appears to be one of your biggest growth gaps.",
   tone = "light",
 }: {
   reportId?: string;
-  /** Recorded with the click and passed to the specialist as the topic. */
+  /** Recorded with the click and passed to the advisor as the topic. */
   context: string;
   message?: string;
   tone?: "light" | "dark";
@@ -33,14 +33,14 @@ export function SpecialistCta({
       <p className={`text-sm ${dark ? "text-paper/70" : "text-ink-2"}`}>{message}</p>
       <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm font-medium">
         <Link
-          href={specialistHref("ask", reportId, context)}
-          onClick={() => track("cta_clicked", { cta: "talk_to_specialist", context })}
+          href={advisorHref("ask", reportId, context)}
+          onClick={() => track("cta_clicked", { cta: "talk_to_advisor", context })}
           className="underline decoration-current/40 underline-offset-4 hover:decoration-current"
         >
-          Talk to a Specialist
+          Talk to an Advisor
         </Link>
         <Link
-          href={specialistHref("book", reportId, context)}
+          href={advisorHref("book", reportId, context)}
           onClick={() => {
             track("cta_clicked", { cta: "book_review", context });
             track("booking_started", { cta: "book_review", context });

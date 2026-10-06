@@ -54,7 +54,7 @@ export default function Privacy() {
               sign-in links and sessions (stored as one-way hashes, never the link itself).
             </li>
             <li>
-              <strong className="text-ink">Specialist requests</strong>: questions you send and review calls you book,
+              <strong className="text-ink">Advisor requests</strong>: questions you send and review calls you book,
               with the time, your message and a reference to your report.
             </li>
             <li>

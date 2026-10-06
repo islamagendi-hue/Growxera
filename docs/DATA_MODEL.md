@@ -51,7 +51,7 @@ Completion rate = `diagnostics_completed / diagnostics_started` (starts come fro
 
 All three are rate-limited per instance; add a Vercel Firewall rule for hard limits.
 
-## Accounts, history and specialist requests (migration `20261006000000`)
+## Accounts, history and advisor requests (migration `20261006000000`)
 
 Additive migration: apply it **before** deploying the code that uses it.
 
@@ -60,10 +60,10 @@ Additive migration: apply it **before** deploying the code that uses it.
 | `accounts` | One row per person (unique on `lower(email)`). Created when a signup or report link is first used. |
 | `auth_tokens` | One-time sign-in links. Only the SHA-256 hash is stored. `purpose`: `login`, `signup`, `report`. Consumed atomically (`used_at is null and expires_at > now()`); TTL 20 min (48 h for report links). |
 | `auth_sessions` | Cookie sessions (`gx_session`, HttpOnly, 30 days), stored hashed, revocable. |
-| `specialist_requests` | Questions (`kind = question`) and free 30-minute reviews (`kind = consultation`, `slot_start`). A partial unique index on `slot_start` prevents double booking. |
+| `advisor_requests` | Questions (`kind = question`) and free 30-minute reviews (`kind = consultation`, `slot_start`). A partial unique index on `slot_start` prevents double booking. |
 
 New columns: `diagnostic_sessions.account_id`, `.context` (industry → model → type → category → geography → city), `.data_upload` (summary of an uploaded CSV, never the file); `leads.account_id`; `consent_records.account_id`.
 
 History: every diagnostic is a new `diagnostic_sessions` row with its full `report` snapshot; nothing is overwritten. A report is attached to an account only while unclaimed (`account_id is null`). Comparison (`src/lib/diagnostic/compare.ts`) reads two snapshots and never changes them.
 
-Booking hours live in `src/lib/booking/slots.ts` (`WEEKLY_HOURS`, Riyadh time). Emails: login/signup link, report ready (with a one-time link that signs in and saves the report), question received, booking confirmation and a reminder scheduled through Resend 3 hours before. Optional env `SPECIALIST_EMAIL` receives specialist notifications (falls back to the contact email).
+Booking hours live in `src/lib/booking/slots.ts` (`WEEKLY_HOURS`, Riyadh time). Emails: login/signup link, report ready (with a one-time link that signs in and saves the report), question received, booking confirmation and a reminder scheduled through Resend 3 hours before. Optional env `ADVISOR_EMAIL` receives advisor notifications (falls back to the contact email).

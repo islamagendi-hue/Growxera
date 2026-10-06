@@ -1,14 +1,14 @@
 import { currentAccount } from "@/lib/server/auth";
 import { clientKey, rateLimit } from "@/lib/server/rate-limit";
-import { specialistQuestionSchema } from "@/lib/server/schemas";
-import { askSpecialist } from "@/lib/server/specialist";
+import { advisorQuestionSchema } from "@/lib/server/schemas";
+import { askAdvisor } from "@/lib/server/advisor";
 
-/** A question for a real specialist, about a report or working together. */
+/** A question for a real advisor, about a report or working together. */
 export async function POST(req: Request) {
-  if (!rateLimit(`specialist:${clientKey(req)}`, 6, 10 * 60_000)) {
+  if (!rateLimit(`advisor:${clientKey(req)}`, 6, 10 * 60_000)) {
     return Response.json({ error: "Too many requests. Please try again in a few minutes." }, { status: 429 });
   }
-  const parsed = specialistQuestionSchema.safeParse(await req.json().catch(() => null));
+  const parsed = advisorQuestionSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
     const fields = Object.fromEntries(parsed.error.issues.map((i) => [String(i.path[i.path.length - 1]), i.message]));
     return Response.json({ error: "Please check the highlighted fields.", fields }, { status: 422 });
@@ -19,11 +19,11 @@ export async function POST(req: Request) {
     return Response.json({ error: "Please check the highlighted fields.", fields: { consentProcessing: "Please agree so we can reply." } }, { status: 422 });
   }
   try {
-    const result = await askSpecialist({ account, ...parsed.data });
+    const result = await askAdvisor({ account, ...parsed.data });
     if (!result.ok) return Response.json({ error: result.error }, { status: 422 });
     return Response.json({ ok: true });
   } catch (err) {
-    console.error("[specialist] failed", err);
+    console.error("[advisor] failed", err);
     return Response.json({ error: "We couldn't send your question. Please try again." }, { status: 503 });
   }
 }

@@ -127,7 +127,7 @@ export function ProductMockups() {
         <p className="mt-3 text-ink-3">Repeat rate: below → within the benchmark</p>
       </Frame>
 
-      <Frame n="06" title="Talk to a specialist" text="Ask a question or book a free 30-minute review. The specialist reads your report first.">
+      <Frame n="06" title="Talk to an advisor" text="Ask a question or book a free 30-minute review. The advisor reads your report first.">
         <p className="text-[0.7rem] text-ink-3">Saturday · Riyadh time</p>
         <div className="mt-2 grid grid-cols-3 gap-1.5 font-mono">
           {["19:00", "19:30", "20:00", "20:30", "21:00", "21:30"].map((t) => (

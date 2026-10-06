@@ -4,7 +4,7 @@ vi.mock("server-only", () => ({}));
 
 import { buildReport } from "@/lib/diagnostic/engine";
 import { sanitizeAnswers } from "@/lib/diagnostic/questions";
-import { bookingConfirmationEmail, noAccountEmail, reportReadyEmail, sendEmail, signInEmail, specialistTeamEmail } from "./email";
+import { bookingConfirmationEmail, noAccountEmail, reportReadyEmail, sendEmail, signInEmail, advisorTeamEmail } from "./email";
 
 const { answers } = sanitizeAnswers({
   industry: "ecommerce",
@@ -58,13 +58,13 @@ describe("sign-in emails", () => {
   });
 });
 
-describe("specialist emails", () => {
+describe("advisor emails", () => {
   it("booking confirmation names the Riyadh time", () => {
     const { subject } = bookingConfirmationEmail({ name: "Sara", company: "Oud Co", slotStart: "2026-10-10T16:00:00.000Z" });
     expect(subject).toContain("19:00 (Riyadh time)");
   });
-  it("team email carries the diagnostic context for the specialist", () => {
-    const { text } = specialistTeamEmail({ kind: "question", name: "Sara", email: "s@x.co", company: "Oud Co", message: "Hi", report });
+  it("team email carries the diagnostic context for the advisor", () => {
+    const { text } = advisorTeamEmail({ kind: "question", name: "Sara", email: "s@x.co", company: "Oud Co", message: "Hi", report });
     expect(text).toContain(`Growth Score: ${report.overallScore}/100`);
     expect(text).toContain("Perfumes and oud");
   });

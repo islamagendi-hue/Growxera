@@ -90,7 +90,7 @@ export const profileSchema = z.object({
 
 const contactFields = z.object({ name, email, company });
 
-export const specialistQuestionSchema = z.object({
+export const advisorQuestionSchema = z.object({
   diagnosticSessionId: z.string().uuid().optional(),
   topic: z.enum(["report", "results", "recommendations", "work_together", "other"]),
   message: z.string().trim().min(5, "Tell us a little more.").max(2000),
@@ -111,6 +111,7 @@ export const bookingSchema = z.object({
 /** Summary of an uploaded file. The raw file is never sent. */
 export const uploadSummarySchema = z
   .object({
+    kind: z.enum(["orders", "metrics"]).optional(),
     fileName: z.string().max(120),
     rows: z.number().int().min(0).max(1_000_000),
     validRows: z.number().int().min(0).max(1_000_000),
@@ -118,6 +119,6 @@ export const uploadSummarySchema = z
     to: z.string().max(10),
     monthsUsed: z.number().int().min(0).max(240),
     columns: z.object({ date: z.string().max(80), amount: z.string().max(80), customer: z.string().max(80).optional() }),
-    applied: z.array(z.string().max(40)).max(10),
+    applied: z.array(z.string().max(40)).max(20),
   })
   .strip();

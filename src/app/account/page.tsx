@@ -65,11 +65,11 @@ export default async function AccountHome() {
             <p className="mt-2 text-h3 font-semibold">{DIMENSION_LABELS[latest.bottleneck as Dimension] ?? latest.bottleneck}</p>
             <p className="mt-2 text-sm text-ink-2">Your current primary bottleneck.</p>
             <div className="mt-6 flex flex-col gap-2 text-sm">
-              <Link href={`/specialist?report=${latest.id}#book`} className="font-medium text-accent underline underline-offset-4">
+              <Link href={`/advisor?report=${latest.id}#book`} className="font-medium text-accent underline underline-offset-4">
                 Book a Free 30-Minute Review
               </Link>
-              <Link href={`/specialist?report=${latest.id}#ask`} className="underline underline-offset-4">
-                Ask a specialist a question
+              <Link href={`/advisor?report=${latest.id}#ask`} className="underline underline-offset-4">
+                Ask an advisor a question
               </Link>
             </div>
           </div>

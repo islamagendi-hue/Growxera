@@ -14,15 +14,31 @@
 export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 export const MAX_ROWS = 200_000;
 
-export interface UploadMetrics {
-  monthlyRevenue?: number;
-  monthlyOrders?: number;
-  aov?: number;
-  monthlyNewCustomers?: number;
-  repeatRate?: number;
-}
+/** Diagnostic answers a file can fill in, by question id. */
+export const UPLOAD_METRICS = [
+  "monthlyRevenue",
+  "monthlyOrders",
+  "monthlyNewCustomers",
+  "aov",
+  "dealSize",
+  "arpa",
+  "grossMargin",
+  "marketingSpend",
+  "paidSpend",
+  "cac",
+  "ltv",
+  "monthlyTraffic",
+  "monthlyLeads",
+  "conversionRate",
+  "repeatRate",
+  "monthlyChurn",
+] as const;
+export type UploadMetric = (typeof UPLOAD_METRICS)[number];
+export type UploadMetrics = Partial<Record<UploadMetric, number>>;
 
 export interface UploadSummary {
+  /** "orders": one row per order; "metrics": a sheet of monthly or summary figures. */
+  kind: "orders" | "metrics";
   fileName: string;
   rows: number;
   validRows: number;
@@ -115,6 +131,11 @@ export function parseAmount(raw: string): number | undefined {
 /** Parses ISO dates, "dd/mm/yyyy", "dd-mm-yyyy" and "yyyy/mm/dd". Returns "YYYY-MM-DD" or undefined. */
 export function parseDate(raw: string, dayFirst = true): string | undefined {
   const s = raw.trim();
+  // Excel stores dates as days since 1899-12-30.
+  if (/^\d{5}(\.\d+)?$/.test(s)) {
+    const d = new Date(Date.UTC(1899, 11, 30) + Math.floor(Number(s)) * 86_400_000);
+    return valid(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate());
+  }
   let m = s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
   if (m) return valid(+m[1], +m[2], +m[3]);
   m = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})/);
@@ -148,7 +169,10 @@ function detectDayFirst(values: string[]): boolean {
 }
 
 export function analyseOrders(fileName: string, text: string): UploadResult {
-  const rows = parseCsv(text);
+  return analyseOrderRows(fileName, parseCsv(text));
+}
+
+function analyseOrderRows(fileName: string, rows: string[][]): UploadResult {
   if (rows.length < 2) return { ok: false, error: "We couldn't find any rows in this file. Export your orders as CSV with a header row and try again." };
   const header = rows[0];
   const iDate = findColumn(header, "date");
@@ -220,7 +244,7 @@ export function analyseOrders(fileName: string, text: string): UploadResult {
     monthlyRevenue: Math.round(avg("revenue")),
     monthlyOrders: Math.round(avg("orders")),
   };
-  metrics.aov = Math.round((metrics.monthlyRevenue! / Math.max(1, metrics.monthlyOrders!)) * 100) / 100;
+  metrics.aov = Math.round((avg("revenue") / Math.max(1, avg("orders"))) * 100) / 100;
 
   const withCustomer = orders.filter((o) => o.customer);
   if (iCustomer !== -1 && withCustomer.length / orders.length >= 0.8) {
@@ -248,6 +272,7 @@ export function analyseOrders(fileName: string, text: string): UploadResult {
   return {
     ok: true,
     summary: {
+      kind: "orders",
       fileName: fileName.slice(0, 120),
       rows: body.length,
       validRows: orders.length,
@@ -259,4 +284,226 @@ export function analyseOrders(fileName: string, text: string): UploadResult {
     metrics,
     warnings,
   };
+}
+
+// ── Metrics sheets ─────────────────────────────────────────────────────────
+
+/** Header or row labels that name each metric (English and Arabic). Longest match wins. */
+const METRIC_NAMES: Record<UploadMetric, string[]> = {
+  monthlyRevenue: ["revenue", "monthly revenue", "sales", "total sales", "net sales", "gross sales", "turnover", "الإيرادات", "الايرادات", "المبيعات", "إجمالي المبيعات"],
+  monthlyOrders: ["orders", "number of orders", "order count", "transactions", "الطلبات", "عدد الطلبات"],
+  monthlyNewCustomers: ["new customers", "new clients", "new buyers", "first-time customers", "customers acquired", "عملاء جدد", "العملاء الجدد"],
+  aov: ["aov", "average order value", "avg order value", "basket size", "average basket", "متوسط قيمة الطلب", "متوسط السلة"],
+  dealSize: ["deal size", "average deal size", "average deal value", "متوسط قيمة الصفقة"],
+  arpa: ["arpa", "arpu", "average revenue per account", "average revenue per user", "mrr per customer"],
+  grossMargin: ["gross margin", "margin", "gross margin %", "هامش الربح", "الهامش"],
+  marketingSpend: ["marketing spend", "marketing budget", "marketing cost", "marketing", "الإنفاق التسويقي", "ميزانية التسويق", "التسويق"],
+  paidSpend: ["ad spend", "ads spend", "paid ads", "advertising", "paid media", "media spend", "الإعلانات", "الإنفاق الإعلاني"],
+  cac: ["cac", "customer acquisition cost", "cost per acquisition", "cpa", "تكلفة الاستحواذ", "تكلفة اكتساب العميل"],
+  ltv: ["ltv", "clv", "lifetime value", "customer lifetime value", "القيمة الدائمة للعميل"],
+  monthlyTraffic: ["visitors", "sessions", "traffic", "website visits", "visits", "users", "الزيارات", "الزوار"],
+  monthlyLeads: ["leads", "enquiries", "inquiries", "new leads", "العملاء المحتملين", "الاستفسارات"],
+  conversionRate: ["conversion rate", "conversion", "cr", "cvr", "معدل التحويل"],
+  repeatRate: ["repeat rate", "repeat purchase rate", "returning customers %", "returning customer rate", "معدل تكرار الشراء"],
+  monthlyChurn: ["churn", "churn rate", "monthly churn", "معدل الإلغاء", "معدل التسرب"],
+};
+const PERCENT_METRICS = new Set<UploadMetric>(["grossMargin", "conversionRate", "repeatRate", "monthlyChurn"]);
+
+function metricFor(label: string): UploadMetric | undefined {
+  const l = norm(label).replace(/[()%:]/g, " ").replace(/\s+/g, " ").trim();
+  if (!l) return undefined;
+  let best: { id: UploadMetric; len: number } | undefined;
+  for (const id of UPLOAD_METRICS) {
+    for (const name of METRIC_NAMES[id]) {
+      const n = name.replace(/[()%:]/g, " ").replace(/\s+/g, " ").trim();
+      const hit = l === n || (n.length > 3 && (l.startsWith(`${n} `) || l.endsWith(` ${n}`) || l.includes(` ${n} `)));
+      if (hit && (!best || n.length > best.len)) best = { id, len: n.length };
+    }
+  }
+  return best?.id;
+}
+
+/** Percent metrics written as fractions (0.025) become percentages (2.5). */
+function normalise(id: UploadMetric, value: number, raw: string): number {
+  if (PERCENT_METRICS.has(id) && !raw.includes("%") && value > 0 && value <= 1) return Math.round(value * 10000) / 100;
+  return value;
+}
+
+/** Average of the last three values (the most recent months, when rows run oldest → newest). */
+const recentAverage = (values: number[]) => {
+  const last = values.slice(-3);
+  return last.reduce((a, b) => a + b, 0) / last.length;
+};
+
+const round = (id: UploadMetric, v: number) => (PERCENT_METRICS.has(id) || id === "aov" ? Math.round(v * 100) / 100 : Math.round(v));
+
+/**
+ * Reads a sheet of figures in either layout:
+ *   columns: "Month | Revenue | Orders | New customers" with one row per month, or
+ *   rows:    "Revenue | 450,000" (optionally one column per month).
+ */
+export function analyseMetricRows(fileName: string, rows: string[][]): UploadResult {
+  const found = new Map<UploadMetric, { values: number[]; label: string }>();
+
+  // Layout 1: metric names across the first row that has any.
+  const headerIndex = rows.slice(0, 10).findIndex((r) => r.filter((c) => metricFor(c)).length >= 1 && r.some((c) => parseAmount(c) === undefined));
+  if (headerIndex !== -1) {
+    const header = rows[headerIndex];
+    header.forEach((h, col) => {
+      const id = metricFor(h);
+      if (!id || found.has(id)) return;
+      const values: number[] = [];
+      for (const r of rows.slice(headerIndex + 1)) {
+        const v = parseAmount(r[col] ?? "");
+        if (v !== undefined && v >= 0) values.push(normalise(id, v, `${h} ${r[col]}`));
+      }
+      if (values.length) found.set(id, { values, label: h.trim() });
+    });
+  }
+  // Layout 2: metric names down the first column.
+  for (const r of rows) {
+    const id = metricFor(r[0] ?? "");
+    if (!id || found.has(id)) continue;
+    const values = r
+      .slice(1)
+      .map((c) => ({ c, v: parseAmount(c) }))
+      .filter((x): x is { c: string; v: number } => x.v !== undefined && x.v >= 0)
+      .map((x) => normalise(id, x.v, `${r[0]} ${x.c}`));
+    if (values.length) found.set(id, { values, label: r[0].trim() });
+  }
+
+  if (!found.size) {
+    return {
+      ok: false,
+      error:
+        "We couldn't find figures we recognise in this file. Use an orders export (one row per order with a date and an amount), or a sheet with columns such as Revenue, Orders, New customers, Marketing spend or Visitors.",
+    };
+  }
+  const metrics: UploadMetrics = {};
+  const warnings: string[] = [];
+  let months = 1;
+  for (const [id, { values }] of found) {
+    metrics[id] = round(id, recentAverage(values));
+    months = Math.max(months, Math.min(3, values.length));
+  }
+  if (months > 1) warnings.push(`Where the file has several months, we used the average of the last ${months}.`);
+  if (metrics.monthlyRevenue && metrics.monthlyOrders && metrics.aov === undefined) {
+    metrics.aov = Math.round((metrics.monthlyRevenue / Math.max(1, metrics.monthlyOrders)) * 100) / 100;
+  }
+  return {
+    ok: true,
+    summary: {
+      kind: "metrics",
+      fileName: fileName.slice(0, 120),
+      rows: rows.length,
+      validRows: found.size,
+      from: "",
+      to: "",
+      monthsUsed: months,
+      columns: { date: "", amount: [...found.values()].map((f) => f.label).join(", ").slice(0, 80) },
+    },
+    metrics,
+    warnings,
+  };
+}
+
+/** Orders export or metrics sheet: picks the right reader. */
+export function analyseRows(fileName: string, rows: string[][]): UploadResult {
+  if (rows.length < 1) return { ok: false, error: "This file is empty." };
+  const header = rows[0] ?? [];
+  const looksLikeOrders = rows.length > 10 && findColumn(header, "date") !== -1 && findColumn(header, "amount") !== -1;
+  if (looksLikeOrders) {
+    const orders = analyseOrderRows(fileName, rows);
+    if (orders.ok) return orders;
+  }
+  return analyseMetricRows(fileName, rows);
+}
+
+// ── Excel (.xlsx) ───────────────────────────────────────────────────────────
+
+/** Unzips one entry of an .xlsx (a zip) with the platform's DecompressionStream. */
+async function unzipEntries(bytes: Uint8Array, wanted: (name: string) => boolean): Promise<Map<string, string>> {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  let eocd = -1;
+  for (let i = bytes.length - 22; i >= Math.max(0, bytes.length - 65_557); i--) {
+    if (view.getUint32(i, true) === 0x06054b50) {
+      eocd = i;
+      break;
+    }
+  }
+  if (eocd === -1) throw new Error("not a zip");
+  const count = view.getUint16(eocd + 10, true);
+  let ptr = view.getUint32(eocd + 16, true);
+  const out = new Map<string, string>();
+  const decoder = new TextDecoder();
+  for (let n = 0; n < count; n++) {
+    if (view.getUint32(ptr, true) !== 0x02014b50) break;
+    const method = view.getUint16(ptr + 10, true);
+    const size = view.getUint32(ptr + 20, true);
+    const nameLen = view.getUint16(ptr + 28, true);
+    const extraLen = view.getUint16(ptr + 30, true);
+    const commentLen = view.getUint16(ptr + 32, true);
+    const local = view.getUint32(ptr + 42, true);
+    const name = decoder.decode(bytes.subarray(ptr + 46, ptr + 46 + nameLen));
+    ptr += 46 + nameLen + extraLen + commentLen;
+    if (!wanted(name)) continue;
+    const dataStart = local + 30 + view.getUint16(local + 26, true) + view.getUint16(local + 28, true);
+    const data = bytes.subarray(dataStart, dataStart + size);
+    if (method === 0) out.set(name, decoder.decode(data));
+    else if (method === 8) {
+      const stream = new Blob([data as BlobPart]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+      out.set(name, await new Response(stream).text());
+    }
+  }
+  return out;
+}
+
+const xmlText = (s: string) =>
+  s.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&#(\d+);/g, (_, d) => String.fromCharCode(+d)).replace(/&amp;/g, "&");
+
+const colIndex = (ref: string) => [...ref.replace(/\d+/g, "")].reduce((n, ch) => n * 26 + ch.charCodeAt(0) - 64, 0) - 1;
+
+/** Reads the first worksheet of an .xlsx file into rows of cell text. */
+export async function readXlsx(bytes: Uint8Array): Promise<string[][]> {
+  const files = await unzipEntries(bytes, (n) => n === "xl/sharedStrings.xml" || n === "xl/workbook.xml" || n === "xl/_rels/workbook.xml.rels" || /^xl\/worksheets\/sheet\d+\.xml$/.test(n));
+  const shared = [...(files.get("xl/sharedStrings.xml") ?? "").matchAll(/<si>([\s\S]*?)<\/si>/g)].map((m) =>
+    xmlText([...m[1].matchAll(/<t[^>]*>([\s\S]*?)<\/t>/g)].map((t) => t[1]).join("")),
+  );
+  // The first sheet in workbook order.
+  const firstId = files.get("xl/workbook.xml")?.match(/<sheet\b[^>]*r:id="([^"]+)"/)?.[1];
+  const target = firstId && files.get("xl/_rels/workbook.xml.rels")?.match(new RegExp(`Id="${firstId}"[^>]*Target="([^"]+)"`))?.[1];
+  const sheetName = target ? `xl/${target.replace(/^\/?xl\//, "")}` : [...files.keys()].filter((k) => k.startsWith("xl/worksheets/")).sort()[0];
+  const sheet = (sheetName && files.get(sheetName)) || "";
+  const rows: string[][] = [];
+  for (const r of sheet.matchAll(/<row\b[^>]*>([\s\S]*?)<\/row>/g)) {
+    const row: string[] = [];
+    for (const c of r[1].matchAll(/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)) {
+      const attrs = c[1];
+      const ref = attrs.match(/r="([A-Z]+\d+)"/)?.[1];
+      const type = attrs.match(/t="(\w+)"/)?.[1];
+      const inner = c[2] ?? "";
+      const v = inner.match(/<v>([\s\S]*?)<\/v>/)?.[1];
+      let text = "";
+      if (type === "s" && v !== undefined) text = shared[+v] ?? "";
+      else if (type === "inlineStr") text = xmlText([...inner.matchAll(/<t[^>]*>([\s\S]*?)<\/t>/g)].map((t) => t[1]).join(""));
+      else if (v !== undefined) text = xmlText(v);
+      const i = ref ? colIndex(ref) : row.length;
+      while (row.length < i) row.push("");
+      row[i] = text;
+    }
+    if (row.some((x) => x.trim() !== "")) rows.push(row);
+    if (rows.length > MAX_ROWS + 1) break;
+  }
+  return rows;
+}
+
+/** Reads a CSV, TSV or Excel file and analyses it. Runs in the browser. */
+export async function analyseFile(name: string, bytes: Uint8Array): Promise<UploadResult> {
+  try {
+    const isXlsx = /\.xlsx$/i.test(name) || (bytes[0] === 0x50 && bytes[1] === 0x4b);
+    const rows = isXlsx ? await readXlsx(bytes) : parseCsv(new TextDecoder().decode(bytes));
+    return analyseRows(name, rows);
+  } catch {
+    return { ok: false, error: "We couldn't read this file. Save it as .xlsx or .csv and try again." };
+  }
 }

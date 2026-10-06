@@ -1,4 +1,4 @@
-import { openSlots } from "@/lib/server/specialist";
+import { openSlots } from "@/lib/server/advisor";
 
 export const dynamic = "force-dynamic";
 

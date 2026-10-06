@@ -2,7 +2,7 @@
 export const FAQ: { q: string; a: string }[] = [
   {
     q: "Is the Growth Diagnostic really free?",
-    a: "Yes. The diagnostic, your report, your account and the 30-minute review with a specialist are all free, with no card and no commitment. If you later want help putting the plan into action, we'll propose that separately.",
+    a: "Yes. The diagnostic, your report, your account and the 30-minute review with an advisor are all free, with no card and no commitment. If you later want help putting the plan into action, we'll propose that separately.",
   },
   {
     q: "How long does it take, and what if I don't know a number?",
@@ -14,10 +14,10 @@ export const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "How accurate is the result?",
-    a: "It's a preliminary diagnosis built from your own answers, compared with Growx Era's working benchmark ranges for your type of business. The more metrics you provide, the higher the data confidence. It points to where to look first; a specialist can validate it with you.",
+    a: "It's a preliminary diagnosis built from your own answers, compared with Growx Era's working benchmark ranges for your type of business. The more metrics you provide, the higher the data confidence. It points to where to look first; an advisor can validate it with you.",
   },
   {
     q: "What happens after I get my report?",
-    a: "Your report is saved to your account, with up to ten ranked recommendations. You can ask a specialist a question or book a free 30-minute review to plan the first moves. Run the diagnostic again next month and we'll show you exactly what changed.",
+    a: "Your report is saved to your account, with up to ten ranked recommendations. You can ask an advisor a question or book a free 30-minute review to plan the first moves. Run the diagnostic again next month and we'll show you exactly what changed.",
   },
 ];

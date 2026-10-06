@@ -1,7 +1,7 @@
 import { currentAccount } from "@/lib/server/auth";
 import { clientKey, rateLimit } from "@/lib/server/rate-limit";
 import { bookingSchema } from "@/lib/server/schemas";
-import { bookReview } from "@/lib/server/specialist";
+import { bookReview } from "@/lib/server/advisor";
 
 /** Books a free 30-minute review in an open slot. */
 export async function POST(req: Request) {

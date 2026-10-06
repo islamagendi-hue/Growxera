@@ -1,14 +1,14 @@
 import "server-only";
 /**
- * Specialist questions and free 30-minute review bookings. Both are qualified
- * leads: they carry the person's diagnostic so the specialist can read the
+ * Advisor questions and free 30-minute review bookings. Both are qualified
+ * leads: they carry the person's diagnostic so the advisor can read the
  * report before replying or calling.
  */
 import { SITE } from "@/config/site";
 import { availableSlots, isBookable, SLOT_MINUTES, BOOKING_TIMEZONE } from "@/lib/booking/slots";
 import type { DiagnosticReport } from "@/lib/diagnostic/types";
 import type { Account } from "./auth";
-import { bookingConfirmationEmail, questionReceivedEmail, reportUrl, sendEmail, specialistInbox, specialistTeamEmail } from "./email";
+import { bookingConfirmationEmail, questionReceivedEmail, reportUrl, sendEmail, advisorInbox, advisorTeamEmail } from "./email";
 import { eq, gt, inList, insert, select, selectOne, StoreError } from "./store";
 
 export interface Contact {
@@ -46,7 +46,7 @@ const TOPICS: Record<string, string> = {
   other: "Something else",
 };
 
-export async function askSpecialist(input: {
+export async function askAdvisor(input: {
   account: Account | null;
   contact?: Contact;
   diagnosticSessionId?: string;
@@ -56,7 +56,7 @@ export async function askSpecialist(input: {
   const who = contactFor(input.account, input.contact);
   if (!who) return { ok: false, error: "Please add your name, email and company." };
   const diag = await loadDiagnostic(input.diagnosticSessionId, input.account);
-  await insert("specialist_requests", {
+  await insert("advisor_requests", {
     kind: "question",
     status: "new",
     account_id: input.account?.id ?? null,
@@ -69,9 +69,9 @@ export async function askSpecialist(input: {
   });
   await Promise.all([
     sendEmail(
-      specialistInbox(),
-      specialistTeamEmail({ kind: "question", ...who, topic: TOPICS[input.topic], message: input.message, report: diag?.report, reportLink: diag?.lead_id ? reportUrl(diag.lead_id) : null }),
-      { replyTo: who.email, tag: "specialist-question" },
+      advisorInbox(),
+      advisorTeamEmail({ kind: "question", ...who, topic: TOPICS[input.topic], message: input.message, report: diag?.report, reportLink: diag?.lead_id ? reportUrl(diag.lead_id) : null }),
+      { replyTo: who.email, tag: "advisor-question" },
     ),
     sendEmail(who.email, questionReceivedEmail(who.name, input.message), { tag: "question-received" }),
   ]);
@@ -81,7 +81,7 @@ export async function askSpecialist(input: {
 /** Start times already booked from now on. */
 export async function takenSlots(now = new Date()): Promise<string[]> {
   const rows = await select<{ slot_start: string }>(
-    "specialist_requests",
+    "advisor_requests",
     [eq("kind", "consultation"), inList("status", ["new", "confirmed"]), gt("slot_start", now.toISOString())],
     { columns: "slot_start" },
   );
@@ -112,7 +112,7 @@ export async function bookReview(input: {
   }
   const diag = await loadDiagnostic(input.diagnosticSessionId, input.account);
   try {
-    await insert("specialist_requests", {
+    await insert("advisor_requests", {
       kind: "consultation",
       status: "new",
       account_id: input.account?.id ?? null,
@@ -142,9 +142,9 @@ export async function bookReview(input: {
       ? sendEmail(who.email, bookingConfirmationEmail(details, true), { scheduledAt: reminderAt.toISOString(), tag: "booking-reminder" })
       : Promise.resolve(false),
     sendEmail(
-      specialistInbox(),
-      specialistTeamEmail({ kind: "consultation", ...who, message: input.message, slotStart: start, report: diag?.report, reportLink: diag?.lead_id ? reportUrl(diag.lead_id) : null }),
-      { replyTo: who.email, tag: "specialist-booking" },
+      advisorInbox(),
+      advisorTeamEmail({ kind: "consultation", ...who, message: input.message, slotStart: start, report: diag?.report, reportLink: diag?.lead_id ? reportUrl(diag.lead_id) : null }),
+      { replyTo: who.email, tag: "advisor-booking" },
     ),
   ]);
   return { ok: true, slotStart: start };

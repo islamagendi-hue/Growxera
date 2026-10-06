@@ -21,6 +21,7 @@ interface Saved {
   preview?: ReportPreview;
   report?: DiagnosticReport;
   savedToAccount?: boolean;
+  upload?: AppliedUpload["summary"];
 }
 
 interface Page {
@@ -80,6 +81,7 @@ export function DiagnosticApp() {
   const [preview, setPreview] = useState<ReportPreview>();
   const [report, setReport] = useState<DiagnosticReport>();
   const [savedToAccount, setSavedToAccount] = useState(false);
+  const [upload, setUpload] = useState<AppliedUpload["summary"]>();
   const topRef = useRef<HTMLDivElement>(null);
   const abandonSent = useRef(false);
 
@@ -91,11 +93,12 @@ export function DiagnosticApp() {
     if (saved) {
       setAnswers(saved.answers ?? {});
       setPage(saved.page ?? 0);
-      setPhase(saved.phase === "submitting" ? "upload" : saved.phase);
+      setPhase(saved.phase === "submitting" ? "questions" : saved.phase);
       setSessionId(saved.sessionId);
       setPreview(saved.preview);
       setReport(saved.report);
       setSavedToAccount(!!saved.savedToAccount);
+      setUpload(saved.upload);
     }
     setHydrated(true);
     /* eslint-enable react-hooks/set-state-in-effect */
@@ -104,11 +107,11 @@ export function DiagnosticApp() {
   useEffect(() => {
     if (!hydrated) return;
     try {
-      sessionStorage.setItem(STORE_KEY, JSON.stringify({ answers, page, phase, sessionId, preview, report, savedToAccount } satisfies Saved));
+      sessionStorage.setItem(STORE_KEY, JSON.stringify({ answers, page, phase, sessionId, preview, report, savedToAccount, upload } satisfies Saved));
     } catch {
       /* ignore */
     }
-  }, [hydrated, answers, page, phase, sessionId, preview, report, savedToAccount]);
+  }, [hydrated, answers, page, phase, sessionId, preview, report, savedToAccount, upload]);
 
   const pages = useMemo(() => pagesFor(answers), [answers]);
   const current = pages[Math.min(page, pages.length - 1)];
@@ -159,7 +162,7 @@ export function DiagnosticApp() {
     scrollTop();
   }
 
-  async function submit(final: Answers, upload?: AppliedUpload["summary"]) {
+  async function submit(final: Answers) {
     setPhase("submitting");
     setSubmitError(null);
     track("diagnostic_completed", { business_model: String(final.businessModel ?? "") });
@@ -178,7 +181,7 @@ export function DiagnosticApp() {
           setPage(Math.max(0, idx));
         }
         setSubmitError(data.error ?? "We couldn't generate your result. Please try again.");
-        setPhase(data.fields ? "questions" : "upload");
+        setPhase("questions");
         return;
       }
       setSessionId(data.sessionId);
@@ -195,12 +198,12 @@ export function DiagnosticApp() {
       scrollTop();
     } catch {
       setSubmitError("We couldn't reach the server. Check your connection and try again.");
-      setPhase("upload");
+      setPhase("questions");
     }
   }
 
   function next() {
-    if (!current) return;
+    if (!current || phase === "submitting") return;
     const errs: Record<string, string> = {};
     for (const id of current.ids) {
       const err = validateAnswer(QUESTION_MAP[id], answers[id], answers);
@@ -218,7 +221,11 @@ export function DiagnosticApp() {
       track("diagnostic_step_completed", { step: STEPS[current.step].id });
     }
     if (!nextPage) {
-      // Optional last step: strengthen the diagnosis with an orders export.
+      void submit(answers);
+      return;
+    }
+    if (page === 0) {
+      // Optional: fill the numbers in from a file, once the business model is known.
       setPhase("upload");
       scrollTop();
       return;
@@ -241,6 +248,7 @@ export function DiagnosticApp() {
     setPreview(undefined);
     setReport(undefined);
     setSavedToAccount(false);
+    setUpload(undefined);
     setPhase("intro");
     scrollTop();
   }
@@ -265,40 +273,38 @@ export function DiagnosticApp() {
 
   if (phase === "intro") return <Intro onStart={start} resume={Object.keys(answers).length > 0 ? () => setPhase("questions") : undefined} topRef={topRef} />;
 
-  if (phase === "upload" || phase === "submitting") {
+  if (phase === "upload") {
     return (
       <div ref={topRef} className="mx-auto max-w-3xl scroll-mt-24 px-4 pb-24 pt-8 sm:px-6 sm:pt-12">
-        <Progress current={STEPS.length - 1} fraction={1} />
+        <Progress current={0} fraction={1} />
         <div className="animate-rise mt-10 sm:mt-14">
-          <p className="eyebrow">Optional · Your data</p>
+          <p className="eyebrow">Optional · Your numbers</p>
           <h1 className="mt-3 text-[clamp(1.75rem,4vw,2.5rem)] font-semibold leading-tight tracking-[-0.02em]">
-            Strengthen your diagnosis with real numbers
+            Have your numbers in a file?
           </h1>
           <p className="mt-2 text-ink-2">
-            Upload an orders export and we&apos;ll calculate revenue, orders, new customers and repeat rate from it. You can
-            review every figure before it&apos;s used, or skip this step.
+            Upload an Excel or CSV file and we&apos;ll fill in the figures for you, then base the diagnosis on them. You
+            review every figure before it&apos;s used, and can change any answer afterwards. Or skip this and answer the
+            questions yourself.
           </p>
-          {submitError && (
-            <p role="alert" className="mt-6 border-l-2 border-alert bg-alert-soft px-4 py-3 text-sm">
-              {submitError}
-            </p>
-          )}
           <DataUpload
             answers={answers}
             currency={currency}
-            busy={phase === "submitting"}
             onBack={() => {
-              setSubmitError(null);
               setPhase("questions");
               scrollTop();
             }}
             onContinue={(applied) => {
-              let final = answers;
               if (applied) {
+                let final = answers;
                 for (const [k, v] of Object.entries(applied.metrics)) if (typeof v === "number") final = applyAnswer(final, k, v);
                 setAnswers(final);
+                setUpload(applied.summary);
+                track("diagnostic_upload_applied", { kind: applied.summary.kind, metrics: applied.summary.applied.length });
               }
-              void submit(final, applied?.summary);
+              setPhase("questions");
+              setPage(1);
+              scrollTop();
             }}
           />
         </div>
@@ -356,10 +362,11 @@ export function DiagnosticApp() {
             </button>
             <button
               type="submit"
+              disabled={phase === "submitting"}
               className="inline-flex min-h-12 flex-1 items-center justify-center gap-2 bg-ink px-6 font-medium text-paper transition-colors hover:bg-accent-ink disabled:opacity-60 sm:flex-none sm:min-w-48"
             >
-              {isLast ? "Continue to the last step" : "Continue"}
-              <span aria-hidden>→</span>
+              {phase === "submitting" ? "Calculating your score…" : isLast ? "See my results" : "Continue"}
+              {phase !== "submitting" && <span aria-hidden>→</span>}
             </button>
           </div>
         </form>
@@ -397,6 +404,7 @@ function Intro({ onStart, resume, topRef }: { onStart: () => void; resume?: () =
         {[
           ["About 8 minutes", "Six short sections. Progress is saved in this browser tab."],
           ["No guessing", "Every metric has an “I don't know” option. We never invent numbers."],
+          ["Bring your numbers", "Optionally upload an Excel or CSV file and we fill in the figures from it."],
           ["Adapted to you", "Questions change with your business model."],
           ["Private", "Your answers are used to produce your result. Contact details are optional until you want the full report."],
         ].map(([t, d]) => (

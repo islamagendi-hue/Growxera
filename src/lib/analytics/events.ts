@@ -14,8 +14,9 @@ export const ANALYTICS_EVENTS = [
   "booking_started",
   "diagnostic_upload_read",
   "diagnostic_upload_failed",
+  "diagnostic_upload_applied",
   "sign_in_requested",
-  "specialist_question_sent",
+  "advisor_question_sent",
   "consultation_booked",
   "progress_compared",
 ] as const;

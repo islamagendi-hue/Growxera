@@ -15,7 +15,7 @@ export default async function SignupPage({ searchParams }: PageProps<"/signup">)
     <AuthShell
       eyebrow="Your account"
       title="Create your free account"
-      intro={<p>Keep every Growth Diagnostic in one place, see how your business changes over time, and talk to a specialist with your report in hand.</p>}
+      intro={<p>Keep every Growth Diagnostic in one place, see how your business changes over time, and talk to an advisor with your report in hand.</p>}
       aside={
         <ul className="space-y-3 text-sm">
           {["Every report saved, never overwritten", "Progress compared month to month", "No password: a secure link by email"].map((t) => (

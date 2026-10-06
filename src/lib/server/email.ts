@@ -3,7 +3,7 @@ import "server-only";
  * Transactional email via Resend (https://resend.com). Configure on the server only:
  *   RESEND_API_KEY      — API key from Resend
  *   REPORT_FROM_EMAIL   — verified sender, e.g. "Growx Era <hello@growxera.com>"
- *   SPECIALIST_EMAIL    — optional; where specialist questions and bookings are sent
+ *   ADVISOR_EMAIL    — optional; where advisor questions and bookings are sent
  *                         (defaults to NEXT_PUBLIC_CONTACT_EMAIL)
  *
  * Without RESEND_API_KEY nothing is sent. In development, messages are written to
@@ -109,7 +109,7 @@ ${LABEL("Primary bottleneck")}
 ${recs ? `${LABEL("Top recommendations")}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:6px 0 24px">${recs}</table>` : ""}
 ${BUTTON(url, "View report")}
 ${SMALL(`This button logs you in and opens your report. It works once and expires in ${hours} hours; after that, log in at ${esc(host())}/login with this email.`)}
-${P("<br>Want to talk it through? From your report you can ask a specialist a question or book a free 30-minute review.")}
+${P("<br>Want to talk it through? From your report you can ask an advisor a question or book a free 30-minute review.")}
 <p style="margin:0;font-size:14px;color:#3d4541;line-height:1.6">The Growx Era team</p>`,
     `You received this because you requested your Growth Diagnostic report on ${esc(host())}.`,
   );
@@ -144,8 +144,8 @@ export function bookingConfirmationEmail(b: BookingDetails, reminder = false): E
   const html = layout(
     `${HI(b.name)}${P(
       reminder
-        ? "A reminder that your free 30-minute review with a Growx Era specialist is coming up."
-        : "Your free 30-minute review with a Growx Era specialist is booked. The specialist will read your diagnostic before the call.",
+        ? "A reminder that your free 30-minute review with a Growx Era advisor is coming up."
+        : "Your free 30-minute review with a Growx Era advisor is booked. The advisor will read your diagnostic before the call.",
     )}
 ${LABEL("When")}<div style="font-size:18px;font-weight:700;color:#0e1311;margin:4px 0 20px">${esc(when)}</div>
 ${P("We'll send the call link to this email before the session. To change the time, reply to this email.")}
@@ -158,16 +158,16 @@ ${b.reportUrl ? BUTTON(b.reportUrl, "Open my report") : ""}`,
 
 export function questionReceivedEmail(name: string, question: string): Email {
   const html = layout(
-    `${HI(name)}${P("Thanks for your question. A Growx Era specialist will reply by email, usually within one working day.")}
+    `${HI(name)}${P("Thanks for your question. A Growx Era advisor will reply by email, usually within one working day.")}
 <div style="border-left:3px solid #0f6b4f;padding:4px 0 4px 14px;margin:0 0 20px;font-size:14px;color:#3d4541;line-height:1.6;white-space:pre-wrap">${esc(question)}</div>
 ${BUTTON(`${SITE.url}/account`, "Go to my account")}`,
     `You received this because you asked a question on ${esc(host())}.`,
   );
-  return { subject: "We've received your question", html, text: `Hi ${firstName(name)},\n\nThanks for your question. A specialist will reply by email, usually within one working day.\n\n"${question}"` };
+  return { subject: "We've received your question", html, text: `Hi ${firstName(name)},\n\nThanks for your question. An advisor will reply by email, usually within one working day.\n\n"${question}"` };
 }
 
-/** Internal notification to the specialist team. Plain and complete, so it can be acted on from the inbox. */
-export function specialistTeamEmail(input: {
+/** Internal notification to the advisor team. Plain and complete, so it can be acted on from the inbox. */
+export function advisorTeamEmail(input: {
   kind: "question" | "consultation";
   name: string;
   email: string;
@@ -180,7 +180,7 @@ export function specialistTeamEmail(input: {
 }): Email {
   const r = input.report;
   const lines = [
-    input.kind === "consultation" ? `New free review booked: ${input.slotStart ? formatSlot(input.slotStart) : ""}` : "New question for a specialist",
+    input.kind === "consultation" ? `New free review booked: ${input.slotStart ? formatSlot(input.slotStart) : ""}` : "New question for an advisor",
     "",
     `Name: ${input.name}`,
     `Email: ${input.email}`,
@@ -201,7 +201,7 @@ export function specialistTeamEmail(input: {
   ];
   const text = lines.join("\n");
   return {
-    subject: input.kind === "consultation" ? `Review booked: ${input.company}${input.slotStart ? `, ${formatSlot(input.slotStart)}` : ""}` : `Specialist question: ${input.company}`,
+    subject: input.kind === "consultation" ? `Review booked: ${input.company}${input.slotStart ? `, ${formatSlot(input.slotStart)}` : ""}` : `Advisor question: ${input.company}`,
     html: `<pre style="font-family:Menlo,monospace;font-size:13px;white-space:pre-wrap">${esc(text)}</pre>`,
     text,
   };
@@ -254,5 +254,5 @@ export async function sendEmail(to: string, email: Email, opts: SendOptions = {}
   }
 }
 
-/** Where specialist questions and bookings are delivered. */
-export const specialistInbox = () => process.env.SPECIALIST_EMAIL?.trim() || SITE.contactEmail || "hello@growxera.com";
+/** Where advisor questions and bookings are delivered. */
+export const advisorInbox = () => process.env.ADVISOR_EMAIL?.trim() || SITE.contactEmail || "hello@growxera.com";

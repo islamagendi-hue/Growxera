@@ -1,7 +1,7 @@
 import "server-only";
 /**
  * Persistence for diagnostics, leads, consents, analytics events, accounts,
- * sign-in links, sessions and specialist requests.
+ * sign-in links, sessions and advisor requests.
  *
  * Production: Supabase Postgres via its REST API (PostgREST), using the
  * service-role key on the server only (RLS is enabled with no public policies,
@@ -24,7 +24,7 @@ export type Table =
   | "accounts"
   | "auth_tokens"
   | "auth_sessions"
-  | "specialist_requests";
+  | "advisor_requests";
 
 type Row = Record<string, unknown>;
 

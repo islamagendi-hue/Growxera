@@ -31,11 +31,11 @@ function starter(topic: string | undefined, bottleneck: string | undefined) {
   return { topic: "results", message: "" };
 }
 
-export function SpecialistHub({ signedIn, reportId, topic, bottleneck }: { signedIn: Person | null; reportId?: string; topic?: string; bottleneck?: string }) {
+export function AdvisorHub({ signedIn, reportId, topic, bottleneck }: { signedIn: Person | null; reportId?: string; topic?: string; bottleneck?: string }) {
   return (
     <div className="mx-auto grid max-w-[1240px] gap-px border-x border-line bg-line px-0 sm:px-0 lg:grid-cols-2">
       <section id="ask" className="scroll-mt-24 bg-paper px-4 py-12 sm:px-8 sm:py-16">
-        <p className="eyebrow">Ask a specialist</p>
+        <p className="eyebrow">Ask an advisor</p>
         <h2 className="mt-3 text-h3 font-semibold">Send a question about your results</h2>
         <p className="mt-2 text-ink-2">We reply by email, usually within one working day.</p>
         <div className="mt-8">
@@ -137,7 +137,7 @@ function AskForm({ signedIn, reportId, start }: { signedIn: Person | null; repor
     if (Object.keys(errs).length) return setError("Please check the highlighted fields.");
     setState("sending");
     setError(null);
-    const res = await fetch("/api/specialist", {
+    const res = await fetch("/api/advisor", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -156,14 +156,14 @@ function AskForm({ signedIn, reportId, start }: { signedIn: Person | null; repor
       setState("idle");
       return;
     }
-    track("specialist_question_sent", { withReport: !!reportId });
+    track("advisor_question_sent", { withReport: !!reportId });
     setState("sent");
   }
 
   if (state === "sent") {
     return (
       <div role="status" className="border border-ink bg-card p-6">
-        <p className="font-medium">Your question is with a specialist.</p>
+        <p className="font-medium">Your question is with an advisor.</p>
         <p className="mt-2 text-sm text-ink-2">We&apos;ve emailed you a copy and will reply to the same address.</p>
       </div>
     );

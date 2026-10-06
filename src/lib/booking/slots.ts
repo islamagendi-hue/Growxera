@@ -10,7 +10,7 @@ export const BOOKING_TIMEZONE = "Asia/Riyadh";
 const TZ_OFFSET_MINUTES = 180;
 
 export const SLOT_MINUTES = 30;
-/** Earliest bookable slot, so a specialist can read the report first. */
+/** Earliest bookable slot, so an advisor can read the report first. */
 export const MIN_NOTICE_HOURS = 4;
 export const HORIZON_DAYS = 21;
 

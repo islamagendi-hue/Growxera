@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { SpecialistHub } from "@/components/specialist/SpecialistHub";
+import { AdvisorHub } from "@/components/advisor/AdvisorHub";
 import { DIMENSION_LABELS } from "@/lib/diagnostic/config";
 import { currentAccount } from "@/lib/server/auth";
 import { eq, selectOne } from "@/lib/server/store";
@@ -9,9 +9,9 @@ import type { DiagnosticReport } from "@/lib/diagnostic/types";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Talk to a specialist",
-  description: "Ask a Growx Era specialist about your Growth Diagnostic, or book a free 30-minute review of your report.",
-  alternates: { canonical: "/specialist" },
+  title: "Talk to an advisor",
+  description: "Ask a Growx Era advisor about your Growth Diagnostic, or book a free 30-minute review of your report.",
+  alternates: { canonical: "/advisor" },
 };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -39,7 +39,7 @@ async function loadReport(id: string | undefined, accountId: string | null) {
   }
 }
 
-export default async function SpecialistPage({ searchParams }: PageProps<"/specialist">) {
+export default async function AdvisorPage({ searchParams }: PageProps<"/advisor">) {
   const sp = await searchParams;
   const account = await currentAccount();
   const report = await loadReport(typeof sp.report === "string" ? sp.report : undefined, account?.id ?? null);
@@ -50,10 +50,10 @@ export default async function SpecialistPage({ searchParams }: PageProps<"/speci
       <section className="border-b border-line">
         <div className="mx-auto grid max-w-[1240px] gap-10 px-4 py-14 sm:px-6 sm:py-20 lg:grid-cols-12 lg:px-10">
           <div className="lg:col-span-7">
-            <p className="eyebrow">Step 3 · Talk to a specialist</p>
-            <h1 className="mt-4 text-h2 font-semibold sm:text-[clamp(2.5rem,5vw,3.75rem)]">Talk to a real growth specialist.</h1>
+            <p className="eyebrow">Step 3 · Talk to an advisor</p>
+            <h1 className="mt-4 text-h2 font-semibold sm:text-[clamp(2.5rem,5vw,3.75rem)]">Talk to a real growth advisor.</h1>
             <p className="mt-6 max-w-[56ch] text-lg leading-relaxed text-ink-2">
-              Not a chatbot. A Growx Era specialist reads your diagnostic first, so the conversation starts from your numbers, not
+              Not a chatbot. A Growx Era advisor reads your diagnostic first, so the conversation starts from your numbers, not
               from scratch.
             </p>
           </div>
@@ -61,7 +61,7 @@ export default async function SpecialistPage({ searchParams }: PageProps<"/speci
             {[
               ["Complete the diagnostic", "Your score, bottleneck and recommendations."],
               ["View your results", "Saved in your account."],
-              ["Ask a specialist", "A written reply by email."],
+              ["Ask an advisor", "A written reply by email."],
               ["Book a free 30-minute review", "A call to plan your first moves."],
             ].map(([t, d], i) => (
               <li key={t} className="flex gap-4 bg-paper p-4">
@@ -79,7 +79,7 @@ export default async function SpecialistPage({ searchParams }: PageProps<"/speci
       {report ? (
         <div className="border-b border-line bg-accent-soft">
           <p className="mx-auto max-w-[1240px] px-4 py-4 text-sm sm:px-6 lg:px-10">
-            We&apos;ll share your diagnostic with the specialist: score <strong>{report.score}/100</strong>, bottleneck{" "}
+            We&apos;ll share your diagnostic with the advisor: score <strong>{report.score}/100</strong>, bottleneck{" "}
             <strong>{report.bottleneck}</strong>
             {report.context ? ` · ${report.context}` : ""}.
           </p>
@@ -95,7 +95,7 @@ export default async function SpecialistPage({ searchParams }: PageProps<"/speci
               <>
                 {" "}
                 or{" "}
-                <Link href="/login?next=/specialist" className="font-medium text-ink underline underline-offset-4">
+                <Link href="/login?next=/advisor" className="font-medium text-ink underline underline-offset-4">
                   log in
                 </Link>{" "}
                 to attach a saved report
@@ -106,7 +106,7 @@ export default async function SpecialistPage({ searchParams }: PageProps<"/speci
         </div>
       )}
 
-      <SpecialistHub
+      <AdvisorHub
         signedIn={account ? { name: account.name, email: account.email, company: account.company } : null}
         reportId={report?.id}
         topic={topic}

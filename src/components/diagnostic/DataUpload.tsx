@@ -1,32 +1,29 @@
 "use client";
 import { useRef, useState } from "react";
 import { track } from "@/lib/analytics/client";
-import { isVisible, QUESTION_MAP } from "@/lib/diagnostic/questions";
-import { analyseOrders, MAX_UPLOAD_BYTES, type UploadMetrics, type UploadSummary } from "@/lib/diagnostic/upload";
+import { isVisible, QUESTION_MAP, validateAnswer } from "@/lib/diagnostic/questions";
+import { analyseFile, MAX_UPLOAD_BYTES, UPLOAD_METRICS, type UploadMetric, type UploadMetrics, type UploadSummary } from "@/lib/diagnostic/upload";
 import type { Answers } from "@/lib/diagnostic/types";
 import { formatNumber } from "@/lib/format";
 
 export interface AppliedUpload {
-  metrics: Partial<UploadMetrics>;
+  metrics: UploadMetrics;
   summary: UploadSummary & { applied: string[] };
 }
 
-const ORDER: (keyof UploadMetrics)[] = ["monthlyRevenue", "monthlyOrders", "monthlyNewCustomers", "aov", "repeatRate"];
-
 /**
- * Optional last step: read an orders export in the browser and offer the
- * figures it yields. Nothing is applied until the visitor confirms.
+ * Optional step right after the business context: read an orders export or a
+ * sheet of figures (CSV or Excel) in the browser and offer the numbers it
+ * yields as answers. Nothing is applied until the visitor confirms.
  */
 export function DataUpload({
   answers,
   currency,
-  busy,
   onBack,
   onContinue,
 }: {
   answers: Answers;
   currency: string;
-  busy: boolean;
   onBack: () => void;
   onContinue: (applied: AppliedUpload | null) => void;
 }) {
@@ -40,12 +37,12 @@ export function DataUpload({
   async function read(file: File) {
     setError(null);
     setResult(null);
-    if (/\.(xlsx|xls|numbers)$/i.test(file.name)) {
-      setError("This looks like a spreadsheet file. Open it and save or export it as CSV (comma separated), then upload the CSV.");
+    if (/\.(xls|numbers|ods)$/i.test(file.name)) {
+      setError("This spreadsheet format can't be read in the browser. Save it as Excel (.xlsx) or CSV, then upload it again.");
       return;
     }
-    if (!/\.(csv|txt|tsv)$/i.test(file.name) && !/csv|text\/plain|tab-separated/.test(file.type)) {
-      setError("Please upload a CSV file (an orders or sales export).");
+    if (!/\.(csv|txt|tsv|xlsx)$/i.test(file.name) && !/csv|text\/plain|tab-separated|spreadsheetml/.test(file.type)) {
+      setError("Please upload an Excel (.xlsx) or CSV file.");
       return;
     }
     if (file.size === 0) {
@@ -58,37 +55,43 @@ export function DataUpload({
     }
     setReading(true);
     try {
-      const text = await file.text();
-      const res = analyseOrders(file.name, text);
+      const res = await analyseFile(file.name, new Uint8Array(await file.arrayBuffer()));
       if (!res.ok) {
         setError(res.error);
         track("diagnostic_upload_failed", {});
         return;
       }
       setResult(res);
-      setUse(Object.fromEntries(ORDER.filter((k) => res.metrics[k] !== undefined && relevant(k)).map((k) => [k, true])));
-      track("diagnostic_upload_read", { rows: res.summary.validRows, months: res.summary.monthsUsed });
+      setUse(Object.fromEntries(usable(res.metrics).map((k) => [k, true])));
+      track("diagnostic_upload_read", { kind: res.summary.kind, rows: res.summary.validRows, months: res.summary.monthsUsed });
     } catch {
-      setError("We couldn't read this file. Make sure it is a plain CSV export and try again.");
+      setError("We couldn't read this file. Save it as .xlsx or .csv and try again.");
     } finally {
       setReading(false);
     }
   }
 
-  const relevant = (k: string) => !!QUESTION_MAP[k] && isVisible(QUESTION_MAP[k], answers);
-  const shown = result ? ORDER.filter((k) => result.metrics[k] !== undefined && relevant(k)) : [];
+  // Only figures that answer a question this business sees, and that pass its checks.
+  const usable = (m: UploadMetrics) =>
+    UPLOAD_METRICS.filter((k) => {
+      const q = QUESTION_MAP[k];
+      return m[k] !== undefined && !!q && isVisible(q, answers) && !validateAnswer(q, m[k], answers);
+    });
+  const shown = result ? usable(result.metrics) : [];
+  const hasAnswers = shown.some((k) => typeof answers[k] === "number");
 
-  function display(k: keyof UploadMetrics, v: unknown) {
+  function display(k: UploadMetric, v: unknown) {
     if (typeof v !== "number") return v === "unknown" ? "I don't know" : "—";
-    if (k === "repeatRate") return `${formatNumber(v, 1)}%`;
-    if (k === "monthlyRevenue" || k === "aov") return `${currency} ${formatNumber(v, k === "aov" ? 2 : 0)}`;
+    const type = QUESTION_MAP[k]?.type;
+    if (type === "percent") return `${formatNumber(v, 1)}%`;
+    if (type === "currency") return `${currency} ${formatNumber(v, k === "aov" ? 2 : 0)}`;
     return formatNumber(v);
   }
 
   function confirm() {
     if (!result) return onContinue(null);
     const applied = shown.filter((k) => use[k]);
-    const metrics = Object.fromEntries(applied.map((k) => [k, result.metrics[k]])) as Partial<UploadMetrics>;
+    const metrics = Object.fromEntries(applied.map((k) => [k, result.metrics[k]])) as UploadMetrics;
     const s = result.summary;
     onContinue({
       metrics,
@@ -121,10 +124,11 @@ export function DataUpload({
           }}
           className={`border-2 border-dashed p-8 text-center transition-colors sm:p-12 ${dragging ? "border-accent bg-accent-soft" : "border-line-strong bg-card"}`}
         >
-          <p className="text-lg font-medium">Upload an orders or sales export (CSV)</p>
-          <p className="mx-auto mt-2 max-w-[48ch] text-sm text-ink-2">
-            One row per order with a date and an amount. A customer column (ID, email or phone) adds new-customer and repeat
-            figures. Shopify, Salla, Zid, WooCommerce and POS exports work.
+          <p className="text-lg font-medium">Upload a file with your numbers (Excel or CSV)</p>
+          <p className="mx-auto mt-2 max-w-[52ch] text-sm text-ink-2">
+            Either an orders export (one row per order with a date and an amount, from Shopify, Salla, Zid, WooCommerce or
+            your POS), or a sheet of monthly figures with columns such as Revenue, Orders, New customers, Marketing spend,
+            Visitors or Leads.
           </p>
           <button
             type="button"
@@ -132,14 +136,14 @@ export function DataUpload({
             disabled={reading}
             className="mt-6 inline-flex min-h-12 items-center justify-center border border-ink px-6 font-medium hover:bg-ink hover:text-paper disabled:opacity-60"
           >
-            {reading ? "Reading the file…" : "Choose a CSV file"}
+            {reading ? "Reading the file…" : "Choose a file"}
           </button>
           <input
             ref={input}
             type="file"
-            accept=".csv,.tsv,.txt,text/csv"
+            accept=".xlsx,.csv,.tsv,.txt,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             className="sr-only"
-            aria-label="Choose a CSV file"
+            aria-label="Choose an Excel or CSV file"
             onChange={(e) => {
               const f = e.target.files?.[0];
               if (f) void read(f);
@@ -163,8 +167,17 @@ export function DataUpload({
           <div className="border-b border-line p-5 sm:p-6">
             <p className="eyebrow">Read from {result.summary.fileName}</p>
             <p className="mt-2 text-sm text-ink-2">
-              {formatNumber(result.summary.validRows)} orders from {result.summary.from} to {result.summary.to}. Monthly figures
-              average the last {result.summary.monthsUsed} full month{result.summary.monthsUsed === 1 ? "" : "s"}.
+              {result.summary.kind === "orders" ? (
+                <>
+                  {formatNumber(result.summary.validRows)} orders from {result.summary.from} to {result.summary.to}. Monthly
+                  figures average the last {result.summary.monthsUsed} full month{result.summary.monthsUsed === 1 ? "" : "s"}.
+                </>
+              ) : (
+                <>
+                  We found {result.summary.validRows} figure{result.summary.validRows === 1 ? "" : "s"} we recognise. Tick the
+                  ones to use; the questions they answer will be filled in for you to check.
+                </>
+              )}
             </p>
             {result.warnings.length > 0 && (
               <ul className="mt-3 space-y-1 text-sm text-alert">
@@ -180,7 +193,7 @@ export function DataUpload({
                 <tr className="border-b border-line text-left text-xs uppercase tracking-[0.08em] text-ink-3">
                   <th className="p-3 pl-5 font-medium sm:pl-6">Use</th>
                   <th className="p-3 font-medium">Metric</th>
-                  <th className="hidden p-3 font-medium sm:table-cell">Your answer</th>
+                  {hasAnswers && <th className="hidden p-3 font-medium sm:table-cell">Your answer</th>}
                   <th className="p-3 pr-5 text-right font-medium sm:pr-6">From file</th>
                 </tr>
               </thead>
@@ -197,14 +210,14 @@ export function DataUpload({
                       />
                     </td>
                     <td className="p-3">{QUESTION_MAP[k].label}</td>
-                    <td className="hidden p-3 font-mono text-ink-3 sm:table-cell">{display(k, answers[k])}</td>
+                    {hasAnswers && <td className="hidden p-3 font-mono text-ink-3 sm:table-cell">{display(k, answers[k])}</td>}
                     <td className="p-3 pr-5 text-right font-mono sm:pr-6">{display(k, result.metrics[k])}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           ) : (
-            <p className="p-5 text-sm text-ink-2 sm:p-6">None of the figures in this file apply to the questions for your business type.</p>
+            <p className="p-5 text-sm text-ink-2 sm:p-6">None of the figures in this file apply to the questions for your business model.</p>
           )}
           <div className="border-t border-line p-5 sm:p-6">
             <button type="button" onClick={() => setResult(null)} className="text-sm underline underline-offset-4">
@@ -222,20 +235,18 @@ export function DataUpload({
           {result && shown.some((k) => use[k]) ? (
             <button
               type="button"
-              disabled={busy}
               onClick={confirm}
-              className="inline-flex min-h-12 items-center justify-center gap-2 bg-ink px-6 font-medium text-paper hover:bg-accent-ink disabled:opacity-60"
+              className="inline-flex min-h-12 items-center justify-center gap-2 bg-ink px-6 font-medium text-paper hover:bg-accent-ink "
             >
-              {busy ? "Calculating your score…" : "Use these figures and see results"} {!busy && <span aria-hidden>→</span>}
+              Use these figures and continue <span aria-hidden>→</span>
             </button>
           ) : (
             <button
               type="button"
-              disabled={busy}
               onClick={() => onContinue(null)}
               className="inline-flex min-h-12 items-center justify-center gap-2 bg-ink px-6 font-medium text-paper hover:bg-accent-ink disabled:opacity-60"
             >
-              {busy ? "Calculating your score…" : "Skip and see my results"} {!busy && <span aria-hidden>→</span>}
+              {result ? "Continue without these figures" : "Skip this step"} <span aria-hidden>→</span>
             </button>
           )}
         </div>
