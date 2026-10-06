@@ -8,7 +8,7 @@ The MVP is the smallest version of the site that can run the full commercial jou
 | Area | What ships |
 | --- | --- |
 | Website | Home (all sections in the brief), How we work, Services, Case studies (marked placeholders), Contact, Privacy notice, 404 |
-| Growth Diagnostic™ | 6 sections, 14 short screens, adapts to 4 business models, "I don't know" on every metric, progress saved in the tab, derived-metric suggestions (AOV, CAC, conversion) |
+| Growth Diagnostic | 6 sections, 14 short screens, adapts to 4 business models, "I don't know" on every metric, progress saved in the tab, derived-metric suggestions (AOV, CAC, conversion) |
 | Scoring engine | 7 dimensions (0–100), configurable weights and stages, dependency-aware bottleneck (Impact × Severity × Dependency), Impact × Confidence ÷ Effort opportunities, unit-tested |
 | Results | Score, stage, bottleneck explanation (hedged language), breakdown chart, strongest/weakest, data-confidence label, save as PDF |
 | Lead capture | Gate before the full report (top 3 opportunities + opportunity calculator). Name, work email, company required; phone, title, website optional. Explicit processing consent, separate optional marketing consent, honeypot, server validation |
