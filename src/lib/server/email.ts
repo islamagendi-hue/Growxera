@@ -3,8 +3,7 @@ import "server-only";
  * Transactional email via Resend (https://resend.com). Configure on the server only:
  *   RESEND_API_KEY      — API key from Resend
  *   REPORT_FROM_EMAIL   — verified sender, e.g. "Growx Era <hello@growxera.com>"
- *   ADVISOR_EMAIL    — optional; where advisor questions and bookings are sent
- *                         (defaults to NEXT_PUBLIC_CONTACT_EMAIL)
+ *                         (defaults to hello@growxera.com)
  *
  * Without RESEND_API_KEY nothing is sent. In development, messages are written to
  * .data/outbox/ instead so the sign-in flow can be tested end to end.
@@ -271,4 +270,5 @@ export async function sendEmail(to: string, email: Email, opts: SendOptions = {}
 }
 
 /** Where advisor questions and bookings are delivered. */
-export const advisorInbox = () => process.env.ADVISOR_EMAIL?.trim() || SITE.contactEmail || "hello@growxera.com";
+/** Advisor questions and bookings always go to the official inbox. */
+export const advisorInbox = () => "hello@growxera.com";

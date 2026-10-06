@@ -11,7 +11,7 @@ export const SITE = {
   ).replace(/\/$/, ""),
   /** External scheduling link (Calendly, Cal.com, HubSpot…). Falls back to /contact. */
   bookingUrl: process.env.NEXT_PUBLIC_BOOKING_URL || "",
-  contactEmail: process.env.NEXT_PUBLIC_CONTACT_EMAIL || "",
+  contactEmail: "hello@growxera.com",
   /** wa.me number in international format without "+", e.g. 9665XXXXXXXX. */
   whatsapp: process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "",
 };

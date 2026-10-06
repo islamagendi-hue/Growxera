@@ -66,7 +66,7 @@ New columns: `diagnostic_sessions.account_id`, `.context` (industry â†’ model â†
 
 History: every diagnostic is a new `diagnostic_sessions` row with its full `report` snapshot; nothing is overwritten. A report is attached to an account only while unclaimed (`account_id is null`). Comparison (`src/lib/diagnostic/compare.ts`) reads two snapshots and never changes them.
 
-Booking hours live in `src/lib/booking/slots.ts` (`WEEKLY_HOURS`, Riyadh time). Emails: login/signup link, report ready (with a one-time link that signs in and saves the report), question received, booking confirmation and a reminder scheduled through Resend 3 hours before. Optional env `ADVISOR_EMAIL` receives advisor notifications (falls back to the contact email).
+Booking hours live in `src/lib/booking/slots.ts` (`WEEKLY_HOURS`, Riyadh time). Emails: login/signup link, report ready (with a one-time link that signs in and saves the report), question received, booking confirmation and a reminder scheduled through Resend 3 hours before. Advisor questions and bookings are sent to hello@growxera.com.
 
 ## Self-service deletion
 
