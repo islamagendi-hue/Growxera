@@ -72,13 +72,13 @@ export default function Home() {
       {/* SYSTEM */}
       <Section
         id="system"
-        tone="ink"
+        tone="card"
         index="02"
         eyebrow="The Growx Era system"
         title="Seven dimensions. One growth system."
         lead="Every engagement and every diagnostic runs on the same framework, so we can see where growth is constrained and what fixing it is worth."
       >
-        <GrowthSystem />
+        <GrowthSystem tone="paper" />
       </Section>
 
       {/* BOTTLENECKS */}
