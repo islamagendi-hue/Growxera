@@ -4,6 +4,7 @@ import { CaseStudyCards } from "@/components/home/CaseStudyCards";
 import { CtaBand } from "@/components/ui/CtaBand";
 import { PageHero } from "@/components/ui/PageHero";
 import { Section } from "@/components/ui/Section";
+import { CaseResultsChart } from "@/components/visuals/CaseCharts";
 
 export const metadata: Metadata = {
   title: "Case Studies",
@@ -18,8 +19,26 @@ export default function CaseStudies() {
     <>
       <PageHero
         eyebrow="Case studies"
-        title="Problem → Diagnosis → Intervention → Result."
+        title={
+          <>
+            {[
+              ["Problem", "Diagnosis"],
+              ["Solution", "Result"],
+            ].map(([a, b], i) => (
+              <span key={a} className="block whitespace-nowrap">
+                {a}
+                <span aria-hidden className="mx-[0.45em] inline-block align-[0.1em] text-[0.6em] font-normal text-accent">
+                  →
+                </span>
+                <span className="sr-only"> to </span>
+                {b}
+                {i === 1 && <span className="text-accent">.</span>}
+              </span>
+            ))}
+          </>
+        }
         lead={CASE_STUDIES.length ? "Real growth work across mobile apps, e-commerce, multi-branch services and EdTech in KSA and the GCC. Company names are withheld; every number is as reported." : "Case studies will be published here as engagements complete and clients approve them. Each leads with quantified business impact."}
+        aside={CASE_STUDIES.length ? <CaseResultsChart studies={CASE_STUDIES} /> : undefined}
       />
       <Section>
         <CaseStudyCards />

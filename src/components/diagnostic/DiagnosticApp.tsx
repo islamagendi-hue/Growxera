@@ -1,16 +1,17 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getAnonymousId, getAttribution, track } from "@/lib/analytics/client";
-import { currencyFor, QUESTION_MAP, STEPS, validateAnswer, visibleScreenQuestions } from "@/lib/diagnostic/questions";
+import { applyAnswer, currencyFor, QUESTION_MAP, STEPS, validateAnswer, visibleScreenQuestions } from "@/lib/diagnostic/questions";
 import type { AnswerValue, Answers, DiagnosticReport, ReportPreview } from "@/lib/diagnostic/types";
 import { formatNumber } from "@/lib/format";
+import { DataUpload, type AppliedUpload } from "./DataUpload";
 import { Progress } from "./Progress";
 import { QuestionField, type Suggestion } from "./QuestionField";
 import { Results } from "./Results";
 
-const STORE_KEY = "gx_diagnostic_v1";
+const STORE_KEY = "gx_diagnostic_v2";
 
-type Phase = "intro" | "questions" | "submitting" | "results";
+type Phase = "intro" | "questions" | "upload" | "submitting" | "results";
 
 interface Saved {
   answers: Answers;
@@ -19,6 +20,8 @@ interface Saved {
   sessionId?: string;
   preview?: ReportPreview;
   report?: DiagnosticReport;
+  savedToAccount?: boolean;
+  upload?: AppliedUpload["summary"];
 }
 
 interface Page {
@@ -50,18 +53,19 @@ function load(): Saved | null {
 function suggestionFor(id: string, a: Answers, currency: string): Suggestion | undefined {
   const n = (k: string) => (typeof a[k] === "number" ? (a[k] as number) : undefined);
   const revenue = n("monthlyRevenue");
-  const customers = n("monthlyCustomers");
-  if (id === "aov" && revenue && customers) {
-    const v = Math.round(revenue / customers);
-    return { value: v, label: `Use ≈ ${currency} ${formatNumber(v)} (revenue ÷ customers)` };
+  const orders = n("monthlyOrders");
+  const newCustomers = n("monthlyNewCustomers");
+  if (id === "aov" && revenue && orders) {
+    const v = Math.round(revenue / orders);
+    return { value: v, label: `Use ≈ ${currency} ${formatNumber(v)} (revenue ÷ orders)` };
   }
-  if (id === "cac" && n("marketingSpend") && customers) {
-    const v = Math.round(n("marketingSpend")! / customers);
-    return { value: v, label: `Use ≈ ${currency} ${formatNumber(v)} (spend ÷ customers, an upper estimate)` };
+  if (id === "cac" && n("marketingSpend") && newCustomers) {
+    const v = Math.round(n("marketingSpend")! / newCustomers);
+    return { value: v, label: `Use ≈ ${currency} ${formatNumber(v)} (marketing spend ÷ new customers)` };
   }
-  if ((id === "conversionRate" || id === "visitorToCustomer") && n("monthlyTraffic") && customers) {
-    const v = Math.round((customers / n("monthlyTraffic")!) * 10000) / 100;
-    if (v > 0 && v <= 100) return { value: v, label: `Use ≈ ${v}% (customers ÷ visits)` };
+  if (id === "conversionRate" && n("monthlyTraffic") && orders) {
+    const v = Math.round((orders / n("monthlyTraffic")!) * 10000) / 100;
+    if (v > 0 && v <= 100) return { value: v, label: `Use ≈ ${v}% (orders ÷ visits)` };
   }
   return undefined;
 }
@@ -76,6 +80,8 @@ export function DiagnosticApp() {
   const [sessionId, setSessionId] = useState<string>();
   const [preview, setPreview] = useState<ReportPreview>();
   const [report, setReport] = useState<DiagnosticReport>();
+  const [savedToAccount, setSavedToAccount] = useState(false);
+  const [upload, setUpload] = useState<AppliedUpload["summary"]>();
   const topRef = useRef<HTMLDivElement>(null);
   const abandonSent = useRef(false);
 
@@ -91,6 +97,8 @@ export function DiagnosticApp() {
       setSessionId(saved.sessionId);
       setPreview(saved.preview);
       setReport(saved.report);
+      setSavedToAccount(!!saved.savedToAccount);
+      setUpload(saved.upload);
     }
     setHydrated(true);
     /* eslint-enable react-hooks/set-state-in-effect */
@@ -99,11 +107,11 @@ export function DiagnosticApp() {
   useEffect(() => {
     if (!hydrated) return;
     try {
-      sessionStorage.setItem(STORE_KEY, JSON.stringify({ answers, page, phase, sessionId, preview, report } satisfies Saved));
+      sessionStorage.setItem(STORE_KEY, JSON.stringify({ answers, page, phase, sessionId, preview, report, savedToAccount, upload } satisfies Saved));
     } catch {
       /* ignore */
     }
-  }, [hydrated, answers, page, phase, sessionId, preview, report]);
+  }, [hydrated, answers, page, phase, sessionId, preview, report, savedToAccount, upload]);
 
   const pages = useMemo(() => pagesFor(answers), [answers]);
   const current = pages[Math.min(page, pages.length - 1)];
@@ -137,12 +145,8 @@ export function DiagnosticApp() {
   const scrollTop = () => topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
 
   const setAnswer = useCallback((id: string, v: AnswerValue | undefined) => {
-    setAnswers((prev) => {
-      const next = { ...prev };
-      if (v === undefined) delete next[id];
-      else next[id] = v;
-      return next;
-    });
+    // Changing a parent (e.g. industry) clears the dropdowns that depend on it.
+    setAnswers((prev) => applyAnswer(prev, id, v));
     setErrors((e) => {
       if (!e[id]) return e;
       const rest = { ...e };
@@ -166,7 +170,7 @@ export function DiagnosticApp() {
       const res = await fetch("/api/diagnostic", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ answers: final, anonymousId: getAnonymousId(), attribution: getAttribution() }),
+        body: JSON.stringify({ answers: final, upload, anonymousId: getAnonymousId(), attribution: getAttribution() }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -182,6 +186,8 @@ export function DiagnosticApp() {
       }
       setSessionId(data.sessionId);
       setPreview(data.preview);
+      setReport(data.report);
+      setSavedToAccount(!!data.savedToAccount);
       setPhase("results");
       track("diagnostic_score_generated", {
         sessionId: data.sessionId,
@@ -197,10 +203,10 @@ export function DiagnosticApp() {
   }
 
   function next() {
-    if (!current) return;
+    if (!current || phase === "submitting") return;
     const errs: Record<string, string> = {};
     for (const id of current.ids) {
-      const err = validateAnswer(QUESTION_MAP[id], answers[id]);
+      const err = validateAnswer(QUESTION_MAP[id], answers[id], answers);
       if (err) errs[id] = err;
     }
     setErrors(errs);
@@ -216,6 +222,12 @@ export function DiagnosticApp() {
     }
     if (!nextPage) {
       void submit(answers);
+      return;
+    }
+    if (page === 0) {
+      // Optional: fill the numbers in from a file, once the business model is known.
+      setPhase("upload");
+      scrollTop();
       return;
     }
     setPage(page + 1);
@@ -235,6 +247,8 @@ export function DiagnosticApp() {
     setSessionId(undefined);
     setPreview(undefined);
     setReport(undefined);
+    setSavedToAccount(false);
+    setUpload(undefined);
     setPhase("intro");
     scrollTop();
   }
@@ -249,6 +263,7 @@ export function DiagnosticApp() {
           report={report}
           sessionId={sessionId}
           answers={answers}
+          savedToAccount={savedToAccount}
           onUnlocked={(r) => setReport(r)}
           onRestart={restart}
         />
@@ -257,6 +272,45 @@ export function DiagnosticApp() {
   }
 
   if (phase === "intro") return <Intro onStart={start} resume={Object.keys(answers).length > 0 ? () => setPhase("questions") : undefined} topRef={topRef} />;
+
+  if (phase === "upload") {
+    return (
+      <div ref={topRef} className="mx-auto max-w-3xl scroll-mt-24 px-4 pb-24 pt-8 sm:px-6 sm:pt-12">
+        <Progress current={0} fraction={1} />
+        <div className="animate-rise mt-10 sm:mt-14">
+          <p className="eyebrow">Optional · Your numbers</p>
+          <h1 className="mt-3 text-[clamp(1.75rem,4vw,2.5rem)] font-semibold leading-tight tracking-[-0.02em]">
+            Have your numbers in a file?
+          </h1>
+          <p className="mt-2 text-ink-2">
+            Upload an Excel or CSV file and we&apos;ll fill in the figures for you, then base the diagnosis on them. You
+            review every figure before it&apos;s used, and can change any answer afterwards. Or skip this and answer the
+            questions yourself.
+          </p>
+          <DataUpload
+            answers={answers}
+            currency={currency}
+            onBack={() => {
+              setPhase("questions");
+              scrollTop();
+            }}
+            onContinue={(applied) => {
+              if (applied) {
+                let final = answers;
+                for (const [k, v] of Object.entries(applied.metrics)) if (typeof v === "number") final = applyAnswer(final, k, v);
+                setAnswers(final);
+                setUpload(applied.summary);
+                track("diagnostic_upload_applied", { kind: applied.summary.kind, metrics: applied.summary.applied.length });
+              }
+              setPhase("questions");
+              setPage(1);
+              scrollTop();
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
 
   const step = STEPS[current.step];
   const stepPages = pages.filter((p) => p.step === current.step);
@@ -290,6 +344,7 @@ export function DiagnosticApp() {
               key={id}
               q={QUESTION_MAP[id]}
               value={answers[id]}
+              answers={answers}
               error={errors[id]}
               currency={currency}
               suggestion={suggestionFor(id, answers, currency)}
@@ -349,6 +404,7 @@ function Intro({ onStart, resume, topRef }: { onStart: () => void; resume?: () =
         {[
           ["About 8 minutes", "Six short sections. Progress is saved in this browser tab."],
           ["No guessing", "Every metric has an “I don't know” option. We never invent numbers."],
+          ["Bring your numbers", "Optionally upload an Excel or CSV file and we fill in the figures from it."],
           ["Adapted to you", "Questions change with your business model."],
           ["Private", "Your answers are used to produce your result. Contact details are optional until you want the full report."],
         ].map(([t, d]) => (

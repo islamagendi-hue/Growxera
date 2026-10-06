@@ -6,7 +6,7 @@
  * reduce that dimension's confidence instead.
  */
 import { CURVES, LOOKUPS, NEUTRAL_SCORE, type Curve } from "./config";
-import { QUESTION_MAP } from "./questions";
+import { modelOf, QUESTION_MAP } from "./questions";
 import {
   DIMENSIONS,
   UNKNOWN,
@@ -46,8 +46,7 @@ export function list(answers: Answers, id: string): string[] | undefined {
 }
 
 export function getModel(answers: Answers): BusinessModel {
-  const m = answers.businessModel;
-  return m === "ecommerce" || m === "leadgen" || m === "subscription" ? m : "other";
+  return modelOf(answers) ?? "other";
 }
 
 /** Derived metrics, computed from other inputs when the user didn't know them. */
@@ -60,21 +59,23 @@ export interface Derived {
 
 export function derive(answers: Answers): Derived {
   const revenue = num(answers, "monthlyRevenue");
-  const customers = num(answers, "monthlyCustomers");
+  const orders = num(answers, "monthlyOrders");
+  const newCustomers = num(answers, "monthlyNewCustomers");
   const spend = num(answers, "marketingSpend");
   const traffic = num(answers, "monthlyTraffic");
   const d: Derived = {};
 
-  d.aov = num(answers, "aov") ?? (revenue && customers ? revenue / customers : undefined);
-  // CAC from spend ÷ customers overstates true CAC slightly (customers include repeat buyers),
-  // so it is only used as a fallback.
-  d.cac = num(answers, "cac") ?? (spend && customers ? spend / customers : undefined);
+  // One value per customer interaction, whichever the business model asked for.
+  d.aov =
+    num(answers, "aov") ??
+    num(answers, "dealSize") ??
+    num(answers, "arpa") ??
+    (revenue && orders ? revenue / orders : undefined);
+  d.cac = num(answers, "cac") ?? (spend && newCustomers ? spend / newCustomers : undefined);
   d.conversionRate =
     num(answers, "conversionRate") ??
-    (traffic && customers && traffic > 0 ? Math.min(100, (customers / traffic) * 100) : undefined);
-  const abandonment = num(answers, "cartAbandonment");
-  d.checkoutCompletion =
-    num(answers, "checkoutCompletion") ?? (abandonment !== undefined ? 100 - abandonment : undefined);
+    (traffic && orders && traffic > 0 ? Math.min(100, (orders / traffic) * 100) : undefined);
+  d.checkoutCompletion = num(answers, "checkoutCompletion");
   return d;
 }
 
@@ -143,7 +144,8 @@ function ltvToCac(a: Answers, d: Derived): number | undefined {
   return ltv && d.cac ? ltv / d.cac : undefined;
 }
 
-const ECONOMICS_METRICS = ["monthlyRevenue", "aov", "grossMargin", "marketingSpend", "cac", "ltv", "payback"];
+const ECONOMICS_METRICS = ["monthlyRevenue", "grossMargin", "marketingSpend", "cac", "ltv", "payback"];
+const VALUE_METRICS = ["aov", "dealSize", "arpa"];
 
 export const SIGNALS: Record<Dimension, SignalDef[]> = {
   market: [
@@ -211,7 +213,11 @@ export const SIGNALS: Record<Dimension, SignalDef[]> = {
     lookup("leadResponseTime", "Lead response time", 2, is("leadgen")),
     percent("signupToActivation", "Sign-up → activation", 3, CURVES.signupToActivation, is("subscription")),
     percent("trialToPaid", "Trial → paid", 3, CURVES.trialToPaid, is("subscription")),
-    percent("visitorToCustomer", "Visitor → customer", 4, CURVES.visitorToCustomer, is("other")),
+    percent("visitorToCustomer", "Visitor → customer", 4, CURVES.visitorToCustomer, is("other"), (a) => {
+      const traffic = num(a, "monthlyTraffic");
+      const fresh = num(a, "monthlyNewCustomers");
+      return num(a, "visitorToCustomer") ?? (traffic && fresh ? Math.min(100, (fresh / traffic) * 100) : undefined);
+    }),
   ],
   retention: [
     percent("repeatRate", "Repeat customer rate", 4, CURVES.repeatRate, not("subscription")),
@@ -253,9 +259,10 @@ export const SIGNALS: Record<Dimension, SignalDef[]> = {
       label: "Knowledge of core metrics",
       weight: 1,
       evaluate: (a) => {
-        const known = ECONOMICS_METRICS.filter((id) => a[id] !== undefined && a[id] !== UNKNOWN).length;
-        const share = known / ECONOMICS_METRICS.length;
-        return [interpolate(CURVES.metricsKnown, share), `${known} of ${ECONOMICS_METRICS.length} known`];
+        const isKnown = (id: string) => a[id] !== undefined && a[id] !== UNKNOWN;
+        const known = ECONOMICS_METRICS.filter(isKnown).length + (VALUE_METRICS.some(isKnown) ? 1 : 0);
+        const total = ECONOMICS_METRICS.length + 1;
+        return [interpolate(CURVES.metricsKnown, known / total), `${known} of ${total} known`];
       },
     },
   ],

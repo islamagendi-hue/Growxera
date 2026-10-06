@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Results } from "@/components/diagnostic/Results";
+import { PrintButton, ReportView } from "@/components/report/ReportView";
 import { toPreview } from "@/lib/diagnostic/engine";
 import type { DiagnosticReport } from "@/lib/diagnostic/types";
 import { findReportByLeadId } from "@/lib/server/store";
@@ -25,7 +25,7 @@ async function load(id: string): Promise<DiagnosticReport | null> {
   }
 }
 
-/** A Growth Diagnostic report opened from the link in the report email. */
+/** A report opened from a link in an older report email (before accounts). */
 export default async function ReportPage({ params }: PageProps<"/report/[id]">) {
   const { id } = await params;
   const report = await load(id);
@@ -41,5 +41,27 @@ export default async function ReportPage({ params }: PageProps<"/report/[id]">) 
       </section>
     );
   }
-  return <Results preview={toPreview(report)} report={report} sessionId={id} />;
+  return (
+    <ReportView
+      preview={toPreview(report)}
+      report={report}
+      notice={
+        <p className="border-l-2 border-accent bg-accent-soft px-4 py-3 text-sm">
+          Want to keep your reports in one place and track progress?{" "}
+          <Link href="/signup" className="font-medium underline underline-offset-4">
+            Create your free account
+          </Link>
+          .
+        </p>
+      }
+      actions={
+        <>
+          <PrintButton />
+          <Link href="/diagnostic" className="text-ink-2 underline-offset-4 hover:underline">
+            Take the diagnostic again
+          </Link>
+        </>
+      }
+    />
+  );
 }

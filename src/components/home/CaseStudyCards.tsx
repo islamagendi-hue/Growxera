@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CASE_STUDIES } from "@/content/case-studies";
 import { CaseStudyPlaceholders } from "./CaseStudyPlaceholders";
+import { CountUp } from "@/components/ui/CountUp";
 
 /** Real case studies when available, otherwise clearly marked placeholders. */
 export function CaseStudyCards({ limit }: { limit?: number }) {
@@ -15,11 +16,16 @@ export function CaseStudyCards({ limit }: { limit?: number }) {
               {[c.sector, c.market].filter(Boolean).join(" · ")}
             </p>
             <h3 className="mt-5 text-h3 font-semibold">{c.title}</h3>
+            {c.growthLever && (
+              <p className="mt-3 text-sm text-ink-2">
+                <span className="font-medium text-ink">Growth lever:</span> {c.growthLever}
+              </p>
+            )}
             <dl className={`mt-6 grid gap-px border border-line bg-line ${c.metrics.length === 3 ? "grid-cols-3" : "grid-cols-2"}`}>
               {c.metrics.slice(0, 4).map((m) => (
                 <div key={m.label} className="bg-card p-3">
                   <dt className="text-xs text-ink-3">{m.label}</dt>
-                  <dd className="tabular mt-1 font-mono text-xl font-medium">{m.value}</dd>
+                  <dd className="tabular mt-1 font-mono text-xl font-medium"><CountUp value={m.value} /></dd>
                 </div>
               ))}
             </dl>

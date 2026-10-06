@@ -1,7 +1,9 @@
 "use client";
 import { useState } from "react";
-import type { Question } from "@/lib/diagnostic/questions";
-import { UNKNOWN, type AnswerValue } from "@/lib/diagnostic/types";
+import { Combobox } from "@/components/ui/Combobox";
+import { InfoTip } from "@/components/ui/InfoTip";
+import { optionsOf, type Question } from "@/lib/diagnostic/questions";
+import { UNKNOWN, type AnswerValue, type Answers } from "@/lib/diagnostic/types";
 import { formatNumber, parseNumber } from "@/lib/format";
 
 export interface Suggestion {
@@ -17,6 +19,7 @@ const unknownBtn = (active: boolean) =>
 export function QuestionField({
   q,
   value,
+  answers,
   error,
   currency,
   suggestion,
@@ -24,6 +27,7 @@ export function QuestionField({
 }: {
   q: Question;
   value: AnswerValue | undefined;
+  answers: Answers;
   error?: string;
   currency: string;
   suggestion?: Suggestion;
@@ -33,10 +37,19 @@ export function QuestionField({
   const describedBy = [q.help ? `${id}-help` : "", error ? `${id}-error` : ""].filter(Boolean).join(" ") || undefined;
   const isUnknown = value === UNKNOWN;
 
+  const options = optionsOf(q, answers);
+  const labelText = (
+    <span className="text-lg font-medium leading-snug">
+      {q.label}
+      {q.optional && <span className="ml-1 text-sm font-normal text-ink-3">(optional)</span>}
+    </span>
+  );
+  // The (?) sits beside the label, never inside a <label>, so tapping it doesn't focus the field.
   const header = (
     <>
-      <span id={`${id}-label`} className="block text-lg font-medium leading-snug">
-        {q.label}
+      <span id={`${id}-label`} className="block">
+        {labelText}
+        {q.info && <InfoTip note={q.info} label={q.label} />}
       </span>
       {q.help && (
         <span id={`${id}-help`} className="mt-1 block text-sm text-ink-3">
@@ -52,7 +65,7 @@ export function QuestionField({
   );
 
   if (q.type === "choice") {
-    const opts = [...(q.options ?? []), ...(q.allowUnknown ? [{ value: UNKNOWN, label: "I don't know", hint: undefined }] : [])];
+    const opts = [...options, ...(q.allowUnknown ? [{ value: UNKNOWN, label: "I don't know", hint: undefined }] : [])];
     return (
       <fieldset aria-describedby={describedBy} data-field={q.id}>
         <legend className="mb-4">{header}</legend>
@@ -106,7 +119,7 @@ export function QuestionField({
       <fieldset aria-describedby={describedBy} data-field={q.id}>
         <legend className="mb-4">{header}</legend>
         <div className="flex flex-wrap gap-2">
-          {q.options?.map((o) => {
+          {options.map((o) => {
             const checked = selected.includes(o.value);
             return (
               <label
@@ -130,26 +143,20 @@ export function QuestionField({
   if (q.type === "select") {
     return (
       <div data-field={q.id}>
-        <label htmlFor={id}>{header}</label>
-        <select
-          id={id}
-          value={typeof value === "string" ? value : ""}
-          onChange={(e) => onChange(e.target.value || undefined)}
-          aria-invalid={!!error}
-          aria-describedby={describedBy}
-          className="mt-3 block min-h-14 w-full appearance-none border border-line-strong bg-card bg-[length:12px] bg-[right_1rem_center] bg-no-repeat px-4 pr-10 text-base focus:border-ink aria-[invalid=true]:border-alert"
-          style={{
-            backgroundImage:
-              "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%230e1311' stroke-width='1.5'/%3E%3C/svg%3E\")",
-          }}
-        >
-          <option value="">Select…</option>
-          {q.options?.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
+        {header}
+        <div className="mt-3">
+          <Combobox
+            id={id}
+            value={typeof value === "string" ? value : undefined}
+            options={options}
+            onChange={onChange}
+            placeholder={q.placeholder ?? "Select…"}
+            disabled={options.length === 0}
+            invalid={!!error}
+            labelledBy={`${id}-label`}
+            describedBy={describedBy}
+          />
+        </div>
         {errorEl}
       </div>
     );
@@ -206,7 +213,7 @@ function NumberField({
 
   return (
     <div data-field={q.id}>
-      <label htmlFor={id}>{header}</label>
+      {header}
       <div className="mt-3 flex flex-col gap-2 sm:flex-row">
         <div
           className={`flex min-h-14 flex-1 items-center border bg-card transition-colors focus-within:border-ink ${
@@ -232,6 +239,7 @@ function NumberField({
               if (n !== undefined) setText(formatNumber(n, 2));
             }}
             aria-invalid={!!error}
+            aria-labelledby={`${id}-label`}
             aria-describedby={describedBy}
             className="tabular h-full min-h-14 w-full flex-1 bg-transparent px-4 font-mono text-lg outline-none"
           />

@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { CtaBand } from "@/components/ui/CtaBand";
 import { Container } from "@/components/ui/Section";
 import { CASE_STUDIES, getCaseStudy } from "@/content/case-studies";
+import { CountUp } from "@/components/ui/CountUp";
+import { CaseChart } from "@/components/visuals/CaseCharts";
 
 export function generateStaticParams() {
   return CASE_STUDIES.map((c) => ({ slug: c.slug }));
@@ -19,10 +21,11 @@ export default async function CaseStudyPage({ params }: PageProps<"/case-studies
   if (!c) notFound();
   const sections = (
     [
+      ["Business type", c.businessType && <p key="t">{c.businessType}</p>],
       ["Problem", c.problem && <p key="p">{c.problem}</p>],
       ["Diagnosis", c.diagnosis && <p key="d">{c.diagnosis}</p>],
       [
-        "Intervention",
+        "Solution",
         c.intervention?.length && (
       <ul key="i" className="space-y-2">
         {c.intervention.map((x) => (
@@ -34,6 +37,7 @@ export default async function CaseStudyPage({ params }: PageProps<"/case-studies
       </ul>
         ),
       ],
+      ["Growth lever", c.growthLever && <p key="g">{c.growthLever}</p>],
       ["Result", c.result && <p key="r">{c.result}</p>],
       ["Business impact", c.businessImpact && <p key="b">{c.businessImpact}</p>],
       ["Stack", c.stack?.length && <p key="s">{c.stack.join(" · ")}</p>],
@@ -43,16 +47,21 @@ export default async function CaseStudyPage({ params }: PageProps<"/case-studies
     <>
       <section className="border-b border-line">
         <Container className="py-[3.4375rem] sm:py-[5.5625rem]">
-          <p className="eyebrow">
-            {["Case study", c.sector, c.market].filter(Boolean).join(" · ")}
-          </p>
-          <h1 className="mt-6 max-w-[20ch] text-h2 font-semibold">{c.title}</h1>
-          {c.role && <p className="mt-6 max-w-2xl leading-relaxed text-ink-2">{c.role}</p>}
+          <div className="grid gap-12 lg:grid-cols-[1.4fr_1fr] lg:items-center lg:gap-16">
+            <div>
+              <p className="eyebrow">
+                {["Case study", c.sector, c.market].filter(Boolean).join(" · ")}
+              </p>
+              <h1 className="mt-6 max-w-[20ch] text-h2 font-semibold">{c.title}</h1>
+              {c.role && <p className="mt-6 max-w-2xl leading-relaxed text-ink-2">{c.role}</p>}
+            </div>
+            <CaseChart study={c} />
+          </div>
           <dl className={`mt-12 grid max-w-3xl grid-cols-2 gap-px border border-line bg-line ${c.metrics.length >= 4 ? "lg:max-w-none lg:grid-cols-4" : c.metrics.length === 3 ? "sm:max-w-none sm:grid-cols-3" : ""}`}>
             {c.metrics.map((m) => (
               <div key={m.label} className="bg-paper p-5">
                 <dt className="text-sm text-ink-3">{m.label}</dt>
-                <dd className="tabular mt-2 font-mono text-3xl font-medium">{m.value}</dd>
+                <dd className="tabular mt-2 font-mono text-3xl font-medium"><CountUp value={m.value} /></dd>
                 {m.detail && <dd className="mt-1 text-xs text-ink-3">{m.detail}</dd>}
               </div>
             ))}

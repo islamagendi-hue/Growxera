@@ -72,7 +72,12 @@ function conversionEstimate(a: Answers): Estimate {
     };
   }
 
-  const cr = model === "ecommerce" ? d.conversionRate : num(a, "visitorToCustomer");
+  const traffic = num(a, "monthlyTraffic");
+  const fresh = num(a, "monthlyNewCustomers");
+  const cr =
+    model === "ecommerce"
+      ? d.conversionRate
+      : (num(a, "visitorToCustomer") ?? (traffic && fresh ? (fresh / traffic) * 100 : undefined));
   const missing = [!revenue && "monthly revenue", cr === undefined && "conversion rate (or traffic and orders)"].filter(Boolean) as string[];
   if (missing.length || !revenue || cr === undefined || cr <= 0) return { ...base, missing: missing.length ? missing : ["a non-zero conversion rate"] };
   const [lo, hi] = U.conversionRelative;
@@ -125,11 +130,11 @@ function retentionEstimate(a: Answers): Estimate {
     };
   }
 
-  const customers = num(a, "monthlyCustomers");
+  const customers = num(a, "monthlyNewCustomers");
   const repeat = num(a, "repeatRate");
   const aov = derive(a).aov;
   const missing = [
-    !customers && "customers per month",
+    !customers && "new customers per month",
     repeat === undefined && "repeat customer rate",
     !aov && "average order value",
   ].filter(Boolean) as string[];

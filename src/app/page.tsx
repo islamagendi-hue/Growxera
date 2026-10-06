@@ -2,12 +2,15 @@ import type { Metadata } from "next";
 import { CaseStudyCards } from "@/components/home/CaseStudyCards";
 import { GrowthSystem } from "@/components/home/GrowthSystem";
 import { IllustrativeReport } from "@/components/home/IllustrativeReport";
+import { ProductMockups } from "@/components/home/ProductMockups";
 import { CtaLink } from "@/components/ui/CtaLink";
 import { Container, Section } from "@/components/ui/Section";
 import { SITE } from "@/config/site";
 import { TRACK_RECORD } from "@/content/case-studies";
 import { EXPERIMENTS } from "@/content/experiments";
+import { FAQ } from "@/content/faq";
 import { BOTTLENECKS, CAPABILITIES, HOW_WE_WORK, OFFERINGS, STANDALONE_SERVICES, PROBLEM_ORIGINS } from "@/content/site-content";
+import { CountUp } from "@/components/ui/CountUp";
 
 export const metadata: Metadata = { title: { absolute: SITE.title }, alternates: { canonical: "/" } };
 
@@ -117,8 +120,8 @@ export default function Home() {
             {[
               ["Growth Score", "0–100 across seven growth dimensions."],
               ["Primary bottleneck", "Weighted by impact, severity and dependency, not just the lowest score."],
-              ["Top 3 opportunities", "Prioritised by impact, confidence and effort."],
-              ["Opportunity estimate", "A revenue range from your own numbers, only where the data supports it."],
+              ["Up to 10 recommendations", "Ranked by impact, the size of your gap and relevance to your business."],
+              ["Benchmarks and progress", "How you compare with businesses like yours, and what changed since last time."],
             ].map(([t, d], i) => (
               <li key={t} className="bg-paper-2 p-6">
                 <span className="font-mono text-xs text-ink-3">0{i + 1}</span>
@@ -129,6 +132,23 @@ export default function Home() {
           </ol>
         </Container>
       </section>
+
+      {/* PRODUCT TOUR */}
+      <Section
+        eyebrow="Inside the product"
+        title="From diagnosis to progress, in one place."
+        lead="Run the diagnostic, read your report, act on ranked recommendations, track progress month to month, and talk to an advisor when you want a second pair of eyes."
+      >
+        <ProductMockups />
+        <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-8">
+          <CtaLink href="/diagnostic" cta="tour_start">
+            Start Free Growth Diagnostic
+          </CtaLink>
+          <CtaLink href="/advisor" cta="tour_advisor" variant="ghost">
+            Talk to an advisor
+          </CtaLink>
+        </div>
+      </Section>
 
       {/* HOW WE WORK */}
       <Section index="05" eyebrow="How we work" title="Diagnose. Transform. Scale.">
@@ -196,7 +216,7 @@ export default function Home() {
       <Section
         index="07"
         eyebrow="Case studies"
-        title="Problem. Diagnosis. Intervention. Result."
+        title="Problem. Diagnosis. Solution. Result."
         lead="Every case study follows the same structure and leads with the numbers that matter: revenue, CAC, conversion, retention, AOV, LTV, payback and margin."
       >
         <div className="mb-10">
@@ -204,7 +224,7 @@ export default function Home() {
             {TRACK_RECORD.map((t) => (
               <div key={t.label} className="flex flex-col-reverse bg-paper p-5 sm:p-6">
                 <dt className="mt-2 text-sm text-ink-3">{t.label}</dt>
-                <dd className="tabular font-mono text-3xl font-medium">{t.value}</dd>
+                <dd className="tabular font-mono text-3xl font-medium"><CountUp value={t.value} /></dd>
               </div>
             ))}
           </dl>
@@ -229,6 +249,35 @@ export default function Home() {
         <CtaLink href="/experimentation-lab" cta="home_experiment_lab" variant="ghost">
           Open the Experimentation Lab
         </CtaLink>
+      </Section>
+
+      {/* FAQ */}
+      <Section id="faq" eyebrow="FAQ" title="Five questions people ask first.">
+        <div className="grid lg:grid-cols-12">
+          <div className="divide-y divide-line border-y border-line lg:col-span-9 lg:col-start-4">
+            {FAQ.map((f) => (
+              <details key={f.q} className="group">
+                <summary className="flex min-h-16 cursor-pointer list-none items-center justify-between gap-6 py-5 text-lg font-medium [&::-webkit-details-marker]:hidden">
+                  {f.q}
+                  <span aria-hidden className="shrink-0 font-mono text-xl text-ink-3 transition-transform group-open:rotate-45">
+                    +
+                  </span>
+                </summary>
+                <p className="max-w-[68ch] pb-6 leading-relaxed text-ink-2">{f.a}</p>
+              </details>
+            ))}
+          </div>
+        </div>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "FAQPage",
+              mainEntity: FAQ.map((f) => ({ "@type": "Question", name: f.q, acceptedAnswer: { "@type": "Answer", text: f.a } })),
+            }).replace(/</g, "\\u003c"),
+          }}
+        />
       </Section>
 
       {/* FINAL CTA */}

@@ -1,7 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  async redirects() {
+    // The page was briefly called "specialist"; keep any shared links working.
+    return [{ source: "/specialist", destination: "/advisor", permanent: true }];
+  },
 };
 
 export default nextConfig;

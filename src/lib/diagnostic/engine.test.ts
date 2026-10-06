@@ -18,15 +18,19 @@ function dims(scores: Partial<Record<Dimension, number>>, fallback = 70): Dimens
 
 const top = (p: Record<Dimension, number>) => DIMENSIONS.reduce((a, b) => (p[b] > p[a] ? b : a));
 
-const ecommerce: Answers = {
-  businessModel: "ecommerce",
-  industry: "retail_ecommerce",
-  primaryMarket: "SA",
+export const ecommerce: Answers = {
+  industry: "ecommerce",
+  segment: "b2c",
+  businessType: "online_retail",
+  category: "fashion",
+  geography: "SA",
+  city: "riyadh",
   businessAge: "3to5",
   monthlyRevenue: 500000,
-  monthlyCustomers: 2500,
+  monthlyNewCustomers: 900,
+  monthlyOrders: 2500,
   icpClarity: "broad",
-  differentiation: "some",
+  differentiation: "service",
   aov: 200,
   grossMargin: 45,
   marketingSpend: 80000,
@@ -36,12 +40,11 @@ const ecommerce: Answers = {
   monthlyTraffic: 250000,
   channels: ["meta", "google", "tiktok"],
   paidSpend: 70000,
-  topChannelShare: "40to60",
-  acquisitionTrend: "slow",
+  topChannelShare: "50to70",
+  acquisitionTrend: "up",
   conversionRate: 1,
   addToCartRate: UNKNOWN,
   checkoutCompletion: UNKNOWN,
-  cartAbandonment: 70,
   repeatRate: 12,
   purchaseFrequency: "1",
   crmUsage: "basic",
@@ -50,11 +53,11 @@ const ecommerce: Answers = {
   reactivation: "none",
   upsell: "sometimes",
   crossSell: "no",
-  bundles: "yes",
+  bundles: "one",
   recurringRevenue: "none",
-  pricingReview: "old",
+  pricingReview: "gt12m",
   growthRate: "10to30",
-  cacTrend: "increasing",
+  cacTrend: "up_fast",
   marginTrend: "stable",
   analytics: "partial",
   experimentation: "adhoc",
@@ -115,7 +118,7 @@ describe("scoring", () => {
 });
 
 describe("full report", () => {
-  const report = buildReport(ecommerce, new Date("2026-10-05T00:00:00Z"));
+  const report = buildReport(sanitizeAnswers(ecommerce).answers, new Date("2026-10-05T00:00:00Z"));
 
   it("produces seven dimension scores within 0–100", () => {
     expect(report.dimensions).toHaveLength(7);
@@ -133,6 +136,15 @@ describe("full report", () => {
     expect(report.currency).toBe("SAR");
   });
 
+  it("carries the business context, benchmarks and at most ten ranked recommendations", () => {
+    expect(report.context?.label).toBe("E-commerce · B2C · Online store · Fashion · Riyadh, Saudi Arabia");
+    expect(report.benchmarks?.find((b) => b.metric === "conversionRate")?.position).toBe("within");
+    const recs = report.recommendations!;
+    expect(recs.length).toBeGreaterThan(0);
+    expect(recs.length).toBeLessThanOrEqual(10);
+    for (let i = 1; i < recs.length; i++) expect(recs[i - 1].score).toBeGreaterThanOrEqual(recs[i].score);
+  });
+
   it("is hedged, never certain", () => {
     expect(report.bottleneckExplanation.startsWith("Based on the information provided")).toBe(true);
   });
@@ -140,7 +152,7 @@ describe("full report", () => {
 
 describe("opportunity calculator", () => {
   it("estimates conversion uplift from revenue and conversion rate", () => {
-    const conv = buildEstimates(ecommerce).find((e) => e.id === "conversion")!;
+    const conv = buildEstimates(sanitizeAnswers(ecommerce).answers).find((e) => e.id === "conversion")!;
     expect(conv.available).toBe(true);
     expect(conv.monthlyLow).toBe(50000);
     expect(conv.monthlyHigh).toBe(130000); // 125,000 rounded to 2 significant figures
@@ -153,7 +165,7 @@ describe("opportunity calculator", () => {
   });
 
   it("never estimates CAC savings when CAC is unknown", () => {
-    const cac = buildEstimates(ecommerce).find((e) => e.id === "cac")!;
+    const cac = buildEstimates(sanitizeAnswers(ecommerce).answers).find((e) => e.id === "cac")!;
     expect(cac.available).toBe(false);
   });
 
@@ -173,7 +185,17 @@ describe("answer validation", () => {
     const { errors } = sanitizeAnswers({ ...ecommerce, grossMargin: 140 });
     expect(errors.grossMargin).toBeDefined();
   });
-  it("accepts the complete e-commerce answer set", () => {
-    expect(sanitizeAnswers(ecommerce).errors).toEqual({});
+  it("accepts the complete e-commerce answer set and derives the revenue model", () => {
+    const { answers, errors } = sanitizeAnswers(ecommerce);
+    expect(errors).toEqual({});
+    expect(answers.businessModel).toBe("ecommerce");
+  });
+  it("rejects a category that doesn't belong to the business type", () => {
+    const { errors } = sanitizeAnswers({ ...ecommerce, category: "dental" });
+    expect(errors.category).toBeDefined();
+  });
+  it("ignores a client-supplied businessModel that contradicts the business type", () => {
+    const { answers } = sanitizeAnswers({ ...ecommerce, businessModel: "subscription" });
+    expect(answers.businessModel).toBe("ecommerce");
   });
 });

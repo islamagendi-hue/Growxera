@@ -49,6 +49,20 @@ export default function Privacy() {
               and optionally phone/WhatsApp, job title and company website.
             </li>
             <li>
+              <strong className="text-ink">Your account</strong>: if you create one or open the link in your report email,
+              we keep your name, email, company, optional profile details, your saved diagnostics, and a record of
+              sign-in links and sessions (stored as one-way hashes, never the link itself).
+            </li>
+            <li>
+              <strong className="text-ink">Advisor requests</strong>: questions you send and review calls you book,
+              with the time, your message and a reference to your report.
+            </li>
+            <li>
+              <strong className="text-ink">Uploaded files</strong>: an orders export you upload is read in your browser
+              and never sent to us. We receive only the figures you choose to use and a short summary (file name, row count,
+              date range and column names).
+            </li>
+            <li>
               <strong className="text-ink">Attribution</strong>: the campaign parameters (UTM), referring site and
               landing page of your visit, stored in your browser and sent only with a diagnostic or form you submit.
             </li>
@@ -69,6 +83,8 @@ export default function Privacy() {
               To store your details, prepare your full report, email you a copy of it and contact you about it: based on
               your explicit consent, given on the form. Consent is recorded with the wording and policy version you agreed to.
             </li>
+            <li>To keep your account, save your reports and show your progress over time: based on your consent when you create the account or open your report link.</li>
+            <li>To answer your questions and hold the review calls you book, including reading your report beforehand: based on your request and consent.</li>
             <li>To send growth insights by email or WhatsApp: only if you separately opt in. You can opt out at any time.</li>
             <li>To understand and improve the diagnostic: only if you accept analytics.</li>
           </ul>
@@ -80,7 +96,7 @@ export default function Privacy() {
           <ul>
             <li>Vercel Inc. (website hosting).</li>
             <li>Supabase Inc. (database), hosted in the United States (us-east-1) region.</li>
-            <li>Resend (sending your diagnostic report by email).</li>
+            <li>Resend (sending your report, sign-in links and booking emails).</li>
             <li>
               <TBD>Any CRM, WhatsApp provider or notification tool connected to lead capture</TBD>.
             </li>
@@ -97,6 +113,8 @@ export default function Privacy() {
           <ul>
             <li>Diagnostics not linked to contact details: {RETENTION.anonymousDiagnosticsDays} days.</li>
             <li>Contact details and linked diagnostics: up to {Math.round(RETENTION.leadsDays / 365)} years after our last interaction, unless you ask us to delete them sooner.</li>
+            <li>Accounts and saved diagnostics: while your account is active, until you delete them or ask us to.</li>
+            <li>Sign-in links: deleted a day after they expire. Sessions: deleted when they expire or you log out.</li>
             <li>Analytics events: {RETENTION.analyticsEventsDays} days.</li>
           </ul>
         </section>
@@ -109,13 +127,21 @@ export default function Privacy() {
             carried out). Email {contact} and we will respond within the period required by law. You may also lodge a
             complaint with the Saudi Data &amp; AI Authority (SDAIA) or your local data protection authority.
           </p>
+          <p>
+            <strong>Delete it yourself.</strong> If you have an account, go to My account → My profile → Delete your
+            data. It takes two steps: choose whether to delete your saved data (diagnostics, reports, progress history and
+            advisor requests) or your whole account, then type DELETE to confirm. Deletion is immediate and permanent, and
+            we email you a receipt. Without an account, email {contact} and we will delete it for you.
+          </p>
         </section>
 
         <section>
           <h2>Cookies and browser storage</h2>
           <p>
             We use browser storage for essential functions: remembering your privacy choice, keeping your diagnostic
-            progress while you complete it, and holding campaign attribution until you submit a form. Analytics
+            progress while you complete it, and holding campaign attribution until you submit a form. When you log in we
+            set two essential cookies: a secure session cookie that keeps you signed in for up to 30 days, and a cookie
+            that only tells the menu to show &ldquo;My account&rdquo;. Analytics
             storage, including Google Analytics cookies, is used only after you accept it. You can change your choice at any time from &ldquo;Privacy
             settings&rdquo; in the footer.
           </p>
@@ -124,7 +150,9 @@ export default function Privacy() {
         <section>
           <h2>Security</h2>
           <p>
-            Data is encrypted in transit and stored in a database that is only accessible from our servers. Access is
+            Data is encrypted in transit and stored in a database that is only accessible from our servers. There are no
+            passwords to leak: you sign in with one-time links that expire after 20 minutes (48 hours for the link in
+            your report email) and stop working once used. Access is
             limited to the Growx Era team members who need it.
           </p>
         </section>

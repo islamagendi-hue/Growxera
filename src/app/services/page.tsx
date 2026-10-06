@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { CtaBand } from "@/components/ui/CtaBand";
 import { PageHero } from "@/components/ui/PageHero";
 import { Section } from "@/components/ui/Section";
+import { RoadmapMockup } from "@/components/visuals/RoadmapMockup";
 import { CAPABILITIES, OFFERINGS, STANDALONE_SERVICES } from "@/content/site-content";
 
 export const metadata: Metadata = {
@@ -17,6 +18,7 @@ export default function Services() {
         eyebrow="Services"
         title="From diagnosis to partnership."
         lead="Marketing, CRM, CRO, analytics and GTM are components of a growth system, not a menu. We engage in three stages, each building on the last."
+        aside={<RoadmapMockup />}
       />
       <Section>
         <ol className="space-y-px border border-line bg-line">
