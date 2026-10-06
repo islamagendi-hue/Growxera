@@ -103,7 +103,7 @@ export default function Home() {
         <Container className="grid gap-12 lg:grid-cols-12">
           <div className="lg:col-span-6">
             <p className="eyebrow">
-              <span className="mr-3">04</span>Growx Era Growth Diagnostic™
+              <span className="mr-3">04</span>Growx Era Growth Diagnostic
             </p>
             <h2 className="mt-6 text-h2 font-semibold">Find Your Growth Bottleneck</h2>
             <p className="mt-6 max-w-[48ch] text-lg leading-relaxed text-ink-2">

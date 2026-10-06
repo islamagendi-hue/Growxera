@@ -7,7 +7,7 @@ export function DiagnosticTeaser({ source }: { source: string }) {
   return (
     <Reveal className="border border-ink/15 bg-card p-5 shadow-[0_30px_80px_-50px_rgba(14,19,17,0.45)]">
       <div className="flex items-start justify-between gap-3">
-        <p className="eyebrow">Growth Diagnostic™</p>
+        <p className="eyebrow">Growth Diagnostic</p>
         <span className="border border-line px-1.5 py-0.5 font-mono text-[0.6rem] uppercase tracking-wider text-ink-3">Illustrative</span>
       </div>
       <p className="mt-4 font-semibold leading-snug">Find your own bottleneck in about 8 minutes.</p>
