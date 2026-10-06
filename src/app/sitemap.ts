@@ -16,6 +16,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     ...INSIGHTS.map((a) => ({ path: `/insights/${a.slug}`, priority: 0.5 })),
     ...CASE_STUDIES.map((c) => ({ path: `/case-studies/${c.slug}`, priority: 0.5 })),
     { path: "/ar", priority: 0.8 },
+    { path: "/specialist", priority: 0.8 },
     { path: "/contact", priority: 0.5 },
     { path: "/privacy", priority: 0.2 },
   ].map(({ path, priority }) => ({ url: `${SITE.url}${path}`, lastModified: now, changeFrequency: "monthly", priority }));

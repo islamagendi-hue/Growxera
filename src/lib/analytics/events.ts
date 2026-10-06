@@ -12,6 +12,12 @@ export const ANALYTICS_EVENTS = [
   "lead_submitted",
   "cta_clicked",
   "booking_started",
+  "diagnostic_upload_read",
+  "diagnostic_upload_failed",
+  "sign_in_requested",
+  "specialist_question_sent",
+  "consultation_booked",
+  "progress_compared",
 ] as const;
 
 export type AnalyticsEvent = (typeof ANALYTICS_EVENTS)[number];

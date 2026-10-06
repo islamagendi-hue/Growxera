@@ -14,7 +14,9 @@ export function Footer() {
         </div>
         <nav aria-label="Footer" className="grid grid-cols-2 gap-x-8 text-sm lg:col-span-4 [&>a]:py-2.5 lg:[&>a]:py-1.5">
           <Link href="/diagnostic" className="hover:underline">Growth Diagnostic</Link>
-          <Link href="/how-we-work" className="hover:underline">How we work</Link>
+          <Link href="/how-we-work" className="hover:underline">How it works</Link>
+          <Link href="/specialist" className="hover:underline">Talk to a specialist</Link>
+          <Link href="/account" className="hover:underline">My account</Link>
           <Link href="/services" className="hover:underline">Services</Link>
           <Link href="/case-studies" className="hover:underline">Case studies</Link>
           <Link href="/experimentation-lab" className="hover:underline">Experimentation Lab</Link>

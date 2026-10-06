@@ -12,7 +12,7 @@
 import type { BusinessModel, Dimension, Level } from "./types";
 
 /** Stored with every report so historical scores stay interpretable after tuning. */
-export const SCORING_VERSION = "2026.10-v1";
+export const SCORING_VERSION = "2026.10-v2";
 
 /** Overall Growth Score weighting. Must sum to 1. */
 export const DIMENSION_WEIGHTS: Record<Dimension, number> = {
@@ -116,25 +116,26 @@ export const CURVES = {
 
 /** Categorical answer → score lookups. */
 export const LOOKUPS: Record<string, Record<string, number>> = {
-  icpClarity: { clear: 95, broad: 55, anyone: 20 },
-  differentiation: { strong: 95, some: 50, weak: 15 },
-  acquisitionTrend: { strong: 95, slow: 70, flat: 45, declining: 15 },
-  topChannelShare: { lt40: 90, "40to60": 75, "60to80": 50, gt80: 25 },
-  leadResponseTime: { lt5m: 95, lt1h: 75, sameday: 50, gt1d: 15 },
-  purchaseFrequency: { "1": 20, "2to3": 50, "4to6": 78, "7plus": 95 },
-  crmUsage: { advanced: 95, basic: 45, none: 10 },
-  loyalty: { yes: 85, planned: 45, no: 25 },
-  reactivation: { structured: 95, occasional: 55, none: 15 },
-  upsell: { systematic: 95, sometimes: 55, no: 15 },
-  crossSell: { systematic: 95, sometimes: 55, no: 15 },
-  bundles: { yes: 85, no: 25 },
-  recurringRevenue: { significant: 95, some: 60, none: 25 },
-  pricingReview: { recent: 95, old: 50, never: 15 },
+  icpClarity: { documented: 95, focused: 80, general: 55, broad: 35, anyone: 15 },
+  differentiation: { moat: 95, clear: 75, service: 55, price: 30, unclear: 15 },
+  acquisitionTrend: { up_fast: 95, up: 75, flat: 50, down: 25, down_fast: 10 },
+  topChannelShare: { lt30: 95, "30to50": 80, "50to70": 60, "70to90": 40, gt90: 20 },
+  leadResponseTime: { lt5m: 95, lt1h: 80, lt4h: 60, sameday: 45, gt1d: 15 },
+  purchaseFrequency: { "1": 20, "2": 45, "3to4": 65, "5to8": 80, "9plus": 95 },
+  crmUsage: { advanced: 95, campaigns: 75, basic: 45, storage: 25, none: 10 },
+  loyalty: { measured: 95, active: 75, informal: 50, planned: 30, no: 20 },
+  reactivation: { automated: 95, regular: 75, occasional: 50, rare: 30, none: 10 },
+  upsell: { automated: 95, systematic: 80, sometimes: 55, rarely: 30, no: 10 },
+  crossSell: { automated: 95, systematic: 80, sometimes: 55, rarely: 30, no: 10 },
+  bundles: { core: 95, several: 80, one: 60, planned: 35, no: 20 },
+  recurringRevenue: { gt50: 95, "30to50": 85, "10to30": 65, lt10: 45, none: 25 },
+  pricingReview: { lt3m: 95, "3to6m": 85, "6to12m": 60, gt12m: 35, never: 15 },
   growthRate: { declining: 10, "0to10": 40, "10to30": 65, "30to60": 85, gt60: 95 },
-  cacTrend: { decreasing: 95, stable: 70, increasing: 25 },
-  marginTrend: { improving: 95, stable: 65, declining: 20 },
-  analytics: { reliable: 95, partial: 45, limited: 10 },
-  experimentation: { structured: 95, adhoc: 50, none: 10 },
+  /** Falling acquisition cost is good, so scores descend as cost rises. */
+  cacTrend: { down_fast: 95, down: 85, stable: 70, up: 45, up_fast: 20 },
+  marginTrend: { up_fast: 95, up: 80, stable: 65, down: 40, down_fast: 15 },
+  analytics: { reliable: 95, scattered: 75, partial: 45, manual: 30, limited: 10 },
+  experimentation: { weekly: 95, monthly: 75, adhoc: 50, rare: 25, none: 10 },
   payback: { first: 100, "1to3": 85, "3to6": 65, "6to12": 40, gt12: 15 },
 };
 

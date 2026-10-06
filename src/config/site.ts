@@ -16,11 +16,16 @@ export const SITE = {
   whatsapp: process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "",
 };
 
+/** Main menu: the product first, kept short. Services, Lab and Insights live in the footer. */
 export const NAV = [
-  { href: "/#system", label: "System" },
-  { href: "/how-we-work", label: "How we work" },
-  { href: "/services", label: "Services" },
+  { href: "/diagnostic", label: "Growth Diagnostic" },
+  { href: "/how-we-work", label: "How it works" },
   { href: "/case-studies", label: "Case studies" },
-  { href: "/experimentation-lab", label: "Experiment Lab" },
-  { href: "/insights", label: "Insights" },
+  { href: "/specialist", label: "Talk to a specialist" },
+];
+
+export const ACCOUNT_NAV = [
+  { href: "/account", label: "My account" },
+  { href: "/account/reports", label: "Previous reports" },
+  { href: "/account/progress", label: "My progress" },
 ];

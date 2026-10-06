@@ -120,13 +120,18 @@ export function LeadForm({
 
   return (
     <form onSubmit={submit} noValidate className="space-y-5">
-      <div className="grid gap-5 sm:grid-cols-2">
+      {/* The report form asks for three things only; the contact form keeps the optional extras. */}
+      <div className={`grid gap-5 ${source === "contact" ? "sm:grid-cols-2" : ""}`}>
         {field("name", "Full name", { autoComplete: "name", required: true })}
         {field("email", "Work email", { type: "email", autoComplete: "email", inputMode: "email", required: true })}
         {field("company", "Company", { autoComplete: "organization", required: true })}
-        {field("phone", "Phone / WhatsApp", { type: "tel", autoComplete: "tel", inputMode: "tel", placeholder: "+966" }, true)}
-        {field("jobTitle", "Job title", { autoComplete: "organization-title" }, true)}
-        {field("website", "Company website", { type: "url", inputMode: "url", placeholder: "example.com" }, true)}
+        {source === "contact" && (
+          <>
+            {field("phone", "Phone / WhatsApp", { type: "tel", autoComplete: "tel", inputMode: "tel", placeholder: "+966" }, true)}
+            {field("jobTitle", "Job title", { autoComplete: "organization-title" }, true)}
+            {field("website", "Company website", { type: "url", inputMode: "url", placeholder: "example.com" }, true)}
+          </>
+        )}
       </div>
       {showMessage && (
         <label className="block">

@@ -1,16 +1,17 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getAnonymousId, getAttribution, track } from "@/lib/analytics/client";
-import { currencyFor, QUESTION_MAP, STEPS, validateAnswer, visibleScreenQuestions } from "@/lib/diagnostic/questions";
+import { applyAnswer, currencyFor, QUESTION_MAP, STEPS, validateAnswer, visibleScreenQuestions } from "@/lib/diagnostic/questions";
 import type { AnswerValue, Answers, DiagnosticReport, ReportPreview } from "@/lib/diagnostic/types";
 import { formatNumber } from "@/lib/format";
+import { DataUpload, type AppliedUpload } from "./DataUpload";
 import { Progress } from "./Progress";
 import { QuestionField, type Suggestion } from "./QuestionField";
 import { Results } from "./Results";
 
-const STORE_KEY = "gx_diagnostic_v1";
+const STORE_KEY = "gx_diagnostic_v2";
 
-type Phase = "intro" | "questions" | "submitting" | "results";
+type Phase = "intro" | "questions" | "upload" | "submitting" | "results";
 
 interface Saved {
   answers: Answers;
@@ -19,6 +20,7 @@ interface Saved {
   sessionId?: string;
   preview?: ReportPreview;
   report?: DiagnosticReport;
+  savedToAccount?: boolean;
 }
 
 interface Page {
@@ -50,18 +52,19 @@ function load(): Saved | null {
 function suggestionFor(id: string, a: Answers, currency: string): Suggestion | undefined {
   const n = (k: string) => (typeof a[k] === "number" ? (a[k] as number) : undefined);
   const revenue = n("monthlyRevenue");
-  const customers = n("monthlyCustomers");
-  if (id === "aov" && revenue && customers) {
-    const v = Math.round(revenue / customers);
-    return { value: v, label: `Use ≈ ${currency} ${formatNumber(v)} (revenue ÷ customers)` };
+  const orders = n("monthlyOrders");
+  const newCustomers = n("monthlyNewCustomers");
+  if (id === "aov" && revenue && orders) {
+    const v = Math.round(revenue / orders);
+    return { value: v, label: `Use ≈ ${currency} ${formatNumber(v)} (revenue ÷ orders)` };
   }
-  if (id === "cac" && n("marketingSpend") && customers) {
-    const v = Math.round(n("marketingSpend")! / customers);
-    return { value: v, label: `Use ≈ ${currency} ${formatNumber(v)} (spend ÷ customers, an upper estimate)` };
+  if (id === "cac" && n("marketingSpend") && newCustomers) {
+    const v = Math.round(n("marketingSpend")! / newCustomers);
+    return { value: v, label: `Use ≈ ${currency} ${formatNumber(v)} (marketing spend ÷ new customers)` };
   }
-  if ((id === "conversionRate" || id === "visitorToCustomer") && n("monthlyTraffic") && customers) {
-    const v = Math.round((customers / n("monthlyTraffic")!) * 10000) / 100;
-    if (v > 0 && v <= 100) return { value: v, label: `Use ≈ ${v}% (customers ÷ visits)` };
+  if (id === "conversionRate" && n("monthlyTraffic") && orders) {
+    const v = Math.round((orders / n("monthlyTraffic")!) * 10000) / 100;
+    if (v > 0 && v <= 100) return { value: v, label: `Use ≈ ${v}% (orders ÷ visits)` };
   }
   return undefined;
 }
@@ -76,6 +79,7 @@ export function DiagnosticApp() {
   const [sessionId, setSessionId] = useState<string>();
   const [preview, setPreview] = useState<ReportPreview>();
   const [report, setReport] = useState<DiagnosticReport>();
+  const [savedToAccount, setSavedToAccount] = useState(false);
   const topRef = useRef<HTMLDivElement>(null);
   const abandonSent = useRef(false);
 
@@ -87,10 +91,11 @@ export function DiagnosticApp() {
     if (saved) {
       setAnswers(saved.answers ?? {});
       setPage(saved.page ?? 0);
-      setPhase(saved.phase === "submitting" ? "questions" : saved.phase);
+      setPhase(saved.phase === "submitting" ? "upload" : saved.phase);
       setSessionId(saved.sessionId);
       setPreview(saved.preview);
       setReport(saved.report);
+      setSavedToAccount(!!saved.savedToAccount);
     }
     setHydrated(true);
     /* eslint-enable react-hooks/set-state-in-effect */
@@ -99,11 +104,11 @@ export function DiagnosticApp() {
   useEffect(() => {
     if (!hydrated) return;
     try {
-      sessionStorage.setItem(STORE_KEY, JSON.stringify({ answers, page, phase, sessionId, preview, report } satisfies Saved));
+      sessionStorage.setItem(STORE_KEY, JSON.stringify({ answers, page, phase, sessionId, preview, report, savedToAccount } satisfies Saved));
     } catch {
       /* ignore */
     }
-  }, [hydrated, answers, page, phase, sessionId, preview, report]);
+  }, [hydrated, answers, page, phase, sessionId, preview, report, savedToAccount]);
 
   const pages = useMemo(() => pagesFor(answers), [answers]);
   const current = pages[Math.min(page, pages.length - 1)];
@@ -137,12 +142,8 @@ export function DiagnosticApp() {
   const scrollTop = () => topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
 
   const setAnswer = useCallback((id: string, v: AnswerValue | undefined) => {
-    setAnswers((prev) => {
-      const next = { ...prev };
-      if (v === undefined) delete next[id];
-      else next[id] = v;
-      return next;
-    });
+    // Changing a parent (e.g. industry) clears the dropdowns that depend on it.
+    setAnswers((prev) => applyAnswer(prev, id, v));
     setErrors((e) => {
       if (!e[id]) return e;
       const rest = { ...e };
@@ -158,7 +159,7 @@ export function DiagnosticApp() {
     scrollTop();
   }
 
-  async function submit(final: Answers) {
+  async function submit(final: Answers, upload?: AppliedUpload["summary"]) {
     setPhase("submitting");
     setSubmitError(null);
     track("diagnostic_completed", { business_model: String(final.businessModel ?? "") });
@@ -166,7 +167,7 @@ export function DiagnosticApp() {
       const res = await fetch("/api/diagnostic", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ answers: final, anonymousId: getAnonymousId(), attribution: getAttribution() }),
+        body: JSON.stringify({ answers: final, upload, anonymousId: getAnonymousId(), attribution: getAttribution() }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -177,11 +178,13 @@ export function DiagnosticApp() {
           setPage(Math.max(0, idx));
         }
         setSubmitError(data.error ?? "We couldn't generate your result. Please try again.");
-        setPhase("questions");
+        setPhase(data.fields ? "questions" : "upload");
         return;
       }
       setSessionId(data.sessionId);
       setPreview(data.preview);
+      setReport(data.report);
+      setSavedToAccount(!!data.savedToAccount);
       setPhase("results");
       track("diagnostic_score_generated", {
         sessionId: data.sessionId,
@@ -192,7 +195,7 @@ export function DiagnosticApp() {
       scrollTop();
     } catch {
       setSubmitError("We couldn't reach the server. Check your connection and try again.");
-      setPhase("questions");
+      setPhase("upload");
     }
   }
 
@@ -200,7 +203,7 @@ export function DiagnosticApp() {
     if (!current) return;
     const errs: Record<string, string> = {};
     for (const id of current.ids) {
-      const err = validateAnswer(QUESTION_MAP[id], answers[id]);
+      const err = validateAnswer(QUESTION_MAP[id], answers[id], answers);
       if (err) errs[id] = err;
     }
     setErrors(errs);
@@ -215,7 +218,9 @@ export function DiagnosticApp() {
       track("diagnostic_step_completed", { step: STEPS[current.step].id });
     }
     if (!nextPage) {
-      void submit(answers);
+      // Optional last step: strengthen the diagnosis with an orders export.
+      setPhase("upload");
+      scrollTop();
       return;
     }
     setPage(page + 1);
@@ -235,6 +240,7 @@ export function DiagnosticApp() {
     setSessionId(undefined);
     setPreview(undefined);
     setReport(undefined);
+    setSavedToAccount(false);
     setPhase("intro");
     scrollTop();
   }
@@ -249,6 +255,7 @@ export function DiagnosticApp() {
           report={report}
           sessionId={sessionId}
           answers={answers}
+          savedToAccount={savedToAccount}
           onUnlocked={(r) => setReport(r)}
           onRestart={restart}
         />
@@ -257,6 +264,47 @@ export function DiagnosticApp() {
   }
 
   if (phase === "intro") return <Intro onStart={start} resume={Object.keys(answers).length > 0 ? () => setPhase("questions") : undefined} topRef={topRef} />;
+
+  if (phase === "upload" || phase === "submitting") {
+    return (
+      <div ref={topRef} className="mx-auto max-w-3xl scroll-mt-24 px-4 pb-24 pt-8 sm:px-6 sm:pt-12">
+        <Progress current={STEPS.length - 1} fraction={1} />
+        <div className="animate-rise mt-10 sm:mt-14">
+          <p className="eyebrow">Optional · Your data</p>
+          <h1 className="mt-3 text-[clamp(1.75rem,4vw,2.5rem)] font-semibold leading-tight tracking-[-0.02em]">
+            Strengthen your diagnosis with real numbers
+          </h1>
+          <p className="mt-2 text-ink-2">
+            Upload an orders export and we&apos;ll calculate revenue, orders, new customers and repeat rate from it. You can
+            review every figure before it&apos;s used, or skip this step.
+          </p>
+          {submitError && (
+            <p role="alert" className="mt-6 border-l-2 border-alert bg-alert-soft px-4 py-3 text-sm">
+              {submitError}
+            </p>
+          )}
+          <DataUpload
+            answers={answers}
+            currency={currency}
+            busy={phase === "submitting"}
+            onBack={() => {
+              setSubmitError(null);
+              setPhase("questions");
+              scrollTop();
+            }}
+            onContinue={(applied) => {
+              let final = answers;
+              if (applied) {
+                for (const [k, v] of Object.entries(applied.metrics)) if (typeof v === "number") final = applyAnswer(final, k, v);
+                setAnswers(final);
+              }
+              void submit(final, applied?.summary);
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
 
   const step = STEPS[current.step];
   const stepPages = pages.filter((p) => p.step === current.step);
@@ -290,6 +338,7 @@ export function DiagnosticApp() {
               key={id}
               q={QUESTION_MAP[id]}
               value={answers[id]}
+              answers={answers}
               error={errors[id]}
               currency={currency}
               suggestion={suggestionFor(id, answers, currency)}
@@ -307,11 +356,10 @@ export function DiagnosticApp() {
             </button>
             <button
               type="submit"
-              disabled={phase === "submitting"}
               className="inline-flex min-h-12 flex-1 items-center justify-center gap-2 bg-ink px-6 font-medium text-paper transition-colors hover:bg-accent-ink disabled:opacity-60 sm:flex-none sm:min-w-48"
             >
-              {phase === "submitting" ? "Calculating your score…" : isLast ? "See my results" : "Continue"}
-              {phase !== "submitting" && <span aria-hidden>→</span>}
+              {isLast ? "Continue to the last step" : "Continue"}
+              <span aria-hidden>→</span>
             </button>
           </div>
         </form>

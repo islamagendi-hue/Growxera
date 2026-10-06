@@ -19,10 +19,11 @@ export default async function CaseStudyPage({ params }: PageProps<"/case-studies
   if (!c) notFound();
   const sections = (
     [
+      ["Business type", c.businessType && <p key="t">{c.businessType}</p>],
       ["Problem", c.problem && <p key="p">{c.problem}</p>],
       ["Diagnosis", c.diagnosis && <p key="d">{c.diagnosis}</p>],
       [
-        "Intervention",
+        "Solution",
         c.intervention?.length && (
       <ul key="i" className="space-y-2">
         {c.intervention.map((x) => (
@@ -34,6 +35,7 @@ export default async function CaseStudyPage({ params }: PageProps<"/case-studies
       </ul>
         ),
       ],
+      ["Growth lever", c.growthLever && <p key="g">{c.growthLever}</p>],
       ["Result", c.result && <p key="r">{c.result}</p>],
       ["Business impact", c.businessImpact && <p key="b">{c.businessImpact}</p>],
       ["Stack", c.stack?.length && <p key="s">{c.stack.join(" · ")}</p>],

@@ -19,7 +19,10 @@ import {
   OPPORTUNITY_LIBRARY,
   SCORING_VERSION,
 } from "./config";
+import { BENCHMARK_VERSION, evaluateBenchmarks } from "./benchmarks";
+import { contextOf, describeContext } from "./context";
 import { buildEstimates, totalRevenueOpportunity } from "./estimates";
+import { buildRecommendations } from "./recommendations";
 import { currencyFor } from "./questions";
 import { getModel, scoreAll } from "./scoring";
 import {
@@ -150,6 +153,8 @@ export function buildReport(answers: Answers, now = new Date()): DiagnosticRepor
   const overall = overallScore(dimensions);
   const estimates = buildEstimates(answers);
   const avgConfidence = dimensions.reduce((s, d) => s + d.confidence, 0) / dimensions.length;
+  const benchmarks = evaluateBenchmarks(answers);
+  const ctx = contextOf(answers);
 
   return {
     scoringVersion: SCORING_VERSION,
@@ -168,6 +173,10 @@ export function buildReport(answers: Answers, now = new Date()): DiagnosticRepor
     estimates,
     estimatedOpportunity: totalRevenueOpportunity(estimates),
     dataConfidence: level(avgConfidence, CONFIDENCE_THRESHOLDS),
+    context: { ...Object.fromEntries(Object.entries(ctx).filter(([, v]) => v !== undefined)), label: describeContext(answers) },
+    benchmarkVersion: BENCHMARK_VERSION,
+    benchmarks,
+    recommendations: buildRecommendations(answers, dimensions, benchmarks, bottleneck),
   };
 }
 
@@ -183,6 +192,7 @@ export function toPreview(r: DiagnosticReport): ReportPreview {
     bottleneck: r.bottleneck,
     bottleneckExplanation: r.bottleneckExplanation,
     dataConfidence: r.dataConfidence,
+    context: r.context,
     dimensions: r.dimensions.map(({ dimension, score, confidence, hasData }) => ({ dimension, score, confidence, hasData })),
   };
 }

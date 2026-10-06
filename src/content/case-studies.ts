@@ -21,6 +21,10 @@ export interface CaseStudy {
   title: string;
   /** Up to four headline results, shown on cards. */
   metrics: CaseMetric[];
+  /** What kind of business it was, so readers can match it to their own. */
+  businessType?: string;
+  /** The main lever that moved the result, in one line. Must come from the intervention below. */
+  growthLever?: string;
   /** Narrative sections are optional: only what the client has confirmed is shown. */
   problem?: string;
   diagnosis?: string;
@@ -38,6 +42,8 @@ export interface CaseStudy {
 export const CASE_STUDIES: CaseStudy[] = [
   {
     slug: "car-wash-app-0-to-100k-users",
+    businessType: "B2C mobile app (on-demand service)",
+    growthLever: "Activation and referral loops, on top of ICP-targeted paid acquisition",
     client: "On-demand car wash app",
     sector: "Mobile app",
     market: "Riyadh, Saudi Arabia",
@@ -69,6 +75,8 @@ export const CASE_STUDIES: CaseStudy[] = [
   },
   {
     slug: "perfume-store-100k-to-700k-monthly",
+    businessType: "D2C e-commerce store",
+    growthLever: "New sales channels (Amazon, Meta) and product samples",
     client: "Perfume e-commerce store",
     sector: "E-commerce · Perfume",
     title: "A perfume store that grew monthly revenue from SAR 100K to SAR 700K",
@@ -89,6 +97,8 @@ export const CASE_STUDIES: CaseStudy[] = [
   },
   {
     slug: "multi-branch-lifecycle-crm",
+    businessType: "Multi-branch service business",
+    growthLever: "Lifecycle CRM automation and a referral program",
     client: "Multi-branch service business",
     sector: "Lifecycle & CRM",
     title: "A CRM automation system that lifted repeat bookings by 25% across 6 branches",
@@ -112,6 +122,8 @@ export const CASE_STUDIES: CaseStudy[] = [
   },
   {
     slug: "edtech-full-funnel-growth",
+    businessType: "EdTech platform",
+    growthLever: "Onboarding (time to first value) and lifecycle email",
     client: "EdTech platform",
     sector: "EdTech",
     title: "A full-funnel growth system that lifted conversions by 18%",

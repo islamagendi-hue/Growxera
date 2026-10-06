@@ -1,13 +1,16 @@
 import { buildReport, toPreview } from "@/lib/diagnostic/engine";
 import { sanitizeAnswers } from "@/lib/diagnostic/questions";
 import { clientKey, rateLimit } from "@/lib/server/rate-limit";
-import { diagnosticRequestSchema } from "@/lib/server/schemas";
+import { currentAccount } from "@/lib/server/auth";
+import { diagnosticRequestSchema, uploadSummarySchema } from "@/lib/server/schemas";
 import { insert } from "@/lib/server/store";
 
 /**
  * Scores a completed diagnostic and stores the session.
- * Returns the preview only; the full report (opportunities, estimates) is
- * returned by /api/leads once the visitor shares their details.
+ *
+ * Signed in: the diagnostic is saved straight to the account and the full
+ * report is returned. Otherwise only the preview is returned; the full report
+ * comes from /api/leads once the visitor shares name, email and company.
  */
 export async function POST(req: Request) {
   if (!rateLimit(`diag:${clientKey(req)}`, 20, 60_000)) {
@@ -23,6 +26,8 @@ export async function POST(req: Request) {
 
   const report = buildReport(answers);
   const id = crypto.randomUUID();
+  const account = await currentAccount();
+  const upload = uploadSummarySchema.safeParse(parsed.data.upload);
   const { first, last } = parsed.data.attribution;
   const touch = last ?? first ?? {};
 
@@ -30,11 +35,14 @@ export async function POST(req: Request) {
     await insert("diagnostic_sessions", {
       id,
       anonymous_id: parsed.data.anonymousId ?? null,
+      account_id: account?.id ?? null,
       status: "completed",
       completed_at: report.generatedAt,
       business_model: report.businessModel,
       industry: answers.industry ?? null,
-      primary_market: answers.primaryMarket ?? null,
+      primary_market: answers.geography ?? null,
+      context: report.context ?? null,
+      data_upload: upload.success ? upload.data : null,
       currency: report.currency,
       monthly_revenue: typeof answers.monthlyRevenue === "number" ? answers.monthlyRevenue : null,
       answers,
@@ -62,5 +70,5 @@ export async function POST(req: Request) {
     console.error("[diagnostic] store failed", err);
   }
 
-  return Response.json({ sessionId: id, preview: toPreview(report) });
+  return Response.json({ sessionId: id, preview: toPreview(report), ...(account ? { report, savedToAccount: true } : {}) });
 }

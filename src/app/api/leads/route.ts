@@ -1,7 +1,8 @@
 import { CONSENT_TEXT, POLICY_VERSION } from "@/config/privacy";
 import { buildReport } from "@/lib/diagnostic/engine";
 import { sanitizeAnswers } from "@/lib/diagnostic/questions";
-import { sendReportEmail } from "@/lib/server/email";
+import { sendReportReady } from "@/lib/server/accounts";
+import { currentAccount } from "@/lib/server/auth";
 import { clientKey, rateLimit } from "@/lib/server/rate-limit";
 import { leadRequestSchema } from "@/lib/server/schemas";
 import { insert, updateById } from "@/lib/server/store";
@@ -30,6 +31,7 @@ export async function POST(req: Request) {
   }
 
   const leadId = crypto.randomUUID();
+  const account = await currentAccount();
   const now = new Date().toISOString();
   const { first, last } = data.attribution;
   const touch = last ?? first ?? {};
@@ -48,6 +50,7 @@ export async function POST(req: Request) {
       website: lead.website || null,
       message: lead.message || null,
       diagnostic_session_id: data.diagnosticSessionId ?? null,
+      account_id: account?.id ?? null,
       anonymous_id: data.anonymousId ?? null,
       overall_score: report?.overallScore ?? null,
       bottleneck: report?.bottleneck ?? null,
@@ -76,8 +79,15 @@ export async function POST(req: Request) {
     return Response.json({ error: "We couldn't save your details. Please try again." }, { status: 503 });
   }
 
+  // The report email carries a one-time link that signs in (creating the account
+  // if needed) and saves this diagnostic to it.
   const [emailSent] = await Promise.all([
-    report ? sendReportEmail(lead.email, lead.name, report, data.diagnosticSessionId ? leadId : undefined) : Promise.resolve(false),
+    report && data.diagnosticSessionId
+      ? sendReportReady({ email: lead.email, name: lead.name, company: lead.company, report, diagnosticSessionId: data.diagnosticSessionId }).catch((err) => {
+          console.error("[leads] report email failed", err);
+          return false;
+        })
+      : Promise.resolve(false),
     notify({ leadId, source: data.source, name: lead.name, email: lead.email, company: lead.company, phone: lead.phone, report }),
   ]);
 

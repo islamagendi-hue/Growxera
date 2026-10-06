@@ -74,6 +74,45 @@ export interface Estimate {
   missing?: string[];
 }
 
+export interface BusinessContextSnapshot {
+  industry?: string;
+  segment?: string;
+  businessType?: string;
+  category?: string;
+  geography?: string;
+  city?: string;
+  /** Human-readable, e.g. "E-commerce & retail · B2C · Own brand (D2C) · Perfumes & fragrance · Riyadh, Saudi Arabia". */
+  label: string;
+}
+
+export interface BenchmarkSnapshot {
+  metric: string;
+  label: string;
+  unit: "%" | "x";
+  value: number;
+  low: number;
+  high: number;
+  higherIsBetter: boolean;
+  position: "worse" | "within" | "better" | "outlier";
+  basis: string;
+  explanation: string;
+}
+
+export interface RecommendationSnapshot {
+  id: string;
+  dimension: Dimension;
+  title: string;
+  body: string;
+  evidence: string[];
+  impact: Level;
+  effort: Level;
+  gap: number;
+  relevance: number;
+  score: number;
+  caseStudy?: string;
+  link?: { href: string; label: string };
+}
+
 export interface DiagnosticReport {
   scoringVersion: string;
   generatedAt: string;
@@ -92,6 +131,12 @@ export interface DiagnosticReport {
   estimates: Estimate[];
   estimatedOpportunity: { monthlyLow: number; monthlyHigh: number } | null;
   dataConfidence: Level;
+  /** Added in scoring 2026.10-v2. Older stored reports don't have these. */
+  context?: BusinessContextSnapshot;
+  benchmarkVersion?: string;
+  benchmarks?: BenchmarkSnapshot[];
+  /** Ranked, at most 10. */
+  recommendations?: RecommendationSnapshot[];
 }
 
 /** The part of the report shown before the lead form. */
@@ -107,4 +152,5 @@ export type ReportPreview = Pick<
   | "bottleneck"
   | "bottleneckExplanation"
   | "dataConfidence"
+  | "context"
 > & { dimensions: Pick<DimensionScore, "dimension" | "score" | "confidence" | "hasData">[] };
