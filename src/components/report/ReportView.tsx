@@ -15,6 +15,7 @@ import type {
 } from "@/lib/diagnostic/types";
 import { formatMoney, formatNumber } from "@/lib/format";
 import { SpecialistCta, specialistHref } from "./SpecialistCta";
+import { CountUp } from "@/components/ui/CountUp";
 
 const LEVEL_LABEL: Record<Level, string> = { high: "High", medium: "Medium", low: "Low" };
 const wrap = "mx-auto max-w-[1240px] px-4 sm:px-6 lg:px-10";
@@ -77,7 +78,7 @@ export function ReportView({
             <div className="lg:col-span-5">
               <h1 className="eyebrow !text-ink">Your Growth Score</h1>
               <p className="tabular mt-3 text-[clamp(5rem,14vw,9rem)] font-semibold leading-[0.9] tracking-[-0.05em]">
-                {preview.overallScore}
+                <CountUp value={preview.overallScore} />
                 <span className="text-[0.3em] font-medium tracking-normal text-ink-3"> / 100</span>
               </p>
               <div className="mt-8 border-t border-line pt-6">
@@ -228,9 +229,9 @@ function FullReport({ report, reportId }: { report: DiagnosticReport; reportId?:
                 <div className="border-l-2 border-accent pl-5">
                   <p className="eyebrow">Combined revenue opportunity, per month</p>
                   <p className="tabular mt-2 text-[clamp(1.75rem,4.5vw,3rem)] font-semibold tracking-[-0.03em]">
-                    {formatMoney(report.estimatedOpportunity.monthlyLow, report.currency)}
+                    <CountUp value={formatMoney(report.estimatedOpportunity.monthlyLow, report.currency)} />
                     <span className="text-ink-3"> – </span>
-                    {formatMoney(report.estimatedOpportunity.monthlyHigh, report.currency)}
+                    <CountUp value={formatMoney(report.estimatedOpportunity.monthlyHigh, report.currency)} />
                   </p>
                   <p className="mt-2 text-sm text-ink-3">
                     Sum of the revenue scenarios below. Scenarios overlap in practice, so treat this as a ceiling for discussion, not a forecast.

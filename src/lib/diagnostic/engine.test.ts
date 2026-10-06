@@ -137,7 +137,7 @@ describe("full report", () => {
   });
 
   it("carries the business context, benchmarks and at most ten ranked recommendations", () => {
-    expect(report.context?.label).toBe("E-commerce & retail · B2C · Online retail · Fashion & apparel · Riyadh, Saudi Arabia");
+    expect(report.context?.label).toBe("E-commerce · B2C · Online store · Fashion · Riyadh, Saudi Arabia");
     expect(report.benchmarks?.find((b) => b.metric === "conversionRate")?.position).toBe("within");
     const recs = report.recommendations!;
     expect(recs.length).toBeGreaterThan(0);

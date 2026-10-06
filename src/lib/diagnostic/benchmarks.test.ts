@@ -30,7 +30,7 @@ describe("benchmark positions", () => {
 
 describe("benchmark resolution", () => {
   it("uses the most specific range: category first", () => {
-    expect(rangeFor("conversionRate", perfume())?.basis).toBe("perfumes & fragrance");
+    expect(rangeFor("conversionRate", perfume())?.basis).toBe("perfumes and oud");
     expect(rangeFor("conversionRate", perfume())?.range).toEqual({ low: 1.5, high: 3 });
   });
   it("falls back to the business type, then the revenue model", () => {
@@ -44,7 +44,7 @@ describe("benchmark resolution", () => {
   it("explains each position in plain words", () => {
     const [below] = evaluateBenchmarks(perfume({ conversionRate: 0.8 }));
     expect(below.position).toBe("worse");
-    expect(below.explanation).toContain("below the expected range for perfumes & fragrance");
+    expect(below.explanation).toContain("below the expected range for perfumes and oud");
     const [outlier] = evaluateBenchmarks(perfume({ conversionRate: 9 }));
     expect(outlier.position).toBe("outlier");
     expect(outlier.explanation).toContain("significantly above the current benchmark");

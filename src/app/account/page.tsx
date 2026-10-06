@@ -7,6 +7,7 @@ import { DIMENSION_LABELS } from "@/lib/diagnostic/config";
 import type { Dimension } from "@/lib/diagnostic/types";
 import { listDiagnostics } from "@/lib/server/accounts";
 import { requireAccount } from "@/lib/server/guard";
+import { CountUp } from "@/components/ui/CountUp";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +27,7 @@ export default async function AccountHome() {
           <div className="bg-card p-6 sm:p-8">
             <p className="eyebrow">Latest Growth Score</p>
             <p className="tabular mt-2 text-6xl font-semibold tracking-[-0.04em]">
-              {latest.overall_score}
+              <CountUp value={latest.overall_score} />
               <span className="text-xl font-medium text-ink-3"> / 100</span>
             </p>
             <p className="mt-2 text-sm text-ink-2">

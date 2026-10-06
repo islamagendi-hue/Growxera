@@ -1,4 +1,5 @@
 import { ScoreBars } from "@/components/diagnostic/ScoreBars";
+import { CountUp } from "@/components/ui/CountUp";
 
 /**
  * Product tour: small, static mockups of each part of the product. Every number
@@ -41,9 +42,9 @@ export function ProductMockups() {
   return (
     <ul className="grid gap-px border border-line bg-line md:grid-cols-2 lg:grid-cols-3">
       <Frame n="01" title="The diagnostic" text="Your context first, then questions adapted to it. A help note on every metric.">
-        <Field label="Industry" value="E-commerce & retail" />
+        <Field label="Industry" value="E-commerce" />
         <Field label="Business type" value="Own brand (D2C)" />
-        <Field label="Category" value="Perfumes & fragrance" open />
+        <Field label="Category" value="Perfumes and oud" open />
         <div className="mt-3 flex items-center gap-2">
           <span className="font-medium">Repeat purchase rate</span>
           <span className="flex h-4 w-4 items-center justify-center rounded-full border border-ink text-[0.6rem]">?</span>
@@ -52,7 +53,7 @@ export function ProductMockups() {
 
       <Frame n="02" title="Your report" text="A Growth Score, your primary bottleneck and how you compare with the benchmark.">
         <div className="flex items-end gap-3 border-b border-line pb-3">
-          <p className="tabular text-4xl font-semibold leading-none">58</p>
+          <p className="tabular text-4xl font-semibold leading-none"><CountUp value="58" /></p>
           <p className="pb-0.5 text-ink-3">/100 · Growth Emerging</p>
         </div>
         <p className="mt-3 text-[0.7rem] uppercase tracking-[0.08em] text-alert">▲ Primary bottleneck</p>
@@ -96,7 +97,7 @@ export function ProductMockups() {
             ["58", "6 Oct", "first"],
           ].map(([s, d, delta]) => (
             <li key={d} className="flex items-center gap-3 py-2">
-              <span className="tabular w-8 font-mono text-lg font-semibold">{s}</span>
+              <span className="tabular w-8 font-mono text-lg font-semibold"><CountUp value={s} /></span>
               <span className="flex-1">{d}</span>
               <span className={delta.startsWith("+") ? "font-mono text-accent" : "text-ink-3"}>{delta.startsWith("+") ? `▲ ${delta}` : delta}</span>
             </li>

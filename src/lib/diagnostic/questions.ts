@@ -754,6 +754,7 @@ export const QUESTION_MAP: Record<string, Question> = Object.fromEntries(QUESTIO
 
 /** Fields that get cleared when their parent context field changes. */
 export const DEPENDENT_FIELDS = CONTEXT_CHILDREN;
+const AUTO_FILL_ORDER = ["segment", "businessType", "category", "city"];
 
 export const STEPS: Step[] = [
   {
@@ -900,7 +901,16 @@ export function applyAnswer(answers: Answers, id: string, v: AnswerValue | undef
   const next = { ...answers };
   if (v === undefined) delete next[id];
   else next[id] = v;
-  if (answers[id] !== v) for (const child of DEPENDENT_FIELDS[id] ?? []) delete next[child];
+  if (answers[id] !== v) {
+    for (const child of DEPENDENT_FIELDS[id] ?? []) delete next[child];
+    // A level with only one possible answer is filled in, so nobody picks from a list of one.
+    for (const child of AUTO_FILL_ORDER) {
+      if (!(DEPENDENT_FIELDS[id] ?? []).includes(child) || next[child] !== undefined) continue;
+      const opts = CONTEXT_OPTIONS[child](next);
+      if (opts.length !== 1) break;
+      next[child] = opts[0].value;
+    }
+  }
   const m = revenueModelFor(next);
   if (m) next.businessModel = m;
   return next;

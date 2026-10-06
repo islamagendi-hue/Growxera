@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { CtaBand } from "@/components/ui/CtaBand";
 import { Container } from "@/components/ui/Section";
 import { CASE_STUDIES, getCaseStudy } from "@/content/case-studies";
+import { CountUp } from "@/components/ui/CountUp";
 
 export function generateStaticParams() {
   return CASE_STUDIES.map((c) => ({ slug: c.slug }));
@@ -54,7 +55,7 @@ export default async function CaseStudyPage({ params }: PageProps<"/case-studies
             {c.metrics.map((m) => (
               <div key={m.label} className="bg-paper p-5">
                 <dt className="text-sm text-ink-3">{m.label}</dt>
-                <dd className="tabular mt-2 font-mono text-3xl font-medium">{m.value}</dd>
+                <dd className="tabular mt-2 font-mono text-3xl font-medium"><CountUp value={m.value} /></dd>
                 {m.detail && <dd className="mt-1 text-xs text-ink-3">{m.detail}</dd>}
               </div>
             ))}

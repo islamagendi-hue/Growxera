@@ -81,7 +81,7 @@ export interface BusinessContextSnapshot {
   category?: string;
   geography?: string;
   city?: string;
-  /** Human-readable, e.g. "E-commerce & retail · B2C · Own brand (D2C) · Perfumes & fragrance · Riyadh, Saudi Arabia". */
+  /** Human-readable, e.g. "E-commerce · B2C · Own brand (D2C) · Perfumes and oud · Riyadh, Saudi Arabia". */
   label: string;
 }
 

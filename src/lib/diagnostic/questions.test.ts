@@ -51,6 +51,25 @@ describe("context taxonomy", () => {
     expect(GEOGRAPHIES.find((g) => g.value === "SA")?.cities.map((c) => c.label)).toContain("Riyadh");
   });
 
+  it("labels name one thing each (no '&' groupings)", () => {
+    const labels: string[] = [];
+    const walk = (a: Record<string, string>) => {
+      for (const id of ["industry", "segment", "businessType", "category", "geography", "city"]) labels.push(...CONTEXT_OPTIONS[id](a).map((o) => o.label));
+    };
+    for (const i of CONTEXT_OPTIONS.industry({}))
+      for (const m of CONTEXT_OPTIONS.segment({ industry: i.value }))
+        for (const t of CONTEXT_OPTIONS.businessType({ industry: i.value, segment: m.value })) walk({ industry: i.value, segment: m.value, businessType: t.value });
+    expect(labels.filter((l) => l.includes("&"))).toEqual([]);
+    expect(CONTEXT_OPTIONS.industry({}).length).toBeGreaterThanOrEqual(30);
+  });
+
+  it("fills a level that has only one possible answer", () => {
+    const a = applyAnswer({}, "industry", "healthcare");
+    expect(a.segment).toBe("b2c");
+    expect(a.businessType).toBe("clinic");
+    expect(a.category).toBeUndefined();
+  });
+
   it("dropdowns depend on the level above", () => {
     expect(CONTEXT_OPTIONS.segment({})).toEqual([]);
     const types = CONTEXT_OPTIONS.businessType({ industry: "ecommerce", segment: "b2c" }).map((t) => t.value);
@@ -66,7 +85,8 @@ describe("context taxonomy", () => {
     a = applyAnswer(a, "category", "perfume");
     expect(a.businessModel).toBe("ecommerce");
     a = applyAnswer(a, "industry", "saas");
-    expect(a.segment).toBeUndefined();
+    expect(a.segment).toBe("b2b"); // SaaS has one business model, so it is filled in
+    expect(a.businessType).toBeUndefined();
     expect(a.businessType).toBeUndefined();
     expect(a.category).toBeUndefined();
     expect(a.businessModel).toBeUndefined();

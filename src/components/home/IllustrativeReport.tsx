@@ -1,4 +1,5 @@
 import { ScoreBars } from "@/components/diagnostic/ScoreBars";
+import { CountUp } from "@/components/ui/CountUp";
 
 /** Hero visual. Numbers are an illustrative example, clearly labelled, not client data. */
 export function IllustrativeReport() {
@@ -12,7 +13,7 @@ export function IllustrativeReport() {
       </div>
       <div className="mt-6 flex items-end gap-6 border-b border-line pb-6">
         <p className="tabular text-7xl font-semibold leading-none tracking-tight">
-          64<span className="text-2xl text-ink-3">/100</span>
+          <CountUp value="64" /><span className="text-2xl text-ink-3">/100</span>
         </p>
         <div className="pb-1">
           <p className="eyebrow">Stage</p>

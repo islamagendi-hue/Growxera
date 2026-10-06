@@ -10,6 +10,7 @@ import { TRACK_RECORD } from "@/content/case-studies";
 import { EXPERIMENTS } from "@/content/experiments";
 import { FAQ } from "@/content/faq";
 import { BOTTLENECKS, CAPABILITIES, HOW_WE_WORK, OFFERINGS, STANDALONE_SERVICES, PROBLEM_ORIGINS } from "@/content/site-content";
+import { CountUp } from "@/components/ui/CountUp";
 
 export const metadata: Metadata = { title: { absolute: SITE.title }, alternates: { canonical: "/" } };
 
@@ -223,7 +224,7 @@ export default function Home() {
             {TRACK_RECORD.map((t) => (
               <div key={t.label} className="flex flex-col-reverse bg-paper p-5 sm:p-6">
                 <dt className="mt-2 text-sm text-ink-3">{t.label}</dt>
-                <dd className="tabular font-mono text-3xl font-medium">{t.value}</dd>
+                <dd className="tabular font-mono text-3xl font-medium"><CountUp value={t.value} /></dd>
               </div>
             ))}
           </dl>

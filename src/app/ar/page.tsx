@@ -4,6 +4,7 @@ import { CtaLink } from "@/components/ui/CtaLink";
 import { Container } from "@/components/ui/Section";
 import { SITE } from "@/config/site";
 import { EXPERIMENTS } from "@/content/experiments";
+import { CountUp } from "@/components/ui/CountUp";
 
 export const metadata: Metadata = {
   title: { absolute: "Growx Era — شريك النمو والتحول" },
@@ -151,7 +152,7 @@ export default function ArabicHome() {
               <div key={t.label} className="flex flex-col-reverse bg-paper p-5 sm:p-6">
                 <dt className="mt-2 text-sm text-ink-3">{t.label}</dt>
                 <dd dir="ltr" className="tabular text-right font-mono text-3xl font-medium">
-                  {t.value}
+                  <CountUp value={t.value} />
                 </dd>
               </div>
             ))}

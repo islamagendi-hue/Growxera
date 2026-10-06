@@ -103,6 +103,17 @@
     transform: none;
   }
 }
+@keyframes grow {
+  from {
+    transform: scaleX(0);
+  }
+}
+/* Score bars fill from the left when the page opens. */
+.animate-grow {
+  transform-origin: left;
+  animation: grow 1.2s cubic-bezier(0.2, 0.7, 0.2, 1) 0.1s backwards;
+}
+
 .animate-rise {
   animation: rise 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
 }

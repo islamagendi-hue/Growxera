@@ -174,7 +174,7 @@ export interface BenchmarkResult {
   high: number;
   higherIsBetter: boolean;
   position: BenchmarkPosition;
-  /** Which level of the taxonomy the range came from, e.g. "Perfumes & fragrance". */
+  /** Which level of the taxonomy the range came from, e.g. "Perfumes and oud". */
   basis: string;
   explanation: string;
 }

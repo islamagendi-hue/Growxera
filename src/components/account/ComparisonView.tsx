@@ -4,6 +4,7 @@ import type { Comparison } from "@/lib/diagnostic/compare";
 import { formatNumber } from "@/lib/format";
 import { Delta } from "./Delta";
 import { formatDate, stageLabel } from "./ReportList";
+import { CountUp } from "@/components/ui/CountUp";
 
 const POSITION: Record<string, string> = { worse: "Below", within: "Within", better: "Above", outlier: "Far above" };
 const fmt = (v: number, unit: "%" | "x") => (unit === "%" ? `${formatNumber(v, v < 10 ? 1 : 0)}%` : `${formatNumber(v, 1)}×`);
@@ -15,19 +16,19 @@ export function ComparisonView({ c, beforeId, afterId }: { c: Comparison; before
       <div className="grid gap-px border border-line bg-line sm:grid-cols-3">
         <Link href={`/account/reports/${beforeId}`} className="bg-card p-6 hover:bg-paper">
           <p className="eyebrow">Previous · {formatDate(c.before.generatedAt)}</p>
-          <p className="tabular mt-2 text-5xl font-semibold">{c.before.overallScore}</p>
+          <p className="tabular mt-2 text-5xl font-semibold"><CountUp value={c.before.overallScore} /></p>
           <p className="mt-1 text-sm text-ink-3">{stageLabel(c.before.stage)}</p>
         </Link>
         <Link href={`/account/reports/${afterId}`} className="bg-card p-6 hover:bg-paper">
           <p className="eyebrow">Current · {formatDate(c.after.generatedAt)}</p>
-          <p className="tabular mt-2 text-5xl font-semibold">{c.after.overallScore}</p>
+          <p className="tabular mt-2 text-5xl font-semibold"><CountUp value={c.after.overallScore} /></p>
           <p className="mt-1 text-sm text-ink-3">{stageLabel(c.after.stage)}</p>
         </Link>
         <div className="bg-ink p-6 text-paper">
           <p className="eyebrow !text-paper/60">Overall change</p>
           <p className="tabular mt-2 text-5xl font-semibold">
             {c.overallDelta > 0 ? "+" : c.overallDelta < 0 ? "−" : ""}
-            {Math.abs(c.overallDelta)}
+            <CountUp value={Math.abs(c.overallDelta)} />
           </p>
           <p className="mt-1 text-sm text-paper/60">
             Bottleneck: {DIMENSION_LABELS[c.before.bottleneck]}

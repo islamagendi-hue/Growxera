@@ -66,7 +66,7 @@ describe("specialist emails", () => {
   it("team email carries the diagnostic context for the specialist", () => {
     const { text } = specialistTeamEmail({ kind: "question", name: "Sara", email: "s@x.co", company: "Oud Co", message: "Hi", report });
     expect(text).toContain(`Growth Score: ${report.overallScore}/100`);
-    expect(text).toContain("Perfumes & fragrance");
+    expect(text).toContain("Perfumes and oud");
   });
 });
 

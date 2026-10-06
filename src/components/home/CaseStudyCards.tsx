@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CASE_STUDIES } from "@/content/case-studies";
 import { CaseStudyPlaceholders } from "./CaseStudyPlaceholders";
+import { CountUp } from "@/components/ui/CountUp";
 
 /** Real case studies when available, otherwise clearly marked placeholders. */
 export function CaseStudyCards({ limit }: { limit?: number }) {
@@ -24,7 +25,7 @@ export function CaseStudyCards({ limit }: { limit?: number }) {
               {c.metrics.slice(0, 4).map((m) => (
                 <div key={m.label} className="bg-card p-3">
                   <dt className="text-xs text-ink-3">{m.label}</dt>
-                  <dd className="tabular mt-1 font-mono text-xl font-medium">{m.value}</dd>
+                  <dd className="tabular mt-1 font-mono text-xl font-medium"><CountUp value={m.value} /></dd>
                 </div>
               ))}
             </dl>

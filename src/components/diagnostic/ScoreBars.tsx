@@ -1,3 +1,4 @@
+import { CountUp } from "@/components/ui/CountUp";
 import { DIMENSION_LABELS } from "@/lib/diagnostic/config";
 import type { Dimension } from "@/lib/diagnostic/types";
 
@@ -41,7 +42,7 @@ export function ScoreBars({
               >
                 {!noData && (
                   <span
-                    className={`absolute inset-y-0 left-0 rounded-r-[3px] ${
+                    className={`animate-grow absolute inset-y-0 left-0 rounded-r-[3px] ${
                       isHi ? (dark ? "bg-paper" : "bg-ink") : dark ? "bg-accent-bright" : "bg-accent"
                     }`}
                     style={{ width: `${Math.max(2, d.score)}%` }}
@@ -52,7 +53,7 @@ export function ScoreBars({
                 ))}
               </span>
               <span className="tabular text-right font-mono text-sm">
-                {noData ? "n/a" : d.score}
+                {noData ? "n/a" : <CountUp value={d.score} />}
                 {isHi && <span className="sr-only"> (bottleneck)</span>}
               </span>
             </li>
