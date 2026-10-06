@@ -113,14 +113,6 @@ function readContact(fd: FormData, errs: Record<string, string>) {
   return contact;
 }
 
-function SignedInAs({ who }: { who: Person }) {
-  return (
-    <p className="text-sm text-ink-2">
-      Sending as <strong className="text-ink">{who.name}</strong>, {who.company} ({who.email}).
-    </p>
-  );
-}
-
 function AskForm({ signedIn, reportId, start }: { signedIn: Person | null; reportId?: string; start: { topic: string; message: string } }) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
@@ -171,7 +163,7 @@ function AskForm({ signedIn, reportId, start }: { signedIn: Person | null; repor
 
   return (
     <form onSubmit={submit} noValidate className="space-y-5">
-      {signedIn ? <SignedInAs who={signedIn} /> : <ContactFields errors={errors} />}
+      {!signedIn && <ContactFields errors={errors} />}
       <label className="block">
         <span className="text-sm font-medium">Topic</span>
         <select name="topic" defaultValue={start.topic} className={`${inputClass} appearance-none`}>
@@ -373,7 +365,7 @@ function Booking({ signedIn, reportId }: { signedIn: Person | null; reportId?: s
             <strong>{formatSlot(chosen.start)}</strong> · 30 minutes
             {tz && tz !== "Asia/Riyadh" ? <span className="block text-ink-2">That&apos;s {localTime(chosen.start)} your time.</span> : null}
           </p>
-          {signedIn ? <SignedInAs who={signedIn} /> : <ContactFields errors={errors} />}
+          {!signedIn && <ContactFields errors={errors} />}
           <label className="block">
             <span className="text-sm font-medium">
               Anything we should know? <span className="font-normal text-ink-3">(optional)</span>
