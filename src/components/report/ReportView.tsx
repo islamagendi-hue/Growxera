@@ -256,8 +256,7 @@ function FullReport({ report, reportId }: { report: DiagnosticReport; reportId?:
             Methodology: scores use Growx Era&apos;s weighting (Market 10%, Value 10%, Acquisition 15%, Activation 15%, Retention 15%,
             Expansion 15%, Scale 20%). The primary bottleneck is chosen by Impact × Severity × Dependency, so the lowest score is not
             automatically the bottleneck. Benchmarks are Growx Era working ranges for your business type, not published industry
-            statistics. Scoring version {report.scoringVersion}
-            {report.benchmarkVersion && `, benchmarks ${report.benchmarkVersion}`}.
+            statistics.
           </p>
         </div>
       </section>
