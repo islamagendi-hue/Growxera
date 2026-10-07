@@ -6,6 +6,7 @@ import { ConsentBanner } from "@/components/site/ConsentBanner";
 import { Footer } from "@/components/site/Footer";
 import { GoogleAnalytics } from "@/components/site/GoogleAnalytics";
 import { Header } from "@/components/site/Header";
+import { HideOnLanding } from "@/components/site/HideOnLanding";
 import { SITE } from "@/config/site";
 import "./globals.css";
 
@@ -86,7 +87,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <main id="main" className="flex-1">
           {children}
         </main>
-        <Footer />
+        <HideOnLanding>
+          <Footer />
+        </HideOnLanding>
         <ConsentBanner />
         <GoogleAnalytics />
       </body>
