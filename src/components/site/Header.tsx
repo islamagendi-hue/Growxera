@@ -24,67 +24,56 @@ export function Header() {
   const isArabic = pathname === "/ar" || pathname.startsWith("/ar/");
   const current = (href: string) => (pathname === href || pathname.startsWith(`${href}/`) ? "page" : undefined);
 
+  // The diagnostic is a standalone landing page: no site header.
+  if (inDiagnostic) return null;
+
   return (
     <header className="sticky top-0 z-40 print:hidden border-b border-line/80 bg-paper/90 backdrop-blur supports-[backdrop-filter]:bg-paper/75">
       <Container className="flex h-16 items-center justify-between gap-6">
         <Link href="/" className="text-lg" aria-label="Growx Era home">
           <Wordmark />
         </Link>
-        {!inDiagnostic && (
-          <nav aria-label="Main" className="hidden items-center gap-6 xl:gap-8 lg:flex">
-            {NAV.map((n) => (
-              <Link key={n.href} href={n.href} aria-current={current(n.href)} className="text-sm text-ink-2 transition-colors hover:text-ink aria-[current=page]:text-ink">
-                {n.label}
-              </Link>
-            ))}
-          </nav>
-        )}
+        <nav aria-label="Main" className="hidden items-center gap-6 xl:gap-8 lg:flex">
+          {NAV.map((n) => (
+            <Link key={n.href} href={n.href} aria-current={current(n.href)} className="text-sm text-ink-2 transition-colors hover:text-ink aria-[current=page]:text-ink">
+              {n.label}
+            </Link>
+          ))}
+        </nav>
         <div className="flex items-center gap-3">
-          {!inDiagnostic && (
-            <Link
-              href={isArabic ? "/" : "/ar"}
-              hrefLang={isArabic ? "en" : "ar"}
-              lang={isArabic ? "en" : "ar"}
-              className="px-1 py-2.5 text-sm text-ink-2 hover:text-ink"
-            >
-              {isArabic ? "English" : "العربية"}
-            </Link>
-          )}
-          {!inDiagnostic && (
-            <span className="hidden lg:block">
-              {signedIn ? <AccountMenu /> : (
-                <Link href="/login" className="px-1 py-2.5 text-sm text-ink-2 hover:text-ink">
-                  Log in
-                </Link>
-              )}
+          <Link
+            href={isArabic ? "/" : "/ar"}
+            hrefLang={isArabic ? "en" : "ar"}
+            lang={isArabic ? "en" : "ar"}
+            className="px-1 py-2.5 text-sm text-ink-2 hover:text-ink"
+          >
+            {isArabic ? "English" : "العربية"}
+          </Link>
+          <span className="hidden lg:block">
+            {signedIn ? <AccountMenu /> : (
+              <Link href="/login" className="px-1 py-2.5 text-sm text-ink-2 hover:text-ink">
+                Log in
+              </Link>
+            )}
+          </span>
+          <span className="hidden sm:block">
+            <CtaLink href="/diagnostic" cta="header_diagnose" className="!min-h-10 !px-4 text-sm">
+              {signedIn ? "New diagnostic" : "Diagnose your growth"}
+            </CtaLink>
+          </span>
+          <button
+            type="button"
+            className="-mr-2 flex h-11 w-11 items-center justify-center lg:hidden"
+            aria-expanded={open}
+            aria-controls="mobile-nav"
+            aria-label={open ? "Close menu" : "Open menu"}
+            onClick={() => setOpenOn(open ? null : pathname)}
+          >
+            <span className="relative block h-3 w-5">
+              <span className={`absolute left-0 h-px w-5 bg-ink transition-transform ${open ? "top-1.5 rotate-45" : "top-0"}`} />
+              <span className={`absolute left-0 h-px w-5 bg-ink transition-transform ${open ? "top-1.5 -rotate-45" : "top-3"}`} />
             </span>
-          )}
-          {!inDiagnostic && (
-            <span className="hidden sm:block">
-              <CtaLink href="/diagnostic" cta="header_diagnose" className="!min-h-10 !px-4 text-sm">
-                {signedIn ? "New diagnostic" : "Diagnose your growth"}
-              </CtaLink>
-            </span>
-          )}
-          {inDiagnostic ? (
-            <Link href={signedIn ? "/account" : "/"} className="text-sm text-ink-2 hover:text-ink">
-              Exit
-            </Link>
-          ) : (
-            <button
-              type="button"
-              className="-mr-2 flex h-11 w-11 items-center justify-center lg:hidden"
-              aria-expanded={open}
-              aria-controls="mobile-nav"
-              aria-label={open ? "Close menu" : "Open menu"}
-              onClick={() => setOpenOn(open ? null : pathname)}
-            >
-              <span className="relative block h-3 w-5">
-                <span className={`absolute left-0 h-px w-5 bg-ink transition-transform ${open ? "top-1.5 rotate-45" : "top-0"}`} />
-                <span className={`absolute left-0 h-px w-5 bg-ink transition-transform ${open ? "top-1.5 -rotate-45" : "top-3"}`} />
-              </span>
-            </button>
-          )}
+          </button>
         </div>
       </Container>
       {open && (
