@@ -5,6 +5,7 @@ import { applyAnswer, currencyFor, QUESTION_MAP, STEPS, validateAnswer, visibleS
 import type { AnswerValue, Answers, DiagnosticReport, ReportPreview } from "@/lib/diagnostic/types";
 import { formatNumber } from "@/lib/format";
 import { DataUpload, type AppliedUpload } from "./DataUpload";
+import { DiagnosticLanding } from "./DiagnosticLanding";
 import { Progress } from "./Progress";
 import { QuestionField, type Suggestion } from "./QuestionField";
 import { Results } from "./Results";
@@ -271,7 +272,7 @@ export function DiagnosticApp() {
     );
   }
 
-  if (phase === "intro") return <Intro onStart={start} resume={Object.keys(answers).length > 0 ? () => setPhase("questions") : undefined} topRef={topRef} />;
+  if (phase === "intro") return <DiagnosticLanding onStart={start} resume={Object.keys(answers).length > 0 ? () => setPhase("questions") : undefined} topRef={topRef} />;
 
   if (phase === "upload") {
     return (
@@ -371,49 +372,6 @@ export function DiagnosticApp() {
           </div>
         </form>
       </div>
-    </div>
-  );
-}
-
-function Intro({ onStart, resume, topRef }: { onStart: () => void; resume?: () => void; topRef: React.RefObject<HTMLDivElement | null> }) {
-  return (
-    <div ref={topRef} className="mx-auto grid max-w-[1240px] gap-12 px-4 py-16 sm:px-6 sm:py-24 lg:grid-cols-12 lg:px-10">
-      <div className="lg:col-span-7">
-        <p className="eyebrow">Growx Era Growth Diagnostic</p>
-        <h1 className="mt-6 text-h2 font-semibold sm:text-[clamp(2.5rem,5.5vw,4.5rem)]">Find Your Growth Bottleneck</h1>
-        <p className="mt-6 max-w-[52ch] text-lg leading-relaxed text-ink-2">
-          Answer a structured set of questions about your business. You&apos;ll get a preliminary Growth Score across
-          seven dimensions, your most likely bottleneck, and where the biggest opportunities may be hiding.
-        </p>
-        <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:items-center">
-          <button
-            type="button"
-            onClick={onStart}
-            className="inline-flex min-h-12 items-center justify-center gap-2 bg-ink px-6 font-medium text-paper hover:bg-accent-ink"
-          >
-            Start Free Growth Diagnostic <span aria-hidden>→</span>
-          </button>
-          {resume && (
-            <button type="button" onClick={resume} className="min-h-12 px-2 text-left underline underline-offset-4">
-              Resume where you left off
-            </button>
-          )}
-        </div>
-      </div>
-      <ul className="space-y-px self-start border border-line bg-line lg:col-span-5">
-        {[
-          ["About 8 minutes", "Six short sections. Progress is saved in this browser tab."],
-          ["No guessing", "Every metric has an “I don't know” option. We never invent numbers."],
-          ["Bring your numbers", "Optionally upload an Excel or CSV file and we fill in the figures from it."],
-          ["Adapted to you", "Questions change with your business model."],
-          ["Private", "Your answers are used to produce your result. Contact details are optional until you want the full report."],
-        ].map(([t, d]) => (
-          <li key={t} className="bg-paper p-5">
-            <p className="font-medium">{t}</p>
-            <p className="mt-1 text-sm text-ink-2">{d}</p>
-          </li>
-        ))}
-      </ul>
     </div>
   );
 }
