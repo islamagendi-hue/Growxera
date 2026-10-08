@@ -1,12 +1,12 @@
 /** Site copy that is reused across pages. */
 export const SYSTEM_STEPS = [
-  { key: "market", label: "Market", verb: "MARKET", text: "Choose the customers and segments worth winning, and confirm the demand is there." },
+  { key: "market", label: "Market", verb: "MARKET", text: "Choose the segments worth winning and confirm the demand is real." },
   { key: "value", label: "Value", verb: "VALUE", text: "Give them a clear reason to choose you, priced to protect margin." },
-  { key: "acquisition", label: "Acquisition", verb: "ACQUIRE", text: "Win new customers through channels that scale at a cost you can afford." },
-  { key: "activation", label: "Activation", verb: "ACTIVATE", text: "Turn attention into revenue: conversion, onboarding and sales process." },
-  { key: "retention", label: "Retention", verb: "RETAIN", text: "Bring customers back with lifecycle, CRM and a reason to stay." },
-  { key: "expansion", label: "Expansion", verb: "EXPAND", text: "Grow revenue per customer through bundles, upsells and pricing." },
-  { key: "scale", label: "Scale", verb: "SCALE", text: "Compound what works with trusted data, experimentation and healthy economics." },
+  { key: "acquisition", label: "Acquisition", verb: "ACQUIRE", text: "Win customers through channels that scale at a cost you can afford." },
+  { key: "activation", label: "Activation", verb: "ACTIVATE", text: "Turn first visits into paying customers, from onboarding to the sale." },
+  { key: "retention", label: "Retention", verb: "RETAIN", text: "Bring customers back with lifecycle messaging and a reason to stay." },
+  { key: "expansion", label: "Expansion", verb: "EXPAND", text: "Raise revenue per customer with bundles, upsells and better pricing." },
+  { key: "scale", label: "Scale", verb: "SCALE", text: "Compound what works with trusted data and constant testing." },
 ] as const;
 
 export const BOTTLENECKS = [

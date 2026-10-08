@@ -45,7 +45,7 @@ export default function Home() {
               </CtaLink>
             </div>
             <p className="mt-14 max-w-[46ch] border-l-2 border-accent pl-4 text-ink-2">
-              Your business doesn&apos;t need more marketing. It needs a better growth system.
+              A better growth system usually does more for a business than more marketing.
             </p>
           </div>
           <div className="lg:pt-6">
@@ -59,7 +59,7 @@ export default function Home() {
         index="01"
         eyebrow="The problem"
         title="Growth rarely breaks in one place."
-        lead="When revenue stalls, the instinct is to buy more traffic. But the constraint can sit anywhere in the system, and pushing more volume into a leaking system makes it more expensive, not more profitable."
+        lead="When revenue stalls, the instinct is to buy more traffic. But the constraint can sit anywhere in the system, and pushing more volume into a leaking system only makes each new customer more expensive."
       >
         <ul className="grid grid-cols-2 border-l border-t border-line sm:grid-cols-4">
           {PROBLEM_ORIGINS.map((p, i) => (
@@ -289,7 +289,7 @@ export default function Home() {
       <section className="bg-ink py-20 text-paper sm:py-28">
         <Container className="grid gap-10 lg:grid-cols-12 lg:items-end">
           <h2 className="text-h2 font-semibold lg:col-span-8">
-            Ready to find what&apos;s holding your growth back?
+            Find what&apos;s holding your growth back.
           </h2>
           <div className="flex flex-col gap-3 lg:col-span-4 lg:items-end">
             <CtaLink href="/diagnostic" cta="final_diagnose" variant="inverse" className="w-full sm:w-auto">

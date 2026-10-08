@@ -49,7 +49,7 @@ export function ConsentBanner() {
     >
       <div className="border border-ink/15 bg-card p-5 shadow-[0_12px_40px_-12px_rgba(14,19,17,0.35)]">
         <p id="consent-title" className="font-medium">{t.consentTitle}</p>
-        <p className="mt-2 text-sm leading-relaxed text-pretty text-ink-2">{t.consentText ?? CONSENT_TEXT.analytics}</p>
+        <p className="mt-2 text-sm leading-relaxed text-ink-2">{t.consentText ?? CONSENT_TEXT.analytics}</p>
         <Link href="/privacy" className="mt-2 inline-block text-sm text-ink-2 underline underline-offset-4">
           {t.privacyNotice}
         </Link>

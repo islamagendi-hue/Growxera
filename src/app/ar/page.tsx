@@ -9,7 +9,7 @@ import { CountUp } from "@/components/ui/CountUp";
 
 export const metadata: Metadata = {
   title: { absolute: "Growx Era | أنظمة النمو | البناء والتوسع" },
-  description: "Growx Era تساعد الشركات الطموحة على تشخيص ما يعيق نموها، واكتشاف أكبر فرصها، وبناء نظام نمو يحققها.",
+  description: "تساعد Growx Era الشركات على تحديد ما يعيق نموها، وبناء نظام نمو يستثمر أفضل فرصها.",
   alternates: { canonical: "/ar", languages: { en: "/", ar: "/ar" } },
   openGraph: { locale: "ar_SA" },
 };
@@ -84,7 +84,7 @@ const CAPABILITIES = ["الدخول إلى السوق (GTM)", "استراتيج�
 
 const TRACK = [
   { value: "0 → 100K", label: "مستخدم خلال 8 أشهر" },
-  { value: "−70%", label: "تكلفة الاستحواذ، من 116 إلى 35 ريالاً" },
+  { value: "−70%", label: "تكلفة الاستحواذ (CAC)، من 116 إلى 35 ريالاً" },
   { value: "4:1", label: "نسبة LTV:CAC مستدامة" },
   { value: "SAR 2M+", label: "إيرادات منسوبة" },
 ];
@@ -93,11 +93,11 @@ const CASES = [
   {
     slug: "car-wash-app-0-to-100k-users",
     sector: "تطبيق جوال · الرياض، السعودية",
-    title: "من 0 إلى 100 ألف مستخدم خلال 8 أشهر، مع خفض تكلفة الاستحواذ 70%",
+    title: "من الصفر إلى 100 ألف مستخدم خلال 8 أشهر، مع خفض تكلفة الاستحواذ (CAC) بنسبة 70%",
     lever: "حلقات التفعيل والإحالة، فوق استحواذ مدفوع موجّه للعميل المثالي",
     metrics: [
       { label: "المستخدمون", value: "0 → 100K" },
-      { label: "تكلفة الاستحواذ", value: "−70%" },
+      { label: "تكلفة الاستحواذ (CAC)", value: "−70%" },
       { label: "التفعيل", value: "28% → 40%" },
       { label: "LTV:CAC", value: "4:1" },
     ],
@@ -126,7 +126,7 @@ const FAQ = [
   },
   {
     q: "ماذا يحدث لبياناتي؟",
-    a: "تُستخدم إجاباتك لإعداد تقريرك وتُحفظ في حسابك لتتابع تقدمك. الملف المرفوع يُقرأ داخل متصفحك ولا يُرسل إلينا؛ فقط الأرقام التي تختار استخدامها. لا نبيع بياناتك. ويمكنك حذف بياناتك المحفوظة أو حسابك بالكامل بنفسك في أي وقت من صفحة ملفك الشخصي، على خطوتين: اختر ما تريد حذفه، ثم أكّد.",
+    a: "تُستخدم إجاباتك لإعداد تقريرك وتُحفظ في حسابك لتتابع تقدمك. الملف المرفوع يُقرأ داخل متصفحك ولا يُرسل إلينا؛ فقط الأرقام التي تختار استخدامها. لا نبيع بياناتك. ويمكنك في أي وقت حذف بياناتك المحفوظة أو حسابك بالكامل من صفحة ملفك الشخصي، باختيار ما تريد حذفه ثم تأكيد الحذف.",
   },
   {
     q: "ما مدى دقة النتيجة؟",
@@ -245,7 +245,7 @@ export default function ArabicHome() {
               </CtaLink>
             </div>
             <p className="mt-14 max-w-[46ch] border-r-2 border-accent pr-4 text-ink-2">
-              شركتك لا تحتاج إلى مزيد من التسويق، بل إلى نظام نمو أفضل.
+              تحسين نظام النمو يحقق لشركتك غالباً نتائج أكبر من زيادة الإنفاق على التسويق.
             </p>
           </div>
           <div className="lg:pt-6">
@@ -285,7 +285,7 @@ export default function ArabicHome() {
       >
         <ol className="grid border-t border-line sm:grid-cols-2 lg:grid-cols-7">
           {SYSTEM.map((s, i) => (
-            <li key={s.name} className="border-b border-line py-6 pl-6 lg:border-b-0 lg:border-l lg:py-8 lg:pr-5 lg:first:pr-0 lg:last:border-l-0">
+            <li key={s.name} className="border-b border-line py-6 pl-6 sm:last:col-span-2 lg:last:col-span-1 lg:border-b-0 lg:border-l lg:py-8 lg:pr-5 lg:first:pr-0 lg:last:border-l-0">
               <span className="font-mono text-xs text-accent">0{i + 1}</span>
               <p className="mt-3 font-semibold lg:mt-5">{s.name}</p>
               <p className="mt-3 text-[0.95rem] leading-relaxed text-ink-2">{s.text}</p>
@@ -434,7 +434,7 @@ export default function ArabicHome() {
         index="07"
         eyebrow="دراسات الحالة"
         title="المشكلة. التشخيص. الحل. النتيجة."
-        lead="كل دراسة حالة تتبع البنية نفسها وتبدأ بالأرقام المهمة: الإيراد، وتكلفة الاستحواذ، والتحويل، والاحتفاظ، ومتوسط قيمة الطلب، والقيمة الدائمة للعميل، وفترة الاسترداد، والهامش."
+        lead="تُعرض كل دراسة حالة بالهيكل نفسه، وتبدأ بالمؤشرات الأساسية: الإيراد، وتكلفة الاستحواذ (CAC)، ومعدل التحويل، ومعدل الاحتفاظ، ومتوسط قيمة الطلب (AOV)، والقيمة الدائمة للعميل (LTV)، وفترة استرداد التكلفة (Payback)، وهامش الربح."
       >
         <dl className="grid grid-cols-2 gap-px border border-line bg-line lg:grid-cols-4">
           {TRACK.map((t) => (
@@ -515,7 +515,7 @@ export default function ArabicHome() {
       {/* FINAL CTA */}
       <section className="bg-ink py-20 text-paper sm:py-28">
         <Container className="grid gap-10 lg:grid-cols-12 lg:items-end">
-          <h2 className="text-h2 font-semibold lg:col-span-8">هل أنت مستعد لمعرفة ما يعيق نموك؟</h2>
+          <h2 className="text-h2 font-semibold lg:col-span-8">اعرف ما يعيق نمو شركتك.</h2>
           <div className="flex flex-col gap-3 lg:col-span-4 lg:items-end">
             <CtaLink href="/diagnostic" cta="ar_final_diagnose" variant="inverse" className="w-full sm:w-auto">
               ابدأ تشخيص النمو

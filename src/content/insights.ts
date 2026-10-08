@@ -45,7 +45,7 @@ export const INSIGHTS: Insight[] = [
       {
         heading: "What to do this week",
         paragraphs: [
-          "Write down your conversion rate at each step, your repeat purchase or churn rate, and your CAC. If you do not know one of them, that gap is your first finding: you cannot fix what you cannot see. Then pick the single weakest step and run one experiment on it before touching anything else.",
+          "Write down your conversion rate at each step, your repeat purchase or churn rate, and your CAC. If you do not know one of them, that gap is your first finding. Then pick the single weakest step and run one experiment on it before touching anything else.",
         ],
       },
     ],
@@ -207,7 +207,7 @@ export const INSIGHTS: Insight[] = [
       {
         heading: "Across the funnel",
         paragraphs: [
-          "For acquisition, click-to-WhatsApp ads start a real conversation instead of a cold form. For conversion, fast answers to pre-purchase questions remove the doubts that stop people from buying. For retention, reminders, order updates and personal offers bring customers back.",
+          "For acquisition, click-to-WhatsApp ads start a real conversation instead of a cold form. For conversion, fast answers to pre-purchase questions remove the doubts that stop people from buying. For retention, reminders, order updates and personal offers bring customers back for repeat orders.",
           "WhatsApp can also be a bridge: businesses that start by taking orders in chat can move those customers into an app or website with a clear reason to switch.",
         ],
       },

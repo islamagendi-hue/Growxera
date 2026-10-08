@@ -16,7 +16,7 @@ const fmt = (d: string) => new Date(d).toLocaleDateString("en-GB", { day: "numer
 export default function Insights() {
   return (
     <>
-      <PageHero eyebrow="Insights" title="Notes from the growth bench." lead="Practical thinking on diagnosis, tracking, experimentation and retention. No fluff, no recycled listicles." />
+      <PageHero eyebrow="Insights" title="Notes from the growth bench." lead="Practical thinking on diagnosis, tracking, experimentation and retention." />
       <Section>
         <ul className="grid gap-px border border-line bg-line md:grid-cols-2 lg:grid-cols-3">
           {INSIGHTS.map((a) => (

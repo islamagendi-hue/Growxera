@@ -28,7 +28,7 @@ export function Footer() {
       <Container className="grid gap-[2.125rem] py-[3.4375rem] sm:grid-cols-2 lg:grid-cols-12">
         <div className="lg:col-span-5">
           <Wordmark className="text-xl" />
-          <p className="mt-4 max-w-[38ch] text-pretty text-ink-2">{t.tagline}</p>
+          <p className="mt-4 max-w-[38ch] text-ink-2">{t.tagline}</p>
         </div>
         <nav aria-label={t.footerNav} className="grid grid-cols-2 gap-x-8 text-sm lg:col-span-4 [&>a]:py-2.5 lg:[&>a]:py-1.5">
           {FOOTER_LINKS.map((href) => (
@@ -58,7 +58,7 @@ export function Footer() {
             </>
           )}
         </p>
-        <p className="text-balance">{t.disclaimer}</p>
+        <p>{t.disclaimer}</p>
       </Container>
     </footer>
   );

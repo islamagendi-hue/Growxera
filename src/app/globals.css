@@ -54,6 +54,28 @@
     font-feature-settings: "ss01", "cv11";
     text-rendering: optimizeLegibility;
   }
+  /* Line balance (Adams): no orphan words, headings split evenly. Fix wording, never font size. */
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  button,
+  summary {
+    text-wrap: balance;
+  }
+  /* Short blocks (up to 6 lines) are balanced so the last line is never stranded; longer ones fall back to pretty. */
+  p,
+  li,
+  dd,
+  dt,
+  blockquote,
+  figcaption,
+  label {
+    text-wrap: pretty;
+    text-wrap: balance;
+  }
   ::selection {
     background: var(--color-accent);
     color: var(--color-paper);

@@ -10,7 +10,7 @@ export const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "What happens to my data?",
-    a: "Your answers are used to prepare your report and are saved to your account so you can track progress. An uploaded file is read in your browser and never sent to us; only the figures you choose to use are. We don't sell your data. You can delete your saved data, or your whole account, yourself at any time from My profile, in two steps: choose what to delete, then confirm.",
+    a: "Your answers are used to prepare your report and are saved to your account so you can track progress. An uploaded file is read in your browser and never sent to us; only the figures you choose to use are. We don't sell your data. You can delete your saved data, or your whole account, yourself at any time from My profile: choose what to delete and confirm.",
   },
   {
     q: "How accurate is the result?",

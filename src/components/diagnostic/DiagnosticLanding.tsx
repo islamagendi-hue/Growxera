@@ -160,7 +160,7 @@ export function DiagnosticLanding({ onStart, resume, topRef }: { onStart: () => 
       {/* FINAL CTA */}
       <section className="bg-ink py-20 text-paper sm:py-28">
         <Container className="grid gap-10 lg:grid-cols-12 lg:items-end">
-          <h2 className="text-h2 font-semibold lg:col-span-8">Ready to find what&apos;s holding your growth back?</h2>
+          <h2 className="text-h2 font-semibold lg:col-span-8">Find what&apos;s holding your growth back.</h2>
           <div className="flex flex-col gap-3 lg:col-span-4 lg:items-end">
             <Start onStart={onStart} cta="landing_final_start" inverse />
           </div>

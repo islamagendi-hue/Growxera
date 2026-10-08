@@ -6,9 +6,9 @@ export function IllustrativeReport() {
   return (
     <div className="relative border border-ink/15 bg-card p-6 shadow-[0_30px_80px_-40px_rgba(14,19,17,0.45)] sm:p-8">
       <div className="flex items-start justify-between gap-4">
-        <p className="eyebrow">Growth Diagnostic report</p>
+        <p className="eyebrow">Diagnostic report</p>
         <span className="border border-line px-2 py-0.5 font-mono text-[0.65rem] uppercase tracking-wider text-ink-3">
-          Illustrative example
+          Illustrative
         </span>
       </div>
       <div className="mt-6 flex items-end gap-6 border-b border-line pb-6">

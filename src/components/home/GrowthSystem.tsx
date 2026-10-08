@@ -8,7 +8,7 @@ export function GrowthSystem({ tone = "ink" }: { tone?: "ink" | "paper" }) {
       {SYSTEM_STEPS.map((s, i) => (
         <li
           key={s.key}
-          className={`relative border-b py-6 pr-6 lg:border-b-0 lg:border-r lg:py-8 lg:pl-5 lg:first:pl-0 lg:last:border-r-0 ${
+          className={`relative border-b py-6 pr-6 sm:last:col-span-2 lg:last:col-span-1 lg:border-b-0 lg:border-r lg:py-8 lg:pl-5 lg:first:pl-0 lg:last:border-r-0 ${
             dark ? "border-paper/20" : "border-line"
           }`}
         >

@@ -9,9 +9,9 @@ export const metadata: Metadata = {
   alternates: { canonical: "/privacy" },
 };
 
-const TBD = ({ children }: { children: React.ReactNode }) => (
-  <mark className="bg-alert-soft px-1 text-alert">[{children}]</mark>
-);
+/** A legal detail still being finalised: shown highlighted in development, hidden on the live site. */
+const TBD = ({ children }: { children: React.ReactNode }) =>
+  process.env.NODE_ENV === "production" ? null : <mark className="bg-alert-soft px-1 text-alert">[{children}]</mark>;
 
 export default function Privacy() {
   const contact = SITE.contactEmail ? <a className="underline" href={`mailto:${SITE.contactEmail}`}>{SITE.contactEmail}</a> : <TBD>privacy contact email</TBD>;
@@ -31,7 +31,8 @@ export default function Privacy() {
         <section>
           <h2>Who we are</h2>
           <p>
-            Growx Era (<TBD>legal entity name, commercial registration number, registered address</TBD>) is the
+            {/* TODO(legal): add the legal entity name, commercial registration number and registered address. */}
+            Growx Era<TBD>legal entity name, commercial registration number, registered address</TBD> is the
             controller of the personal data described here. Contact us about privacy at {contact}.
           </p>
         </section>
@@ -103,7 +104,9 @@ export default function Privacy() {
           <p>
             Some of these providers may process data outside the Kingdom of Saudi Arabia. Where that happens we rely on
             the transfer conditions permitted under the PDPL and its Regulations on Personal Data Transfer Outside the
-            Kingdom, and on contractual safeguards with each provider. <TBD>Confirm transfer basis with counsel</TBD>.
+            Kingdom, and on contractual safeguards with each provider.
+            {/* TODO(legal): counsel to confirm the transfer basis. */}
+            <TBD>Confirm transfer basis with counsel</TBD>
           </p>
         </section>
 
@@ -123,14 +126,14 @@ export default function Privacy() {
           <p>
             You can ask to be informed about how we process your data, to access or obtain a copy of it, to correct it,
             to have it deleted, and to withdraw your consent at any time (this does not affect processing already
-            carried out). Email {contact} and we will respond within the period required by law. You may also lodge a
+            carried out). Email {contact} and we will reply within the period the law requires. You can also file a
             complaint with the Saudi Data &amp; AI Authority (SDAIA) or your local data protection authority.
           </p>
           <p>
             <strong>Delete it yourself.</strong> If you have an account, go to My account → My profile → Delete your
             data. It takes two steps: choose whether to delete your saved data (diagnostics, reports, progress history and
             advisor requests) or your whole account, then type DELETE to confirm. Deletion is immediate and permanent, and
-            we email you a receipt. Without an account, email {contact} and we will delete it for you.
+            we email you a receipt. Without an account, email {contact} and we will delete it.
           </p>
         </section>
 
@@ -151,8 +154,7 @@ export default function Privacy() {
           <p>
             Data is encrypted in transit and stored in a database that is only accessible from our servers. There are no
             passwords to leak: you sign in with one-time links that expire after 20 minutes (48 hours for the link in
-            your report email) and stop working once used. Access is
-            limited to the Growx Era team members who need it.
+            your report email) and work only once. Access is limited to the Growx Era team members who need it.
           </p>
         </section>
 

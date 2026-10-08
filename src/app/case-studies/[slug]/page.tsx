@@ -59,7 +59,10 @@ export default async function CaseStudyPage({ params }: PageProps<"/case-studies
           </div>
           <dl className={`mt-12 grid max-w-3xl grid-cols-2 gap-px border border-line bg-line ${c.metrics.length >= 4 ? "lg:max-w-none lg:grid-cols-4" : c.metrics.length === 3 ? "sm:max-w-none sm:grid-cols-3" : ""}`}>
             {c.metrics.map((m) => (
-              <div key={m.label} className="bg-paper p-5">
+              <div
+                key={m.label}
+                className={`bg-paper p-5 last:odd:col-span-2 ${c.metrics.length === 3 ? "sm:last:odd:col-span-1" : "lg:last:odd:col-span-1"}`}
+              >
                 <dt className="text-sm text-ink-3">{m.label}</dt>
                 <dd className="tabular mt-2 font-mono text-3xl font-medium"><CountUp value={m.value} /></dd>
                 {m.detail && <dd className="mt-1 text-xs text-ink-3">{m.detail}</dd>}
