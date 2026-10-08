@@ -1,41 +1,64 @@
+"use client";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { CHROME, isArabicPath } from "@/config/chrome";
 import { SITE } from "@/config/site";
 import { Container } from "@/components/ui/Section";
 import { Wordmark } from "./Wordmark";
 import { ConsentSettingsButton } from "./ConsentBanner";
 
+const FOOTER_LINKS = [
+  "/diagnostic",
+  "/how-we-work",
+  "/advisor",
+  "/account",
+  "/services",
+  "/case-studies",
+  "/experimentation-lab",
+  "/insights",
+  "/contact",
+  "/privacy",
+];
+
 export function Footer() {
+  const isArabic = isArabicPath(usePathname());
+  const t = CHROME[isArabic ? "ar" : "en"];
   return (
-    <footer className="border-t border-line bg-paper print:hidden">
+    <footer lang={isArabic ? "ar" : undefined} dir={isArabic ? "rtl" : undefined} className="border-t border-line bg-paper print:hidden">
       <Container className="grid gap-[2.125rem] py-[3.4375rem] sm:grid-cols-2 lg:grid-cols-12">
         <div className="lg:col-span-5">
           <Wordmark className="text-xl" />
-          <p className="mt-4 max-w-[38ch] text-ink-2">Growth systems for ambitious businesses across the World, from building to scaling.</p>
+          <p className="mt-4 max-w-[38ch] text-pretty text-ink-2">{t.tagline}</p>
         </div>
-        <nav aria-label="Footer" className="grid grid-cols-2 gap-x-8 text-sm lg:col-span-4 [&>a]:py-2.5 lg:[&>a]:py-1.5">
-          <Link href="/diagnostic" className="hover:underline">Growth Diagnostic</Link>
-          <Link href="/how-we-work" className="hover:underline">How it works</Link>
-          <Link href="/advisor" className="hover:underline">Talk to an advisor</Link>
-          <Link href="/account" className="hover:underline">My account</Link>
-          <Link href="/services" className="hover:underline">Services</Link>
-          <Link href="/case-studies" className="hover:underline">Case studies</Link>
-          <Link href="/experimentation-lab" className="hover:underline">Experimentation Lab</Link>
-          <Link href="/insights" className="hover:underline">Insights</Link>
-          <Link href="/contact" className="hover:underline">Contact</Link>
-          <Link href="/privacy" className="hover:underline">Privacy notice</Link>
+        <nav aria-label={t.footerNav} className="grid grid-cols-2 gap-x-8 text-sm lg:col-span-4 [&>a]:py-2.5 lg:[&>a]:py-1.5">
+          {FOOTER_LINKS.map((href) => (
+            <Link key={href} href={href} className="hover:underline">
+              {t.footer[href]}
+            </Link>
+          ))}
         </nav>
-        <div className="text-sm text-ink-2 lg:col-span-3">
+        <div className="text-sm text-ink-2 sm:col-span-2 lg:col-span-3">
           {SITE.contactEmail && (
             <a href={`mailto:${SITE.contactEmail}`} className="block hover:underline">
-              {SITE.contactEmail}
+              <bdi dir="ltr">{SITE.contactEmail}</bdi>
             </a>
           )}
-          <ConsentSettingsButton />
+          <ConsentSettingsButton label={t.privacySettings} />
         </div>
       </Container>
       <Container className="flex flex-col gap-2 border-t border-line py-6 text-xs text-ink-3 sm:flex-row sm:justify-between">
-        <p>© {new Date().getFullYear()} Growx Era. All rights reserved.</p>
-        <p>Growth Diagnostic results are preliminary estimates, not financial advice.</p>
+        <p>
+          {isArabic ? (
+            <>
+              {t.rights} <bdi dir="ltr">© {new Date().getFullYear()} Growx Era</bdi>
+            </>
+          ) : (
+            <>
+              © {new Date().getFullYear()} Growx Era. {t.rights}
+            </>
+          )}
+        </p>
+        <p className="text-balance">{t.disclaimer}</p>
       </Container>
     </footer>
   );

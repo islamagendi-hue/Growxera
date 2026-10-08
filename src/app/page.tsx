@@ -12,7 +12,7 @@ import { FAQ } from "@/content/faq";
 import { BOTTLENECKS, CAPABILITIES, HOW_WE_WORK, OFFERINGS, STANDALONE_SERVICES, PROBLEM_ORIGINS } from "@/content/site-content";
 import { CountUp } from "@/components/ui/CountUp";
 
-export const metadata: Metadata = { title: { absolute: SITE.title }, alternates: { canonical: "/" } };
+export const metadata: Metadata = { title: { absolute: SITE.title }, alternates: { canonical: "/", languages: { en: "/", ar: "/ar" } } };
 
 export default function Home() {
   const talkHref = SITE.bookingUrl || "/contact";

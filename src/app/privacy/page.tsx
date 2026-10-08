@@ -97,9 +97,8 @@ export default function Privacy() {
             <li>Vercel Inc. (website hosting).</li>
             <li>Supabase Inc. (database), hosted in the United States (us-east-1) region.</li>
             <li>Resend (sending your report, sign-in links and booking emails).</li>
-            <li>
-              <TBD>Any CRM, WhatsApp provider or notification tool connected to lead capture</TBD>.
-            </li>
+            <li>Google LLC (Google Analytics 4), only if you accept analytics.</li>
+            {/* Add any CRM, WhatsApp provider or lead webhook (LEAD_WEBHOOK_URL) here before connecting it. */}
           </ul>
           <p>
             Some of these providers may process data outside the Kingdom of Saudi Arabia. Where that happens we rely on
