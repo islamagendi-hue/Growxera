@@ -6,10 +6,13 @@ exact version (text, file, planned time). Any edit cancels the approval.
 
 ## How it works
 
-1. The owner approves a post that has a planned time.
-2. A scheduler calls `/api/studio/publish-due` every few minutes. Posts whose time has come are
-   published once. A post that can't go out within 3 hours of its time is held back (blocked), not
-   posted late.
+1. The owner approves a post that has a planned time. Approval alone never publishes.
+2. The owner separately schedules that exact version for automatic publishing. Automatic
+   publishing must also be switched ON: the deployment flag `STUDIO_AUTO_PUBLISH_ALLOWED=true`
+   plus the owner's switch on Capabilities. Default: OFF.
+3. A scheduler calls `/api/studio/publish-due` every 5 minutes. A scheduled post goes out once,
+   between its planned time and 10 minutes after it. If that is missed, it is held back in review,
+   never posted late (owner decisions G1/G2, `src/lib/studio/autopublish.ts`).
 3. The studio records the post link. It marks the post **verified** only if LinkedIn returns the post
    with the same text. Otherwise the owner opens the link and confirms.
 4. If LinkedIn gives no clear answer, the post is never re-sent automatically. The owner checks the
@@ -36,6 +39,7 @@ Approved posts with no planned time are only posted with **Publish now** on the 
 3. **Products** tab: request **Share on LinkedIn** and **Sign In with LinkedIn using OpenID Connect**.
    Both are self-serve.
 4. **Auth** tab: under *Authorized redirect URLs* add exactly
+   `https://agent.growxera.com/studio/linkedin/callback` once PR #19 is live; before that,
    `https://www.growxera.com/studio/linkedin/callback` (the Capabilities page shows the URL this
    deployment expects).
 5. Keep the **Client ID** and **Client Secret** on that tab for step 2. Never paste them in chat,

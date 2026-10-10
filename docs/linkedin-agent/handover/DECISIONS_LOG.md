@@ -24,9 +24,21 @@ All dated 10 Oct 2026 unless noted. "Final" means the owner stated it and nothin
 | D16 | Separate address `linkedin-agent.growxera.com` with its own email + password + authenticator sign-in | Separation and privacy | Owner (chose the name despite the publicity note; chose password + TOTP) | Provisional: WIP unpushed |
 | D17 | Signed-out visitors get 404 on studio pages | "Nothing LinkedIn-related visible" | Claude, following the owner's condition | Provisional: PR #17 open |
 
+## Made on 11 Oct 2026 (owner, master directive and approved plan)
+
+| # | Decision | Status |
+|---|---|---|
+| D18 | Canonical address **agent.growxera.com** (supersedes `linkedin-agent` in D16) with email + password + authenticator sign-in | Final; implemented in PR #19, not deployed |
+| D19 (G1) | Historical approvals never auto-publish; each post is confirmed individually for automatic publishing; history preserved | Final; PR #18 |
+| D20 (G2) | Never publish after the planned time; hold for review; new time + new approval; no catch-up. **Supersedes D13 (3-hour rule).** On-time window implemented as planned time to +10 min (the scheduler runs every 5 min) | Final; PR #18. The 10-min window is Claude's implementation of "on time" |
+| D21 (G3) | Stay on Supabase Free; weekly export downloaded by the owner | Final; PR #20 |
+| D22 | Grok budget $0/month: no paid calls; mocks only | Final |
+| D23 | Buffer stays connected until the replacement is proven and disconnecting is approved | Final |
+| D24 | The global switch needs both the deployment flag `STUDIO_AUTO_PUBLISH_ALLOWED=true` and the owner's in-studio switch | Claude design within G1; final unless the owner objects |
+
 ## Open
 
-These are listed in [PROJECT_HANDOVER.md](PROJECT_HANDOVER.md) §12:
+The current list is in [docs/studio/APPROVAL_GATES.md](../../studio/APPROVAL_GATES.md). The list below, from 10 Oct, is historical. Hosting, publishing mode, the drafting model and backups have since been decided above.
 
 - keep or drop the WIP;
 - hosting and sign-in model;

@@ -18,6 +18,23 @@ Paths are relative to the repository root, at commit `e430e71` unless marked WIP
 | `stats.ts`, `time.ts` | History stats; Riyadh time helpers |
 | `studio.test.ts` | All studio tests (156 total in the repo run) |
 
+### Added on 11 Oct 2026 (PRs #18–#20, not merged)
+
+| File | Responsibility |
+|---|---|
+| `autopublish.ts` | Global switch, per-post authorization, on-time window, holding missed posts |
+| `access.ts`, `access.test.ts` | Studio sign-in (password + TOTP), sessions, lockout, setup links |
+| `crypto.ts` | AES-GCM, scrypt, TOTP, base32 |
+| `host.ts`, `owner-email.ts` | Studio host rules; owner email |
+| `export.ts`, `export.test.ts` | Weekly backup export, validation, isolated restore |
+| `src/proxy.ts` | 404 for studio paths off the studio host |
+| `src/app/access/*` | Sign-in and setup pages and actions |
+| `src/app/studio/export/*` | Backup page and download |
+| `scripts/studio-setup-link.mjs` | One-time setup link (gated on production) |
+| `supabase/migrations/20261014000000_studio_access.sql`, `20261015000000_publishing_controls.sql` | New tables (not applied) |
+| `.github/workflows/ci.yml` | CI |
+| `docs/studio/*` | Plan, risks, roadmap, tests, runbook, gates, log |
+
 ## Pages and routes (`src/app/`)
 
 | Path | Responsibility |
