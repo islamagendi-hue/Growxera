@@ -24,6 +24,23 @@ What Claude could verify from its session (10 Oct 2026): Vercel refuses project 
 
 ---
 
+## No-computer path for steps 2 and 3
+
+Everything in steps 2 and 3 can be done from any browser (phone included) with one script:
+[`supabase/activation/2026-10-10_studio_activation.sql`](../../supabase/activation/2026-10-10_studio_activation.sql).
+
+- ⚠️ **Production database.** It runs in one transaction: all or nothing.
+- **Order:** it first refuses to run unless the site tables exist (so it can't hit `leanapp-staging`).
+- **Backup:** it then copies the 8 site tables into schema `backup_20261010` in the same database, instead of a dump. That schema isn't exposed to the API, has RLS on, and is closed to browser roles.
+- **Migrations:** it then applies both migrations unchanged.
+- **Re-runs:** a second run refuses ("already ran") and changes nothing.
+
+How: Supabase → project **growxera** → SQL Editor → New query → paste the whole file → Run. Then compare the three result tables at the bottom with step 3's expectations. The last one should show equal `live` and `backup` row counts.
+
+After the studio is verified (step 8), remove the backup copy, since it holds personal data: `drop schema backup_20261010 cascade;`
+
+Tested on Postgres: right project, re-run, and wrong project (nothing changed in the last two). A test keeps the script identical to the two migration files.
+
 ## 1. Identify the Growxera database (read-only)
 
 - **Pre-merge:** yes, read-only.

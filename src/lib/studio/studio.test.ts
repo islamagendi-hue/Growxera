@@ -608,6 +608,20 @@ describe("public repository hygiene", () => {
   });
 });
 
+describe("one-paste activation script", () => {
+  it("contains both migrations unchanged, a wrong-project guard and a single transaction", () => {
+    const root = path.join(process.cwd(), "supabase");
+    const act = fs.readFileSync(path.join(root, "activation/2026-10-10_studio_activation.sql"), "utf8");
+    for (const f of ["20261010000000_linkedin_studio.sql", "20261011000000_linkedin_studio_hardening.sql"]) {
+      expect(act.includes(fs.readFileSync(path.join(root, "migrations", f), "utf8")), f).toBe(true);
+    }
+    expect(act).toMatch(/Wrong project: site tables not found/);
+    expect(act.match(/^begin;$/gm)).toHaveLength(1);
+    expect(act.match(/^commit;$/gm)).toHaveLength(1);
+    expect(act.indexOf("raise exception 'Wrong project")).toBeLessThan(act.indexOf("create schema backup_20261010"));
+  });
+});
+
 describe("media copies", () => {
   afterEach(() => vi.unstubAllGlobals());
   it("copies allowed files, verifies them by checksum, and is safe to re-run", async () => {
