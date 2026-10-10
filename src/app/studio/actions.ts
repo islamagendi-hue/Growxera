@@ -10,6 +10,7 @@ import { secureAssets } from "@/lib/studio/assets";
 import { verifyGrok } from "@/lib/studio/grok";
 import { importSnapshot, snapshotSchema } from "@/lib/studio/import";
 import { authorizeAutoPublish, revokeAutoPublish, setAutoPublish } from "@/lib/studio/autopublish";
+import { validateExport } from "@/lib/studio/export";
 import { disconnect, isValidClientId, isValidClientSecret, saveAppKeys } from "@/lib/studio/linkedin";
 import { publishAction, publishDue, resolveUnknown } from "@/lib/studio/publish";
 import { ownerOrThrow } from "@/lib/studio/owner";
@@ -267,4 +268,25 @@ export async function disconnectLinkedInAction() {
   if (done) await audit(owner.email, "linkedin.disconnected", "li_linkedin_connection", null);
   revalidatePath("/studio", "layout");
   redirect(`/studio/capabilities?notice=${encodeURIComponent(done ? "Disconnected. The studio no longer holds a LinkedIn token." : "Nothing was connected.")}#linkedin`);
+}
+
+const MAX_EXPORT_BYTES = 50 * 1024 * 1024;
+
+/** Checks an export file the owner kept. Reads it only; nothing is imported or stored. */
+export async function validateExportAction(form: FormData) {
+  await ownerOrThrow();
+  const file = form.get("file");
+  let q: string;
+  try {
+    if (!(file instanceof File) || file.size === 0) throw new WorkflowError("Choose an export file.");
+    if (file.size > MAX_EXPORT_BYTES) throw new WorkflowError("That file is larger than 50 MB.");
+    const r = validateExport(JSON.parse(await file.text()));
+    const counts = Object.entries(r.counts).map(([t, n]) => `${t} ${n}`).join(", ");
+    q = r.ok
+      ? `notice=${encodeURIComponent(`${file.name} is complete and unchanged. Rows: ${counts}.`)}`
+      : `error=${encodeURIComponent(`${file.name} failed the check: ${r.errors.slice(0, 5).join(" ")}`)}`;
+  } catch (err) {
+    q = `error=${encodeURIComponent(err instanceof WorkflowError ? err.message : err instanceof SyntaxError ? "The file isn't valid JSON." : "Checking failed.")}`;
+  }
+  redirect(`/studio/export?${q}`);
 }

@@ -7,6 +7,7 @@ const NAV = [
   { href: "/studio/queue", label: "Approval queue" },
   { href: "/studio/import", label: "Import" },
   { href: "/studio/capabilities", label: "Capabilities" },
+  { href: "/studio/export", label: "Backup" },
 ];
 
 export function StudioNav() {

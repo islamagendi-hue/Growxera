@@ -1,0 +1,40 @@
+name: CI
+
+# Typecheck, lint, unit tests and production build on every pull request and push to main.
+# No secrets are used: tests run against the local file store and fake external APIs
+# (no Supabase, LinkedIn, Buffer or xAI credentials, no network calls to them).
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Route types
+        run: npx next typegen
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - name: Lint
+        run: npx eslint src scripts
+      - name: Unit tests
+        run: npx vitest run
+      - name: Build
+        run: npx next build
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
