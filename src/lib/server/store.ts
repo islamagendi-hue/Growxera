@@ -39,7 +39,11 @@ export type Table =
   | "li_linkedin_connection"
   | "li_linkedin_app"
   | "li_settings"
-  | "li_publish_authorizations";
+  | "li_publish_authorizations"
+  | "li_access_credentials"
+  | "li_access_sessions"
+  | "li_access_setup_tokens"
+  | "li_access_attempts";
 
 type Row = Record<string, unknown>;
 
