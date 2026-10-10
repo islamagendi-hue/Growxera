@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 const fmt = (n: number | null) => (n === null ? "No data" : new Intl.NumberFormat("en-US").format(n));
 
 export default async function StudioOverview() {
-  await requireOwner("/studio");
+  await requireOwner();
   const [counts, history, review, grok, spent] = await Promise.all([
     statusCounts(),
     historyStats(),

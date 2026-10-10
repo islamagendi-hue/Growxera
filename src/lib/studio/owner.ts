@@ -4,7 +4,7 @@ import "server-only";
  * with a verified email equal to STUDIO_OWNER_EMAIL (server-only env). Anyone else gets a 404, so the
  * studio's existence isn't revealed. If the variable is missing, nobody gets in.
  */
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { type Account, currentAccount, normalizeEmail } from "@/lib/server/auth";
 import { storageMode } from "@/lib/server/store";
 
@@ -30,11 +30,13 @@ export function isOwner(account: Pick<Account, "email" | "verified_at"> | null):
   return !!owner && !!account && !!account.verified_at && normalizeEmail(account.email) === owner;
 }
 
-/** For pages: login redirect when signed out, 404 for anyone but the owner. */
-export async function requireOwner(path: string): Promise<Account> {
+/**
+ * For pages: 404 for anyone but the signed-in owner, signed out included, so visitors
+ * can't tell the studio exists. The owner signs in at /login?next=/studio.
+ */
+export async function requireOwner(): Promise<Account> {
   const account = await currentAccount();
-  if (!account) redirect(`/login?next=${encodeURIComponent(path)}`);
-  if (!isOwner(account)) notFound();
+  if (!account || !isOwner(account)) notFound();
   return account;
 }
 

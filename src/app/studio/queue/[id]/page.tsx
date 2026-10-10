@@ -28,7 +28,7 @@ const field = "mt-1 w-full border border-line-strong bg-card p-3 text-sm focus:b
 
 export default async function QueueItem({ params, searchParams }: PageProps<"/studio/queue/[id]">) {
   const { id } = await params;
-  await requireOwner(`/studio/queue/${id}`);
+  await requireOwner();
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const d = await getAction(id);
   if (!d) notFound();

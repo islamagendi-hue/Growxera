@@ -17,7 +17,7 @@ const TONE: Record<CapabilityStatus, string> = {
 };
 
 export default async function CapabilitiesPage({ searchParams }: PageProps<"/studio/capabilities">) {
-  await requireOwner("/studio/capabilities");
+  await requireOwner();
   const sp = await searchParams;
   const grok = grokStatus();
   const li = await connectionState();

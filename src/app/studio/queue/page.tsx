@@ -11,7 +11,7 @@ import { STATUS_LABELS, STATUSES, type Status } from "@/lib/studio/workflow";
 export const dynamic = "force-dynamic";
 
 export default async function Queue({ searchParams }: PageProps<"/studio/queue">) {
-  await requireOwner("/studio/queue");
+  await requireOwner();
   const sp = await searchParams;
   const wanted = first(sp.status);
   const status = STATUSES.includes(wanted as Status) ? (wanted as Status) : null;

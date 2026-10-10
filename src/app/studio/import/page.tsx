@@ -21,7 +21,7 @@ const OUTCOME_TEXT: Record<string, string> = {
 };
 
 export default async function ImportPage({ searchParams }: PageProps<"/studio/import">) {
-  await requireOwner("/studio/import");
+  await requireOwner();
   const sp = await searchParams;
 
   const [history, drafts, actions, imports, assets, urls] = await Promise.all([

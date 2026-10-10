@@ -8,7 +8,7 @@ export const metadata: Metadata = { title: "Studio", robots: { index: false, fol
 
 export default async function StudioLayout({ children }: LayoutProps<"/studio">) {
   // Pages re-check too; this keeps the shell itself private.
-  await requireOwner("/studio");
+  await requireOwner();
   const storage = studioStorageError();
   const li = storage ? null : await connectionState();
   const liWarning =
