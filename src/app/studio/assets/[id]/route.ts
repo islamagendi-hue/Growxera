@@ -1,12 +1,11 @@
 import { eq, selectOne } from "@/lib/server/store";
 import { type AssetRow, getObject } from "@/lib/studio/assets";
-import { currentAccount } from "@/lib/server/auth";
-import { isOwner } from "@/lib/studio/owner";
+import { studioOwner } from "@/lib/studio/access";
 
 /** Serves a secured copy of a post image or PDF to the owner only. Everyone else: 404. */
 export async function GET(_req: Request, ctx: RouteContext<"/studio/assets/[id]">) {
   const notFound = () => new Response("Not found", { status: 404 });
-  if (!isOwner(await currentAccount())) return notFound();
+  if (!(await studioOwner())) return notFound();
   const { id } = await ctx.params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) return notFound();
   const row = await selectOne<AssetRow>("li_assets", [eq("id", id)]);
