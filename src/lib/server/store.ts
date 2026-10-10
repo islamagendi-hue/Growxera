@@ -24,7 +24,17 @@ export type Table =
   | "accounts"
   | "auth_tokens"
   | "auth_sessions"
-  | "advisor_requests";
+  | "advisor_requests"
+  // LinkedIn Growth Studio (supabase/migrations/20261010000000_linkedin_studio.sql)
+  | "li_content"
+  | "li_metrics_snapshots"
+  | "li_drafts"
+  | "li_draft_versions"
+  | "li_actions"
+  | "li_approvals"
+  | "li_executions"
+  | "li_llm_usage"
+  | "li_audit_log";
 
 type Row = Record<string, unknown>;
 

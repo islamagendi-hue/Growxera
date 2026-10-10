@@ -26,6 +26,7 @@ npm run dev
 | `src/lib/analytics/` | Event taxonomy, client tracking, UTM attribution |
 | `src/lib/server/` | Storage, validation schemas, rate limiting |
 | `src/app/api/` | `diagnostic`, `leads`, `events` route handlers |
+| `src/lib/studio/`, `src/app/studio/` | Private LinkedIn Growth Studio (owner-only): approval engine, import, Grok client. See [docs/linkedin-agent/PLAN.md](docs/linkedin-agent/PLAN.md) |
 | `supabase/migrations/` | Database schema, dashboard views, retention functions |
 | `docs/` | [MVP scope & launch gates](docs/MVP_SCOPE.md), [Data model](docs/DATA_MODEL.md), [Privacy & consent](docs/PRIVACY_AND_CONSENT.md) |
 
