@@ -24,7 +24,7 @@ vi.mock("@/lib/server/store", async (orig) => {
 import { select } from "@/lib/server/store";
 import { generate, grokStatus, GrokUnavailableError } from "./grok";
 import { importSnapshot, snapshotSchema } from "./import";
-import { isOwner, studioStorageError } from "./owner";
+import { studioStorageError } from "./owner";
 import {
   addVersion,
   approve,
@@ -324,15 +324,10 @@ describe("owner gate", () => {
     expect(fs.readFileSync(path.join(process.cwd(), "src/app/studio/layout.tsx"), "utf8")).toMatch(/studioStorageError\(\)/);
   });
 
-  it("admits only the configured owner, and nobody when unset", () => {
-    const v = "2026-10-10T00:00:00Z";
-    expect(isOwner({ email: "islam@example.com", verified_at: v })).toBe(false);
-    process.env.STUDIO_OWNER_EMAIL = " Islam@Example.com ";
-    expect(isOwner({ email: "islam@example.com", verified_at: v })).toBe(true);
-    expect(isOwner({ email: "someone@example.com", verified_at: v })).toBe(false);
-    // An unverified account with the owner's address is not the owner.
-    expect(isOwner({ email: "islam@example.com", verified_at: null })).toBe(false);
-    expect(isOwner(null)).toBe(false);
+  it("no longer accepts the website's accounts: only the studio's own sign-in (access.test.ts)", () => {
+    const owner = fs.readFileSync(path.join(process.cwd(), "src/lib/studio/owner.ts"), "utf8");
+    expect(owner).not.toMatch(/currentAccount/);
+    expect(owner).toMatch(/studioOwner\(\)/);
   });
 });
 
@@ -585,7 +580,7 @@ describe("no publishing path without approval", () => {
       expect(fs.readFileSync(f, "utf8"), f).toMatch(/await requireOwner\(/);
     }
     for (const f of studio.filter((f) => f.endsWith("route.ts"))) {
-      expect(fs.readFileSync(f, "utf8"), f).toMatch(/isOwner\(await currentAccount\(\)\)|const account = await currentAccount\(\);\s*if \(!isOwner\(account\)\) return/);
+      expect(fs.readFileSync(f, "utf8"), f).toMatch(/if \(!\(await studioOwner\(\)\)\) return|const account = await studioOwner\(\);\s*if \(!account\) return/);
     }
     const actions = fs.readFileSync(path.join(src, "app/studio/actions.ts"), "utf8");
     const exported = [...actions.matchAll(/export async function (\w+)\([^)]*\)\s*\{([\s\S]*?)\n\}/g)];

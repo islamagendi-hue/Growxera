@@ -2,7 +2,7 @@
 /** Sign-in, first-time setup and sign-out for the studio (see src/lib/studio/access.ts). */
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { AccessError, completeSetup, sessionCookie, signIn, signOut } from "@/lib/studio/access";
+import { AccessError, completeSetup, sessionCookie, signIn, signOut, signOutEverywhere, studioOwner } from "@/lib/studio/access";
 import { isStudioHost } from "@/lib/studio/host";
 import { studioStorageError } from "@/lib/studio/owner";
 
@@ -12,7 +12,9 @@ async function guard() {
   const h = await headers();
   // Only on the studio's own address, never on the website's.
   if (!isStudioHost(h.get("host")) || studioStorageError()) redirect("/");
-  return { ip: h.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown", userAgent: h.get("user-agent") };
+  // On Vercel, x-real-ip is set by the platform (not the browser), so it can't be spoofed to dodge the lockout.
+  const ip = h.get("x-real-ip")?.trim() || h.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  return { ip, userAgent: h.get("user-agent") };
 }
 
 export async function signInAction(form: FormData) {
@@ -51,5 +53,11 @@ export async function setupAction(form: FormData) {
 
 export async function signOutAction() {
   await signOut();
+  redirect("/access");
+}
+
+export async function signOutEverywhereAction() {
+  if (!(await studioOwner())) redirect("/access");
+  await signOutEverywhere();
   redirect("/access");
 }

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { signOutAction } from "@/app/access/actions";
+import { signOutAction, signOutEverywhereAction } from "@/app/access/actions";
 import { STATUS_LABELS, type Status } from "@/lib/studio/workflow";
 
 const NAV = [
@@ -20,6 +20,9 @@ export function StudioNav() {
       ))}
       <form action={signOutAction} className="ml-auto">
         <button className="text-ink-3 underline-offset-4 hover:underline">Sign out</button>
+      </form>
+      <form action={signOutEverywhereAction}>
+        <button className="text-ink-3 underline-offset-4 hover:underline">Sign out everywhere</button>
       </form>
     </nav>
   );

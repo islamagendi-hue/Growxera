@@ -5,8 +5,10 @@ import "server-only";
  *
  * - Setup: a one-time link (24 h) sets the password and pairs the authenticator. The code
  *   must be confirmed before anything is saved. The same kind of link resets both.
- * - Sign-in: after 5 failed attempts in 15 minutes, every attempt is refused for 15 minutes.
- *   A code can't be used twice.
+ * - Sign-in: an address (IP) with 5 failed attempts in 15 minutes is refused for 15 minutes. If
+ *   50 attempts fail across all addresses within an hour (a distributed guess), sign-in is refused
+ *   for everyone until the hour passes; the owner can still recover with a setup link. A code
+ *   can't be used twice.
  * - Session: random token in an httpOnly, Secure, SameSite=Lax cookie that belongs to the
  *   studio's address only (__Host- prefix). Only its SHA-256 is stored. 7 days.
  * - The email must equal STUDIO_OWNER_EMAIL.
@@ -22,6 +24,8 @@ const SESSION_DAYS = 7;
 export const SETUP_HOURS = 24;
 export const LOCK_WINDOW_MS = 15 * 60_000;
 export const MAX_FAILURES = 5;
+export const GLOBAL_WINDOW_MS = 60 * 60_000;
+export const GLOBAL_MAX_FAILURES = 50;
 export const MIN_PASSWORD = 12;
 
 export class AccessError extends Error {}
@@ -117,17 +121,21 @@ export async function completeSetup(input: { token: string; sealed: string; pass
 
 // ── Sign-in ─────────────────────────────────────────────────────────────────
 
-async function locked(): Promise<boolean> {
-  const since = new Date(Date.now() - LOCK_WINDOW_MS).toISOString();
-  const recent = await select<{ ok: boolean }>("li_access_attempts", [gt("created_at", since)], { columns: "ok", order: { col: "created_at", ascending: false }, limit: 50 });
-  return recent.filter((a) => !a.ok).length >= MAX_FAILURES;
+async function locked(ipHash: string): Promise<boolean> {
+  const sinceIp = new Date(Date.now() - LOCK_WINDOW_MS).toISOString();
+  const fromIp = await select<{ id: string }>("li_access_attempts", [gt("created_at", sinceIp), eq("ip_hash", ipHash), eq("ok", false)], { columns: "id", limit: MAX_FAILURES });
+  if (fromIp.length >= MAX_FAILURES) return true;
+  const sinceAll = new Date(Date.now() - GLOBAL_WINDOW_MS).toISOString();
+  const all = await select<{ id: string }>("li_access_attempts", [gt("created_at", sinceAll), eq("ok", false)], { columns: "id", limit: GLOBAL_MAX_FAILURES });
+  return all.length >= GLOBAL_MAX_FAILURES;
 }
 
 /** Checks email, password and code. Returns a session token. Messages never say which part was wrong. */
 export async function signIn(input: { email: string; password: string; code: string; ip: string; userAgent: string | null }): Promise<string> {
-  if (await locked()) throw new AccessError("Too many attempts. Try again in 15 minutes.");
+  const ipHash = sha256(`studio-ip:${input.ip}`);
+  if (await locked(ipHash)) throw new AccessError("Too many attempts. Try again later.");
   const fail = async (): Promise<never> => {
-    await insert("li_access_attempts", { id: crypto.randomUUID(), created_at: now(), ok: false, ip_hash: sha256(input.ip) });
+    await insert("li_access_attempts", { id: crypto.randomUUID(), created_at: now(), ok: false, ip_hash: ipHash });
     throw new AccessError("Those details aren't right.");
   };
   const cred = await selectOne<CredentialRow>("li_access_credentials", []);
@@ -141,7 +149,7 @@ export async function signIn(input: { email: string; password: string; code: str
   // Record the code as used (conditional: the same code can't win twice in parallel).
   const [claimed] = await update<{ id: string }>("li_access_credentials", [eq("id", cred.id), eq("totp_last_step", cred.totp_last_step)], { totp_last_step: step });
   if (!claimed) return fail();
-  await insert("li_access_attempts", { id: crypto.randomUUID(), created_at: now(), ok: true, ip_hash: sha256(input.ip) });
+  await insert("li_access_attempts", { id: crypto.randomUUID(), created_at: now(), ok: true, ip_hash: ipHash });
   return createSession(input.userAgent);
 }
 
@@ -187,6 +195,14 @@ export async function signOut(): Promise<void> {
   const token = jar.get(SESSION_COOKIE)?.value;
   if (token) await update("li_access_sessions", [eq("token_hash", sha256(token))], { revoked_at: now() });
   jar.delete({ name: SESSION_COOKIE, path: "/" });
+}
+
+/** Ends every studio session (all devices), for example after a suspected leak. */
+export async function signOutEverywhere(): Promise<number> {
+  const active = await select<SessionRow>("li_access_sessions", [isNull("revoked_at")]);
+  for (const s of active) await update("li_access_sessions", [eq("id", s.id)], { revoked_at: now() });
+  (await cookies()).delete({ name: SESSION_COOKIE, path: "/" });
+  return active.length;
 }
 
 export async function credentialsExist(): Promise<boolean> {
