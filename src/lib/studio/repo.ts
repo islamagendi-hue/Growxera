@@ -10,7 +10,7 @@ import "server-only";
  *   same content can't be recorded as published by two different actions.
  * - "Executed" and "Verified" are separate states.
  */
-import { eq, inList, insert, select, selectOne, StoreError, update } from "@/lib/server/store";
+import { eq, inList, insert, select, selectAll, selectOne, StoreError, update } from "@/lib/server/store";
 import {
   type ActionKind,
   assertTransition,
@@ -192,7 +192,7 @@ export interface PublishedMatch {
 
 /** Finds published history with the same text (and says whether the media matches too). */
 export async function findPublishedMatch(text: string, assets: { url: string }[]): Promise<PublishedMatch | null> {
-  const rows = await select<{ text: string; assets: { url: string }[]; external_url: string | null; published_at: string | null }>(
+  const rows = await selectAll<{ text: string; assets: { url: string }[]; external_url: string | null; published_at: string | null }>(
     "li_content",
     [],
     { columns: "text,assets,external_url,published_at" },
@@ -257,14 +257,15 @@ export interface QueueItem {
 }
 
 export async function listActions(statuses?: Status[]): Promise<QueueItem[]> {
-  const actions = await select<ActionRow>("li_actions", statuses?.length ? [inList("status", statuses)] : [], {
+  const actions = await selectAll<ActionRow>("li_actions", statuses?.length ? [inList("status", statuses)] : [], {
     order: { col: "updated_at", ascending: false },
   });
   if (!actions.length) return [];
-  const drafts = await select<DraftRow>("li_drafts", [inList("id", actions.map((a) => a.draft_id))]);
-  const versionIds = drafts.map((d) => d.current_version).filter((v): v is string => !!v);
-  const versions = versionIds.length ? await select<VersionRow>("li_draft_versions", [inList("id", versionIds)]) : [];
+  // Whole tables, paged: id lists in the URL would hit length limits as the queue grows.
+  const drafts = await selectAll<DraftRow>("li_drafts", []);
   const byDraft = new Map(drafts.map((d) => [d.id, d]));
+  const wanted = new Set(actions.map((a) => byDraft.get(a.draft_id)?.current_version).filter(Boolean));
+  const versions = (await selectAll<VersionRow>("li_draft_versions", [])).filter((v) => wanted.has(v.id));
   const byVersion = new Map(versions.map((v) => [v.id, v]));
   return actions
     .map((action) => {
@@ -275,7 +276,7 @@ export async function listActions(statuses?: Status[]): Promise<QueueItem[]> {
 }
 
 export async function statusCounts(): Promise<Record<Status, number>> {
-  const rows = await select<{ status: Status }>("li_actions", [], { columns: "status" });
+  const rows = await selectAll<{ status: Status }>("li_actions", [], { columns: "status" });
   const counts = Object.fromEntries(
     ["draft", "ready_for_review", "approved", "executed", "verified", "rejected", "needs_revision", "failed", "blocked"].map((s) => [s, 0]),
   ) as Record<Status, number>;
@@ -321,6 +322,16 @@ export async function addVersion(
   const hash = contentHash(content);
   if (hash === d.current.content_hash) return { versionId: d.current.id, changed: false };
 
+  // Claim the status change first, with a conditional update. If the item moved meanwhile
+  // (for example it was just recorded as published in another tab), nothing is written.
+  const wasApproved = d.approvalValid;
+  if (d.action.status !== "ready_for_review" && d.action.status !== "draft") {
+    await transition(d.action, "ready_for_review", wasApproved ? "Edited after approval: approval voided" : "Edited");
+  } else {
+    const [still] = await update<ActionRow>("li_actions", [eq("id", actionId), eq("status", d.action.status)], { updated_at: now() });
+    if (!still) throw new WorkflowError("This item changed in the meantime. Reload and try again.");
+  }
+
   const versionId = crypto.randomUUID();
   await insert("li_draft_versions", {
     id: versionId,
@@ -336,7 +347,6 @@ export async function addVersion(
   });
   await update("li_drafts", [eq("id", d.draft.id)], { current_version: versionId });
 
-  const wasApproved = d.approvalValid;
   if (wasApproved) {
     await insert("li_approvals", {
       id: crypto.randomUUID(),
@@ -348,11 +358,6 @@ export async function addVersion(
       reason: "Content changed after approval",
       decided_by: "system",
     });
-  }
-  if (d.action.status !== "ready_for_review" && d.action.status !== "draft") {
-    await transition(d.action, "ready_for_review", wasApproved ? "Edited after approval: approval voided" : "Edited");
-  } else {
-    await update("li_actions", [eq("id", actionId)], { updated_at: now() });
   }
   await audit(actor, "version.created", "li_actions", actionId, { versionId, approvalVoided: wasApproved });
   return { versionId, changed: true };
@@ -457,6 +462,10 @@ export async function recordManualExecution(actionId: string, url: string, actor
   const match = await findPublishedMatch(d.current.text, d.current.assets);
   if (match) throw new WorkflowError(describeMatch(match));
 
+  // Claim the item first (approved -> executed, conditional). A concurrent edit or a second
+  // click then fails cleanly instead of leaving an execution on an unapproved version.
+  await transition(d.action, "executed", null);
+
   const row: ExecutionRow = {
     id: crypto.randomUUID(),
     created_at: now(),
@@ -473,11 +482,26 @@ export async function recordManualExecution(actionId: string, url: string, actor
   try {
     await insert("li_executions", row as unknown as Record<string, unknown>);
   } catch (err) {
-    // The unique index on idempotency_key rejected a concurrent duplicate.
-    if (err instanceof StoreError) throw new WorkflowError("This approved content has already been recorded as published.");
-    throw err;
+    // Never retried silently: the item is marked failed with a reason a person can act on.
+    const reason = err instanceof StoreError ? "Recording the publication failed. Check LinkedIn before doing anything else." : "Unexpected error while recording.";
+    await update("li_actions", [eq("id", actionId), eq("status", "executed")], { status: "failed", status_reason: reason, updated_at: now() });
+    await audit(actor, "action.failed", "li_actions", actionId, { error: reason });
+    throw new WorkflowError(reason);
   }
-  await transition(d.action, "executed", null);
+  // What the studio publishes joins the published history, so the same text and media, or the
+  // same link, can never be approved or recorded again by another item.
+  await insert("li_content", {
+    id: crypto.randomUUID(),
+    kind: d.draft.kind,
+    text: d.current.text,
+    language: /[\u0600-\u06FF]/.test(d.current.text) ? "ar" : "en",
+    published_at: now(),
+    external_url: url,
+    source: "studio",
+    source_id: actionId,
+    published_via: "linkedin_manual",
+    assets: d.current.assets,
+  });
   await audit(actor, "action.executed", "li_actions", actionId, { channel: "manual", url });
   return row;
 }
@@ -490,6 +514,9 @@ export async function verifyExecution(actionId: string, actor: string, method: s
   const d = await load(actionId);
   const exec = d.executions.find((e) => e.result === "executed" && !e.verified_at);
   if (d.action.status !== "executed" || !exec) throw new WorkflowError("Nothing to verify.");
+  if (exec.content_hash !== d.current.content_hash || contentHash(d.current) !== d.current.content_hash) {
+    throw new WorkflowError("The recorded publication doesn't match the current approved version. Mark it failed and check LinkedIn.");
+  }
   await update("li_executions", [eq("id", exec.id)], { verified_at: now(), verification: method });
   await transition(d.action, "verified", null);
   await audit(actor, "action.verified", "li_actions", actionId, { method });

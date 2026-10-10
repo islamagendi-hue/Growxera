@@ -24,6 +24,10 @@ import {
 import { fromRiyadhInput } from "@/lib/studio/time";
 import { WorkflowError } from "@/lib/studio/workflow";
 
+/** Log line without the database's response body, which can contain post text or emails. */
+const safeLog = (err: unknown) =>
+  err instanceof Error ? (err.message.match(/^(\w+ li_\w+ failed: \d+)/)?.[1] ?? err.name) : "unknown";
+
 const str = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 const isUuid = (v: string) => /^[0-9a-f-]{36}$/i.test(v);
 
@@ -36,7 +40,7 @@ async function run(actionId: string, fn: (actor: string) => Promise<unknown>, no
   } catch (err) {
     if (err instanceof WorkflowError) error = err.message;
     else {
-      console.error("[studio] action failed", err instanceof Error ? err.message : "unknown");
+      console.error("[studio] action failed", safeLog(err));
       error = "Something went wrong. Nothing was changed.";
     }
   }
@@ -121,12 +125,12 @@ export async function importAction(form: FormData) {
     q = `notice=${encodeURIComponent(
       `Imported ${file.name}: ${s.records} records. History ${s.history.added} new / ${s.history.existing} already there; ` +
         `${s.metricSnapshots} metric snapshots; queue ${s.queue.added} new / ${s.queue.existing} already there; ` +
-        `${s.queue.blockedAsDuplicate} blocked as published or duplicate; ${s.invalid} invalid; ${s.skipped.length} skipped. ` +
+        `${s.queue.blockedAsDuplicate} blocked as published or duplicate; ${s.invalid} invalid; ${s.errors} errors; ${s.skipped.length} skipped. ` +
         `Full reconciliation below.`,
     )}`;
   } catch (err) {
     const message = err instanceof WorkflowError ? err.message : err instanceof SyntaxError ? "The file isn't valid JSON." : "Import failed. Nothing partial is hidden: re-running the import is safe.";
-    if (!(err instanceof WorkflowError) && !(err instanceof SyntaxError)) console.error("[studio] import failed", err instanceof Error ? err.message : "unknown");
+    if (!(err instanceof WorkflowError) && !(err instanceof SyntaxError)) console.error("[studio] import failed", safeLog(err));
     q = `error=${encodeURIComponent(message)}`;
   }
   revalidatePath("/studio", "layout");
@@ -147,7 +151,7 @@ export async function secureAssetsAction() {
     const msg = `Media: ${r.referenced} referenced, ${r.alreadySecured} already secured, ${r.copied} copied and verified, ${r.failed.length} failed.`;
     q = r.failed.length ? `error=${encodeURIComponent(msg + " Failed files are listed below; run again to retry.")}` : `notice=${encodeURIComponent(msg)}`;
   } catch (err) {
-    console.error("[studio] secure assets failed", err instanceof Error ? err.message : "unknown");
+    console.error("[studio] secure assets failed", safeLog(err));
     q = `error=${encodeURIComponent("Copying media failed. Nothing was deleted; run it again.")}`;
   }
   revalidatePath("/studio", "layout");

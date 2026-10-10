@@ -3,7 +3,7 @@ import "server-only";
  * Read-only figures for the overview. Each figure says where it came from; when there is
  * no data the caller shows "No data", never zero.
  */
-import { select } from "@/lib/server/store";
+import { selectAll } from "@/lib/server/store";
 
 interface ContentRow {
   id: string;
@@ -50,9 +50,9 @@ const median = (xs: number[]) => {
 };
 
 export async function historyStats(): Promise<HistoryStats> {
-  const content = await select<ContentRow>("li_content", [], { columns: "id,published_at,published_via,source,language" });
+  const content = await selectAll<ContentRow>("li_content", [], { columns: "id,published_at,published_via,source,language" });
   const dates = content.map((c) => c.published_at).filter((d): d is string => !!d).sort();
-  const metrics = await select<MetricRow>("li_metrics_snapshots", []);
+  const metrics = await selectAll<MetricRow>("li_metrics_snapshots", []);
   // Latest snapshot per post.
   const latest = new Map<string, MetricRow>();
   for (const m of metrics) {

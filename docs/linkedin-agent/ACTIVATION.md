@@ -34,6 +34,18 @@ from pg_tables t where t.schemaname = 'public' and t.tablename like 'li\_%' orde
 select id, public from storage.buckets where id = 'li-studio-assets';
 ```
 
+If `browser_grants` is 0 but the studio later reports database errors, check that the `service_role` still has Supabase's default privileges on new tables (the existing migrations rely on them too).
+
+**Rollback** (only if you decide to remove the studio; it deletes studio data, never site data, so export first if anything was imported):
+
+```sql
+drop table if exists public.li_assets, public.li_audit_log, public.li_llm_usage, public.li_executions,
+  public.li_approvals, public.li_actions, public.li_draft_versions, public.li_drafts,
+  public.li_metrics_snapshots, public.li_content cascade;
+-- The private bucket must be emptied in Storage first, then:
+delete from storage.buckets where id = 'li-studio-assets';
+```
+
 Both scripts are safe to re-run. They were validated on Postgres (PGlite): applied twice in a row, with every duplicate and invalid insert rejected.
 
 ## Step 3: Vercel environment (you, Vercel dashboard)
@@ -44,7 +56,9 @@ Project **growx-era** → Settings → Environment Variables:
 | --- | --- | --- |
 | `STUDIO_OWNER_EMAIL` | your sign-in email for growxera.com | Production, Preview |
 
-Leave all `XAI_*` variables unset (Grok stays off). Confirm `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` exist for **Preview** as well as Production if you test on a preview deployment.
+Leave all `XAI_*` variables unset (Grok stays off).
+
+**Preview vs Production.** The studio needs `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` in the environment it runs in. Without them it shows "database is not configured" and refuses every action (it never pretends to save). If Preview uses the same Supabase project as Production, the preview studio reads and writes the **same** studio data: that is fine for the activation checks (the owner gate is identical), but it means what you import on the preview is already in production.
 
 ## Step 4: Deploy
 

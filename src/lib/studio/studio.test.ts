@@ -24,7 +24,7 @@ vi.mock("@/lib/server/store", async (orig) => {
 import { select } from "@/lib/server/store";
 import { generate, grokStatus, GrokUnavailableError } from "./grok";
 import { importSnapshot, snapshotSchema } from "./import";
-import { isOwner } from "./owner";
+import { isOwner, studioStorageError } from "./owner";
 import {
   addVersion,
   approve,
@@ -315,6 +315,15 @@ describe("owner gate", () => {
   afterEach(() => {
     delete process.env.STUDIO_OWNER_EMAIL;
   });
+  it("refuses to run when the database is not configured, instead of dropping writes", async () => {
+    expect(studioStorageError("disabled")).toMatch(/not configured/);
+    expect(studioStorageError("supabase")).toBeNull();
+    expect(studioStorageError("local")).toBeNull();
+    const owner = fs.readFileSync(path.join(process.cwd(), "src/lib/studio/owner.ts"), "utf8");
+    expect(owner).toMatch(/export async function ownerOrThrow[\s\S]*?studioStorageError\(\)[\s\S]*?throw/);
+    expect(fs.readFileSync(path.join(process.cwd(), "src/app/studio/layout.tsx"), "utf8")).toMatch(/studioStorageError\(\)/);
+  });
+
   it("admits only the configured owner, and nobody when unset", () => {
     const v = "2026-10-10T00:00:00Z";
     expect(isOwner({ email: "islam@example.com", verified_at: v })).toBe(false);
@@ -436,9 +445,14 @@ describe("import safety", () => {
   it("leaves no partial or duplicate records after a failure mid-import, and the retry completes", async () => {
     const nodes = [node(), node(), node()];
     fail.table = "li_actions"; // crash after the draft and version of the first post were written
-    await expect(importSnapshot(snap(nodes), ME)).rejects.toThrow("Simulated failure");
+    const first = await importSnapshot(snap(nodes), ME);
+    // The failing record is reported (without database details); the others still import.
+    expect(first.errors).toBe(1);
+    expect(first.results.find((r) => r.outcome === "error")?.sourceId).toBe(nodes[0].id);
+    expect(first.queue.added).toBe(2);
     const retry = await importSnapshot(snap(nodes), ME);
-    expect(retry.queue.added).toBe(3);
+    expect(retry.errors).toBe(0);
+    expect(retry.queue).toMatchObject({ added: 1, existing: 2 });
     const drafts = await select<{ id: string; origin_ref: string | null }>("li_drafts", []);
     for (const n of nodes) {
       const mine = drafts.filter((d) => d.origin_ref === n.id);
@@ -451,6 +465,18 @@ describe("import safety", () => {
     }
     const again = await importSnapshot(snap(nodes), ME);
     expect(again.queue).toMatchObject({ added: 0, existing: 3 });
+  });
+
+  it("re-checks existing queue items, so a crash between creating and blocking is repaired", async () => {
+    const text = `Late duplicate ${crypto.randomUUID()}`;
+    const id = hex();
+    await importSnapshot(snap([node({ id, text })]), ME); // queued, not published yet
+    expect((await actionFor(id))!.status).toBe("ready_for_review");
+    // The same text and media now appear as published under another post id.
+    await importSnapshot(snap([node({ status: "sent", text, sentAt: "2026-10-12T10:00:00Z" })]), ME);
+    const again = await importSnapshot(snap([node({ id, text })]), ME);
+    expect(again.results[0].outcome).toBe("blocked_duplicate");
+    expect((await actionFor(id))!.status).toBe("blocked");
   });
 });
 
@@ -477,6 +503,56 @@ describe("approval covers text, images and time; history is respected", () => {
     await importSnapshot(snap([node({ status: "sent", sentAt: "2026-10-01T10:00:00Z", externalLink: link })]), ME);
     const id = await approved();
     await expect(recordManualExecution(id, link, ME)).rejects.toThrow(/published history/);
+  });
+});
+
+describe("races and verification", () => {
+  it("an edit racing 'record as published' never leaves a published item on an unapproved version", async () => {
+    for (let i = 0; i < 5; i++) {
+      const id = await approved();
+      const d = (await getAction(id))!;
+      await Promise.allSettled([
+        addVersion(id, { text: d.current.text + " Edited.", assets: [], target_at: d.current.target_at }, ME),
+        recordManualExecution(id, url(), ME),
+      ]);
+      const after = (await getAction(id))!;
+      if (after.action.status === "executed") {
+        // The published content is exactly the approved, current version.
+        expect(after.executions[0].content_hash).toBe(after.current.content_hash);
+        expect(after.approvalValid).toBe(true);
+      } else {
+        expect(after.action.status).toBe("ready_for_review");
+        expect(after.executions).toHaveLength(0);
+      }
+    }
+  });
+
+  it("refuses to verify when the current version is not the one that was published", async () => {
+    const id = await approved();
+    await recordManualExecution(id, url(), ME);
+    const d = (await getAction(id))!;
+    const { update, eq } = await import("@/lib/server/store");
+    // Simulate an out-of-band change of the current version after publication.
+    const v2 = crypto.randomUUID();
+    const { insert } = await import("@/lib/server/store");
+    await insert("li_draft_versions", { id: v2, draft_id: d.draft.id, version: 2, text: "other", assets: [], target_at: null, content_hash: "b".repeat(64), author: ME });
+    await update("li_drafts", [eq("id", d.draft.id)], { current_version: v2 });
+    await expect(verifyExecution(id, ME, "manual")).rejects.toThrow(/doesn't match/);
+  });
+
+  it("adds what the studio publishes to history, so a second item with the same text is refused at approval", async () => {
+    const text = `Studio published ${crypto.randomUUID()}`;
+    const a = (await post(text)).actionId;
+    const da = (await getAction(a))!;
+    await approve(a, da.current.id, da.current.content_hash, ME);
+    await recordManualExecution(a, url(), ME);
+    // Same text, different planned time: a different content hash, but the same post for readers.
+    const { actionId: b } = await createDraft({
+      kind: "post", actionKind: "publish_post", channel: "manual", origin: "manual", author: ME,
+      content: { text, assets: [], target_at: "2026-12-01T10:00:00.000Z" },
+    });
+    const db = (await getAction(b))!;
+    await expect(approve(b, db.current.id, db.current.content_hash, ME)).rejects.toThrow(/Already published/);
   });
 });
 

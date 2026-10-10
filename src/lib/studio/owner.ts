@@ -6,6 +6,18 @@ import "server-only";
  */
 import { notFound, redirect } from "next/navigation";
 import { type Account, currentAccount, normalizeEmail } from "@/lib/server/auth";
+import { storageMode } from "@/lib/server/store";
+
+/**
+ * Without a database the store silently stores nothing (production without Supabase env vars),
+ * which would make imports and approvals look successful while saving nothing. The studio
+ * refuses to work in that mode instead.
+ */
+export function studioStorageError(mode: typeof storageMode = storageMode): string | null {
+  return mode === "disabled"
+    ? "The studio's database is not configured for this deployment (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY). Nothing can be saved, so the studio is switched off here."
+    : null;
+}
 
 export function ownerEmail(): string | null {
   const v = process.env.STUDIO_OWNER_EMAIL?.trim().replace(/^["']|["']$/g, "");
@@ -30,5 +42,8 @@ export async function requireOwner(path: string): Promise<Account> {
 export async function ownerOrThrow(): Promise<Account> {
   const account = await currentAccount();
   if (!isOwner(account)) throw new Error("Not found");
+  // Never accept a write that would be silently dropped.
+  const storage = studioStorageError();
+  if (storage) throw new Error(storage);
   return account!;
 }

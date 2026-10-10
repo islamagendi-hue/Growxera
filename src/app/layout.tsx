@@ -95,8 +95,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <ConsentBanner />
           <GoogleAnalytics />
         </HideInStudio>
-        {/* Cookieless page counts (no personal data), so every visit is counted, not only consented ones. */}
-        <Analytics />
+        {/* Cookieless page counts (no personal data), so every visit is counted, not only consented ones. Not on the private studio. */}
+        <HideInStudio>
+          <Analytics />
+        </HideInStudio>
       </body>
     </html>
   );

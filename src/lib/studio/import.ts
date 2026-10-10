@@ -56,6 +56,7 @@ export type Outcome =
   | "blocked_duplicate"
   | "blocked_possible_duplicate"
   | "conflict_published_twice"
+  | "error"
   | "skipped_in_flight"
   | "invalid";
 
@@ -71,8 +72,17 @@ export interface ImportSummary {
   metricSnapshots: number;
   queue: { added: number; existing: number; blockedAsDuplicate: number };
   invalid: number;
+  errors: number;
   skipped: { id: string; reason: string }[];
   results: RecordResult[];
+}
+
+/** Reports a failed record without the database's response body (it can contain row data). */
+function recordError(summary: ImportSummary, sourceId: string, err: unknown) {
+  summary.errors++;
+  const msg = err instanceof Error ? err.message : "Unknown error";
+  const safe = msg.match(/^(\w+ li_\w+ failed: \d+)/)?.[1] ?? (err instanceof Error && !(err.name === "StoreError") ? msg.slice(0, 120) : "Database error");
+  summary.results.push({ sourceId, outcome: "error", detail: `${safe}. Nothing else was skipped; re-run the import to retry this record.` });
 }
 
 const assetsOf = (n: Node) => n.assets.map((a) => ({ type: a.type, url: a.source, title: a.document?.title ?? null }));
@@ -86,6 +96,7 @@ export async function importSnapshot(snapshot: Snapshot, actor: string): Promise
     metricSnapshots: 0,
     queue: { added: 0, existing: 0, blockedAsDuplicate: 0 },
     invalid: 0,
+    errors: 0,
     skipped: [],
     results: [],
   };
@@ -115,123 +126,134 @@ export async function importSnapshot(snapshot: Snapshot, actor: string): Promise
     nodes.push(parsed.data);
   }
 
-  // 1. Published history.
+  // 1. Published history. Each record is isolated: a failure is reported and the rest continue.
   for (const n of nodes.filter((n) => n.status === "sent")) {
-    let row = await selectOne<{ id: string }>("li_content", [eq("source", "buffer_export"), eq("source_id", n.id)], { columns: "id" });
-    if (row) {
-      summary.history.existing++;
-      summary.results.push({ sourceId: n.id, outcome: "history_existing" });
-    } else {
-      row = { id: crypto.randomUUID() };
-      await insert("li_content", {
-        id: row.id,
-        kind: "post",
-        text: n.text,
-        language: /[؀-ۿ]/.test(n.text) ? "ar" : "en",
-        published_at: n.sentAt ?? n.dueAt ?? null,
-        external_url: n.externalLink ?? null,
-        source: "buffer_export",
-        source_id: n.id,
-        // "network" = posted natively on LinkedIn; "buffer" = published through Buffer.
-        published_via: n.via === "network" ? "linkedin_native" : n.via ?? null,
-        assets: assetsOf(n),
-      });
-      summary.history.added++;
-      summary.results.push({ sourceId: n.id, outcome: "history_added" });
-    }
-    if (n.metrics?.length && n.metricsUpdatedAt) {
-      const measuredAt = new Date(n.metricsUpdatedAt).toISOString();
-      const exists = await selectOne("li_metrics_snapshots", [eq("content_id", row.id), eq("source", "buffer_export"), eq("measured_at", measuredAt)]);
-      if (!exists) {
-        await insert("li_metrics_snapshots", {
-          id: crypto.randomUUID(),
-          content_id: row.id,
-          measured_at: measuredAt,
-          window_kind: "lifetime",
+    try {
+      let row = await selectOne<{ id: string }>("li_content", [eq("source", "buffer_export"), eq("source_id", n.id)], { columns: "id" });
+      if (row) {
+        summary.history.existing++;
+        summary.results.push({ sourceId: n.id, outcome: "history_existing" });
+      } else {
+        row = { id: crypto.randomUUID() };
+        await insert("li_content", {
+          id: row.id,
+          kind: "post",
+          text: n.text,
+          language: /[\u0600-\u06FF]/.test(n.text) ? "ar" : "en",
+          published_at: n.sentAt ?? n.dueAt ?? null,
+          external_url: n.externalLink ?? null,
           source: "buffer_export",
-          impressions: metricValue(n, "impressions"),
-          reach: metricValue(n, "reach"),
-          reactions: metricValue(n, "reactions"),
-          comments: metricValue(n, "comments"),
-          shares: metricValue(n, "shares"),
-          engagement_rate: metricValue(n, "engagementRate"),
+          source_id: n.id,
+          // "network" = posted natively on LinkedIn; "buffer" = published through Buffer.
+          published_via: n.via === "network" ? "linkedin_native" : n.via ?? null,
+          assets: assetsOf(n),
         });
-        summary.metricSnapshots++;
+        summary.history.added++;
+        summary.results.push({ sourceId: n.id, outcome: "history_added" });
       }
-    }
-
-    // A queue item for this same Buffer post (from an earlier import) must never be published again.
-    const draft = await selectOne<{ id: string }>("li_drafts", [eq("origin", "migrated_buffer"), eq("origin_ref", n.id)], { columns: "id" });
-    if (draft) {
-      const action = await selectOne<{ id: string; status: string }>("li_actions", [eq("draft_id", draft.id)], { columns: "id,status" });
-      if (action && ["draft", "ready_for_review", "approved", "needs_revision", "failed"].includes(action.status)) {
-        if (action.status === "needs_revision" || action.status === "failed") {
-          // These can't move to blocked directly; reject instead, with the same reason.
-          await reject(action.id, `Already published by Buffer${n.externalLink ? ` (${n.externalLink})` : ""}.`, "system");
-        } else {
-          await markBlocked(
-            action.id,
-            `Already published by Buffer on ${n.sentAt ?? n.dueAt ?? "an unknown date"}${n.externalLink ? ` (${n.externalLink})` : ""}. Do not publish again.`,
-            "system",
-          );
+      if (n.metrics?.length && n.metricsUpdatedAt) {
+        const measuredAt = new Date(n.metricsUpdatedAt).toISOString();
+        const exists = await selectOne("li_metrics_snapshots", [eq("content_id", row.id), eq("source", "buffer_export"), eq("measured_at", measuredAt)]);
+        if (!exists) {
+          await insert("li_metrics_snapshots", {
+            id: crypto.randomUUID(),
+            content_id: row.id,
+            measured_at: measuredAt,
+            window_kind: "lifetime",
+            source: "buffer_export",
+            impressions: metricValue(n, "impressions"),
+            reach: metricValue(n, "reach"),
+            reactions: metricValue(n, "reactions"),
+            comments: metricValue(n, "comments"),
+            shares: metricValue(n, "shares"),
+            engagement_rate: metricValue(n, "engagementRate"),
+          });
+          summary.metricSnapshots++;
         }
-        summary.queue.blockedAsDuplicate++;
-        summary.results.push({ sourceId: n.id, outcome: "blocked_published_by_source", detail: "Queue item from an earlier import was published by Buffer." });
-      } else if (action && ["executed", "verified"].includes(action.status)) {
-        summary.results.push({
-          sourceId: n.id,
-          outcome: "conflict_published_twice",
-          detail: "Recorded as published in the studio AND published by Buffer. Check LinkedIn for a duplicate post.",
-        });
       }
+
+      // A queue item for this same Buffer post (from an earlier import) must never be published again.
+      const draft = await selectOne<{ id: string }>("li_drafts", [eq("origin", "migrated_buffer"), eq("origin_ref", n.id)], { columns: "id" });
+      if (draft) {
+        const action = await selectOne<{ id: string; status: string }>("li_actions", [eq("draft_id", draft.id)], { columns: "id,status" });
+        if (action && ["draft", "ready_for_review", "approved", "needs_revision", "failed"].includes(action.status)) {
+          if (action.status === "needs_revision" || action.status === "failed") {
+            // These can't move to blocked directly; reject instead, with the same reason.
+            await reject(action.id, `Already published by Buffer${n.externalLink ? ` (${n.externalLink})` : ""}.`, "system");
+          } else {
+            await markBlocked(
+              action.id,
+              `Already published by Buffer on ${n.sentAt ?? n.dueAt ?? "an unknown date"}${n.externalLink ? ` (${n.externalLink})` : ""}. Do not publish again.`,
+              "system",
+            );
+          }
+          summary.queue.blockedAsDuplicate++;
+          summary.results.push({ sourceId: n.id, outcome: "blocked_published_by_source", detail: "Queue item from an earlier import was published by Buffer." });
+        } else if (action && ["executed", "verified"].includes(action.status)) {
+          summary.results.push({
+            sourceId: n.id,
+            outcome: "conflict_published_twice",
+            detail: "Recorded as published in the studio AND published by Buffer. Check LinkedIn for a duplicate post.",
+          });
+        }
+      }
+    } catch (err) {
+      recordError(summary, n.id, err);
     }
   }
 
   // 2. Unpublished posts: queue, unapproved; blocked if they match published history.
   for (const n of nodes.filter((n) => n.status !== "sent")) {
-    if (n.status === "sending") {
-      summary.skipped.push({ id: n.id, reason: "Was being published at export time; check LinkedIn and re-export." });
-      summary.results.push({ sourceId: n.id, outcome: "skipped_in_flight", detail: "Status 'sending' at export time." });
-      continue;
-    }
-    // Never re-queue a post whose Buffer id is already in published history.
-    if (await selectOne("li_content", [eq("source", "buffer_export"), eq("source_id", n.id)], { columns: "id" })) {
-      summary.results.push({ sourceId: n.id, outcome: "blocked_published_by_source", detail: "This file is older than one already imported: the post is published." });
-      continue;
-    }
-    const firstComment = n.metadata?.firstComment;
-    const { actionId, created } = await createDraft({
-      kind: "post",
-      actionKind: "publish_post",
-      // Direct LinkedIn publishing is not verified for this app yet, so execution is manual.
-      channel: "manual",
-      content: { text: n.text, assets: assetsOf(n), target_at: n.dueAt ?? null },
-      origin: "migrated_buffer",
-      originRef: n.id,
-      originalDueAt: n.dueAt ?? null,
-      notes:
-        `Migrated from the Buffer export of 10 Oct 2026. Buffer status at export: ${n.status}.` +
-        (firstComment ? ` Buffer first comment (not migrated as content): ${firstComment}` : ""),
-      status: n.status === "draft" ? "draft" : "ready_for_review",
-      author: actor,
-    });
-    if (!created) {
-      summary.queue.existing++;
-      summary.results.push({ sourceId: n.id, outcome: "queue_existing" });
-      continue;
-    }
-    summary.queue.added++;
-    const match = await findPublishedMatch(n.text, assetsOf(n));
-    if (match) {
-      await markBlocked(actionId, describeMatch(match), "system");
-      summary.queue.blockedAsDuplicate++;
-      summary.results.push({
-        sourceId: n.id,
-        outcome: match.kind === "same_text_and_media" ? "blocked_duplicate" : "blocked_possible_duplicate",
-        detail: describeMatch(match),
+    try {
+      if (n.status === "sending") {
+        summary.skipped.push({ id: n.id, reason: "Was being published at export time; check LinkedIn and re-export." });
+        summary.results.push({ sourceId: n.id, outcome: "skipped_in_flight", detail: "Status 'sending' at export time." });
+        continue;
+      }
+      // Never re-queue a post whose Buffer id is already in published history.
+      if (await selectOne("li_content", [eq("source", "buffer_export"), eq("source_id", n.id)], { columns: "id" })) {
+        summary.results.push({ sourceId: n.id, outcome: "blocked_published_by_source", detail: "This file is older than one already imported: the post is published." });
+        continue;
+      }
+      const firstComment = n.metadata?.firstComment;
+      const { actionId, created } = await createDraft({
+        kind: "post",
+        actionKind: "publish_post",
+        // Direct LinkedIn publishing is not verified for this app yet, so execution is manual.
+        channel: "manual",
+        content: { text: n.text, assets: assetsOf(n), target_at: n.dueAt ?? null },
+        origin: "migrated_buffer",
+        originRef: n.id,
+        originalDueAt: n.dueAt ?? null,
+        notes:
+          `Migrated from the Buffer export of 10 Oct 2026. Buffer status at export: ${n.status}.` +
+          (firstComment ? ` Buffer first comment (not migrated as content): ${firstComment}` : ""),
+        status: n.status === "draft" ? "draft" : "ready_for_review",
+        author: actor,
       });
-    } else {
-      summary.results.push({ sourceId: n.id, outcome: "queue_added" });
+      if (created) summary.queue.added++;
+      else summary.queue.existing++;
+      // Checked for new AND existing items: a crash between creating and blocking is repaired here.
+      const current = created ? null : await selectOne<{ status: string }>("li_actions", [eq("id", actionId)], { columns: "status" });
+      const checkable = created || (current && ["draft", "ready_for_review"].includes(current.status));
+      const match = checkable ? await findPublishedMatch(n.text, assetsOf(n)) : null;
+      if (!created && !match) {
+        summary.results.push({ sourceId: n.id, outcome: "queue_existing" });
+        continue;
+      }
+      if (match) {
+        await markBlocked(actionId, describeMatch(match), "system");
+        summary.queue.blockedAsDuplicate++;
+        summary.results.push({
+          sourceId: n.id,
+          outcome: match.kind === "same_text_and_media" ? "blocked_duplicate" : "blocked_possible_duplicate",
+          detail: describeMatch(match),
+        });
+      } else {
+        summary.results.push({ sourceId: n.id, outcome: "queue_added" });
+      }
+    } catch (err) {
+      recordError(summary, n.id, err);
     }
   }
 

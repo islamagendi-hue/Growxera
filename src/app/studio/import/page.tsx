@@ -1,6 +1,6 @@
 import { first, Notice, SourceLabel } from "@/components/studio/StudioUi";
 import { buttonClass } from "@/components/ui/button";
-import { eq, select } from "@/lib/server/store";
+import { eq, select, selectAll } from "@/lib/server/store";
 import { type AssetRow, referencedAssetUrls } from "@/lib/studio/assets";
 import type { RecordResult } from "@/lib/studio/import";
 import { requireOwner } from "@/lib/studio/owner";
@@ -17,6 +17,7 @@ const OUTCOME_TEXT: Record<string, string> = {
   conflict_published_twice: "Conflict: published twice?",
   skipped_in_flight: "Skipped: was being published",
   invalid: "Invalid record",
+  error: "Error (re-run to retry)",
 };
 
 export default async function ImportPage({ searchParams }: PageProps<"/studio/import">) {
@@ -24,15 +25,15 @@ export default async function ImportPage({ searchParams }: PageProps<"/studio/im
   const sp = await searchParams;
 
   const [history, drafts, actions, imports, assets, urls] = await Promise.all([
-    select<{ id: string }>("li_content", [eq("source", "buffer_export")], { columns: "id" }),
-    select<{ id: string; origin: string }>("li_drafts", [eq("origin", "migrated_buffer")], { columns: "id,origin" }),
-    select<{ draft_id: string; status: Status }>("li_actions", [], { columns: "draft_id,status" }),
+    selectAll<{ id: string }>("li_content", [eq("source", "buffer_export")], { columns: "id" }),
+    selectAll<{ id: string; origin: string }>("li_drafts", [eq("origin", "migrated_buffer")], { columns: "id,origin" }),
+    selectAll<{ draft_id: string; status: Status }>("li_actions", [], { columns: "draft_id,status" }),
     select<{ created_at: string; detail: { records: number; results: RecordResult[] } | null }>(
       "li_audit_log",
       [eq("event", "import.buffer_snapshot")],
       { order: { col: "created_at", ascending: false }, limit: 10 },
     ),
-    select<AssetRow>("li_assets", []),
+    selectAll<AssetRow>("li_assets", []),
     referencedAssetUrls(),
   ]);
   const migratedIds = new Set(drafts.map((d) => d.id));

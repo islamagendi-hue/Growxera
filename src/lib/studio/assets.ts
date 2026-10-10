@@ -13,7 +13,7 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { eq, insert, select, selectOne, storageMode, update } from "@/lib/server/store";
+import { eq, insert, select, selectAll, selectOne, storageMode, update } from "@/lib/server/store";
 import { audit } from "./repo";
 
 export const ASSET_SOURCE_HOSTS = [
@@ -94,8 +94,8 @@ const sha = (b: Uint8Array) => createHash("sha256").update(b).digest("hex");
 
 /** Every distinct media URL referenced by drafts (all versions) or published history. */
 export async function referencedAssetUrls(): Promise<string[]> {
-  const versions = await select<{ assets: { url: string }[] }>("li_draft_versions", [], { columns: "assets" });
-  const content = await select<{ assets: { url: string }[] }>("li_content", [], { columns: "assets" });
+  const versions = await selectAll<{ assets: { url: string }[] }>("li_draft_versions", [], { columns: "assets" });
+  const content = await selectAll<{ assets: { url: string }[] }>("li_content", [], { columns: "assets" });
   return [...new Set([...versions, ...content].flatMap((r) => (r.assets ?? []).map((a) => a.url)))].sort();
 }
 
@@ -112,6 +112,9 @@ async function copyOne(url: string): Promise<{ path: string; hash: string; bytes
   if (!res.ok) throw new Error(`Source returned ${res.status}`);
   const type = (res.headers.get("content-type") ?? "").split(";")[0].trim();
   if (!TYPES[type]) throw new Error(`Unexpected file type "${type || "unknown"}"`);
+  // Refuse oversized files before downloading them when the size is declared.
+  const declared = Number(res.headers.get("content-length") ?? "0");
+  if (declared > MAX_BYTES) throw new Error(`File too large (${declared} bytes)`);
   const body = new Uint8Array(await res.arrayBuffer());
   if (!body.length || body.length > MAX_BYTES) throw new Error(`Unexpected size ${body.length} bytes`);
   const hash = sha(body);

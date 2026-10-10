@@ -207,6 +207,25 @@ export async function select<T = Row>(table: Table, filters: Filter[], opts: Sel
   return [];
 }
 
+/**
+ * Every matching row. PostgREST caps a response at its max-rows setting (1,000 by default),
+ * so a plain select can silently return a truncated list; this pages until the end.
+ * Pages are ordered (by `opts.order`, else by id) so no row is skipped or repeated.
+ */
+export async function selectAll<T = Row>(table: Table, filters: Filter[], opts: Omit<SelectOptions, "limit"> = {}, pageSize = 1000): Promise<T[]> {
+  if (storageMode !== "supabase") return select<T>(table, filters, opts);
+  const order = opts.order ?? { col: "id", ascending: true };
+  const out: T[] = [];
+  for (let offset = 0; ; offset += pageSize) {
+    const q = `${toQuery(filters, { ...opts, order, limit: pageSize })}&offset=${offset}`;
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${q}`, { headers: headers({ Prefer: "" }), cache: "no-store" });
+    if (!res.ok) throw new StoreError(`select ${table} failed: ${res.status} ${await res.text().catch(() => "")}`);
+    const page = (await res.json()) as T[];
+    out.push(...page);
+    if (page.length < pageSize) return out;
+  }
+}
+
 export async function selectOne<T = Row>(table: Table, filters: Filter[], opts: SelectOptions = {}): Promise<T | null> {
   return (await select<T>(table, filters, { ...opts, limit: 1 }))[0] ?? null;
 }

@@ -178,7 +178,13 @@ export default async function QueueItem({ params, searchParams }: PageProps<"/st
           </section>
         )}
 
-        {["rejected", "needs_revision", "failed", "blocked"].includes(action.status) && (
+        {action.status === "approved" && !approvalValid && (
+          <p className="mt-8 border border-alert bg-alert-soft p-4 text-sm text-alert">
+            This approval no longer matches the current version, so it can&apos;t be published. Return it to review and approve the current version.
+          </p>
+        )}
+
+        {(["rejected", "needs_revision", "failed", "blocked"].includes(action.status) || (action.status === "approved" && !approvalValid)) && (
           <form action={reopenAction} className="mt-8">
             <input type="hidden" name="actionId" value={action.id} />
             <button className={buttonClass("secondary")}>Return to review without changes</button>
