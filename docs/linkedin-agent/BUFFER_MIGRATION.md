@@ -25,13 +25,13 @@ Private files, kept out of the public repository and sent to the owner directly:
 - [ ] **3. Apply the studio migration and set `STUDIO_OWNER_EMAIL`** (PLAN.md, section 6).
 - [ ] **4. Import in the studio** (`/studio/import`), in order: history, scheduled, update file(s).
 - [ ] **5. Confirm the counts** on `/studio/import`: 58 published posts in history; 38 migrated items = 36 Ready for review, 1 Draft, 1 Blocked (published by Buffer at 18:30 UTC); 0 approved.
-- [ ] **6. Secure the images.** The queued posts' images and PDFs are in a public bucket (`li-assets`) of the Supabase project `leanapp-staging`. In the studio, Import → **Copy and verify media** copies all 37 into Growxera's private bucket and checks each copy by SHA-256. Keep `leanapp-staging` untouched until this reports 0 failed.
+- [ ] **6. Secure the images.** The queued posts' images and PDFs are in a public bucket (`li-assets`) of the Supabase project `leanapp-staging`. In the studio, Import → **Copy and verify media** copies them (37 files) plus 12 historical thumbnails from Buffer's media bucket (49 in total) into Growxera's private bucket and checks each copy by SHA-256. Keep `leanapp-staging` and Buffer untouched until this reports 0 failed ([ACTIVATION.md](ACTIVATION.md), step 8).
 - [ ] **7. Keep Buffer's analytics.** Optional: in Buffer, export the LinkedIn analytics (CSV) for the full date range. The export above already holds per-post lifetime numbers as of 10 Oct; Buffer's own export is a second copy.
 - [ ] **8. Review the migrated queue** in the studio: approve, edit, reject or leave each item. Items whose planned time has passed are flagged; give them a new time before approving.
 
 ### Disconnecting
 
-- [ ] **9. Disconnect LinkedIn from Buffer** (Buffer → Channels → LinkedIn → Disconnect) only after steps 1 to 5. Disconnecting stops Buffer from publishing; it also ends Buffer's access to your analytics, so do step 7 first if you want it.
+- [ ] **9. Disconnect LinkedIn from Buffer** (Buffer → Channels → LinkedIn → Disconnect) only after steps 1 to 6 (including the verified media copy). Disconnecting stops Buffer from publishing; it also ends Buffer's access to your analytics, so do step 7 first if you want it.
 - [ ] **10. Revoke Buffer's access in LinkedIn:** LinkedIn → Settings → Data privacy → Permitted services → Buffer → Remove.
 - [ ] **11. Remove the Buffer connector from Claude** (claude.ai → Settings → Connectors) so no session can schedule through it again.
 - [ ] **12. Retire the old skills** that told Claude to own the Buffer queue and to post through the Chrome extension (`linkedin-posts-buffer`, `linkedin-daily-engagement`), or rewrite them to point to the studio.

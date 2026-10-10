@@ -1,30 +1,62 @@
-# LinkedIn Growth Studio: production activation runbook
+# LinkedIn Growth Studio: activation checklist
 
-Status as of 10 Oct 2026, 19:05 UTC. Each step says who does it and how to verify it. Do the steps in order.
+For PR #14, commit `5671bf8` or later. Work top to bottom and tick each box only when its **Verify** line is true. Stop at any mismatch.
 
-Nothing here publishes anything on LinkedIn. The studio has no LinkedIn or Buffer API code, no cron jobs, and executes nothing without an approval of the exact version.
+Legend:
+- **Pre-merge**: whether the step is safe before PR #14 is merged.
+- **Target**: where you do it.
+- ⚠️ **Production data**: the step writes to a database or storage that production uses (or may use).
 
-## Access this activation was checked against
+Nothing in this checklist publishes to LinkedIn. Buffer publishing is already stopped: 36 posts were moved to Draft on 10 Oct 2026 at 19:00 UTC and verified read-only.
 
-| System | Access from the Claude session | Consequence |
-| --- | --- | --- |
-| Buffer | API works. It has **no pause-queue action**; posts were moved to Draft instead (step 1, done) | No Buffer post can publish |
-| Growxera Supabase | **Not visible.** The Supabase connector only sees `leanapp-staging` (a separate project with the old workflow's `li_*` visual tables and the `li-assets` bucket; no `accounts`/`leads` tables) | Migrations must be run by you (step 2). **Never run them on `leanapp-staging`** |
-| Vercel | Can list team projects (`growx-era`), but reading or changing the project returns 404/403 | Env var and deployment are manual (step 3) |
-| growxera.com | Blocked by this session's network policy | Production checks are manual (step 5) |
+What Claude could verify from its session (10 Oct 2026): Vercel refuses project details and deployment lists (403/404); Supabase shows only `leanapp-staging`, which is **not** Growxera's database; growxera.com is blocked by the session's network. So every step below is done by you in the dashboards.
 
-## Step 1: Stop Buffer publishing (done)
+---
 
-Done 10 Oct 2026, 19:00 UTC with your approval. Buffer's API has no pause action, so the 36 scheduled posts were moved to Draft through the API. A read-only check afterwards confirmed 0 scheduled or sending posts, with text, media and original dates identical to the export. Nothing was deleted. Buffer can no longer publish them.
+## 1. Identify the Growxera database (read-only)
 
-## Step 2: Database migrations (you, Supabase dashboard)
+- **Pre-merge:** yes, read-only.
+- **Target:** Supabase dashboard, then Vercel → project `growx-era` → Settings → Environment Variables.
 
-1. Open the Supabase project that Growxera's `SUPABASE_URL` points to. Confirm identity first: **Table Editor must show `accounts`, `leads` and `diagnostic_sessions`.** If it doesn't, stop: wrong project.
-2. Backup: Database → Backups. Note the latest daily backup time (or, on the free plan, run `supabase db dump` locally first). These migrations only add tables and a bucket, but take the backup anyway.
-3. SQL Editor → run, in this order, each as one script:
-   1. `supabase/migrations/20261010000000_linkedin_studio.sql`
-   2. `supabase/migrations/20261011000000_linkedin_studio_hardening.sql`
-4. Verify with this query (expected: 10 rows, all `rls = true`, `browser_grants = 0`, and one bucket row with `public = false`):
+1. In Supabase, open each project until **Table Editor** shows `accounts`, `leads` and `diagnostic_sessions`. That is Growxera's database. Never use `leanapp-staging`.
+2. Note its **project ref** (Settings → General → Reference ID). The API URL is `https://<ref>.supabase.co`.
+3. In Vercel, open `SUPABASE_URL` and read the value for **Production**, then for **Preview** (the host part only; don't copy keys anywhere).
+4. Write down one of these:
+   - **A. Shared:** Preview's `SUPABASE_URL` has the same ref as Production.
+   - **B. Separate:** Preview points at a different project.
+   - **C. None:** Preview has no `SUPABASE_URL` or `SUPABASE_SERVICE_ROLE_KEY`.
+
+**Verify:** you have written the Production ref, and A, B or C.
+
+**What it decides:**
+- **A:** everything you do on Preview (import, media copy, approvals) lands in the production database.
+- **B:** run step 3 on both projects; Preview tests won't touch production data.
+- **C:** the Preview studio shows "database is not configured" and refuses every action. Either add the Preview variables (making it A or B) or skip the Preview data steps.
+
+## 2. Back up the production database
+
+- **Pre-merge:** yes. No data changes.
+- **Target:** the Production project from step 1.
+
+Use either:
+- Supabase → Database → **Backups**: note the time of the latest daily backup (on paid plans), or
+- your own machine: `supabase db dump --db-url "<connection string>" -f growxera-before-studio.sql`. The connection string is under Settings → Database. Keep the file private, outside the repository.
+
+**Verify:** a backup exists that is newer than any change you are about to make, and you know where it is.
+
+## 3. Run the two migrations ⚠️ production database (schema only)
+
+- **Pre-merge:** yes. Both are additive: new `li_*` tables and one private bucket. They don't touch site tables, and the current production code doesn't use them.
+- **Target:** the Production project (and the Preview project too, in case B).
+
+In **SQL Editor**, run each file as one script, **in this order**:
+
+1. `supabase/migrations/20261010000000_linkedin_studio.sql`
+2. `supabase/migrations/20261011000000_linkedin_studio_hardening.sql`
+
+Run in the wrong order, file 2 fails with `relation "public.li_content" does not exist` and changes nothing. Re-running either file is harmless.
+
+**Verify:** run this query.
 
 ```sql
 select t.tablename, t.rowsecurity as rls,
@@ -34,57 +66,119 @@ from pg_tables t where t.schemaname = 'public' and t.tablename like 'li\_%' orde
 select id, public from storage.buckets where id = 'li-studio-assets';
 ```
 
-If `browser_grants` is 0 but the studio later reports database errors, check that the `service_role` still has Supabase's default privileges on new tables (the existing migrations rely on them too).
+Expected:
+- **10 rows:** `li_actions, li_approvals, li_assets, li_audit_log, li_content, li_draft_versions, li_drafts, li_executions, li_llm_usage, li_metrics_snapshots`.
+- Every row has `rls = true` and `browser_grants = 0`.
+- **1 bucket row:** `li-studio-assets`, `public = false`.
 
-**Rollback** (only if you decide to remove the studio; it deletes studio data, never site data, so export first if anything was imported):
+## 4. Vercel environment variables
+
+- **Pre-merge:** yes. The production build from `main` doesn't contain the studio yet, and variables take effect only on the next deployment.
+- **Target:** Vercel → `growx-era` → Settings → Environment Variables.
+
+| Key | Value | Environments |
+|---|---|---|
+| `STUDIO_OWNER_EMAIL` | the email you log in to growxera.com with | Production, Preview |
+| `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | already set for Production; for Preview, per your step 1 decision | Preview |
+
+Leave every `XAI_*` variable **unset**, so Grok stays off.
+
+**Verify:** the variables page lists `STUDIO_OWNER_EMAIL` with Production and Preview ticked, and no `XAI_*` keys.
+
+## 5. Get a Preview deployment of the PR
+
+- **Pre-merge:** yes. It's a preview build, not production.
+- **Target:** Vercel → Deployments, filtered by branch `claude/linkedin-brand-growth-agent-wu375g`.
+
+1. If a deployment for commit `5671bf8` or later exists: open it → **⋯ → Redeploy**, so it picks up the step 4 variables.
+2. If none exists: Vercel → Settings → **Git** must show the GitHub repository `islamagendi-hue/Growxera` connected. Pushes to the branch then create previews automatically. (No GitHub status or Vercel comment has appeared on PR #14 so far, which suggests the integration may not be connected.)
+
+**Verify:** the deployment shows **Ready**, the commit is `5671bf8` or later, and you have its URL. If deployment protection is on, open it while logged in to Vercel.
+
+## 6. Preview smoke tests (read-only)
+
+- **Pre-merge:** yes. Nothing is written.
+- **Target:** the Preview URL from step 5.
+
+| # | Do | Expected |
+|---|---|---|
+| 6.1 | Signed out, open `/studio` | Redirect to `/login?next=%2Fstudio` |
+| 6.2 | Logged in as a **different** account (or a private window with another email), open `/studio` | 404 page, with no mention of the studio |
+| 6.3 | Logged in as **you**, open `/studio` | Overview loads. No red "database is not configured" banner (in case C it appears: expected, and stop here) |
+| 6.4 | Same | Overview shows **0** in every queue tile and "No data" for history (empty database) |
+| 6.5 | Open `/studio/capabilities` | Grok "Disabled. Missing: XAI_API_KEY…"; publishing "Not verified" |
+| 6.6 | Open `/studio/assets/00000000-0000-0000-0000-000000000000` | 404 |
+| 6.7 | Check the footer, consent banner and site pages on Preview (`/`, `/diagnostic`) | Unchanged from production |
+
+**Verify:** all 7 rows match.
+
+## 7. Import the private files ⚠️ production data in case A
+
+- **Pre-merge:** yes on Preview, but in **case A this writes to the production database**. Do it only when you intend these records to be live.
+- **Target:** Preview `/studio/import` (case A or B), or production after merging.
+
+Upload the files **one at a time, in this order**, and compare each notice:
+
+| # | File | Expected notice (first time) |
+|---|---|---|
+| 1 | `2026-10-10-history-with-metrics.json` | 58 records; history 57 new; 57 metric snapshots; queue 1 new; 0 blocked; 0 invalid; 0 errors |
+| 2 | `2026-10-10-scheduled-before-pause.json` | 37 records; queue 37 new; 0 blocked; 0 invalid; 0 errors |
+| 3 | `2026-10-10-update-1839-published-after-export.json` | 1 record; history 1 new; 1 blocked |
+| 4 | `2026-10-10-reexport-current-state.json` | 37 records; queue 0 new / 37 already there |
+
+**Verify:**
+- The Reconciliation section shows **Published history 58 · Migrated queue items 38 · Approved 0 · Blocked 1**.
+- By status: **Ready for review 36 · Draft 1 · Blocked 1**.
+- The exception list names `6aca0aa7…`, the post Buffer published at 18:30 UTC.
+- Upload all four again: every notice says **0 new**.
+
+Upload no other file. Any other JSON is rejected or out of scope.
+
+## 8. Copy and verify media ⚠️ writes to Growxera storage
+
+- **Pre-merge:** yes, with the same environment caveat as step 7.
+- **Target:** `/studio/import` → **Copy and verify media**, after step 7.
+
+**Expected:** "49 referenced, 0 already secured, 49 copied and verified, 0 failed". That's the 37 images and PDFs on the queued posts plus 12 historical thumbnails from Buffer's media bucket. Run it again: "49 already secured".
+
+**Verify:** open any queue item that has an image and click **secured copy**: it opens. Keep `leanapp-staging` and Buffer connected until this step reports 0 failed. If some of the 12 Buffer thumbnails fail, they belong to history only: record the failures, run the step again, and decide before disconnecting Buffer.
+
+## 9. Merge PR #14 ⚠️ production deployment
+
+- **Pre-merge:** this *is* the merge. Needs your explicit go-ahead.
+- **Target:** GitHub PR #14 → Merge. Vercel then deploys `main` to production.
+
+**Verify:**
+- The production deployment is **Ready**.
+- Repeat 6.1, 6.2, 6.3 and 6.7 on `https://www.growxera.com`.
+- If you skipped steps 7–8 on Preview, do them now on production.
+
+## 10. Retire Buffer
+
+Follow [BUFFER_MIGRATION.md](BUFFER_MIGRATION.md), steps 9 onwards. Only after step 8 reports 0 failed, and only with your explicit decision. Disconnecting ends Buffer's access to the 12 historical thumbnails' source.
+
+---
+
+## Rollback
+
+**Code:** revert the merge commit of PR #14 on GitHub, or promote the previous production deployment in Vercel → Deployments → ⋯ → **Promote to Production**. The site doesn't depend on the studio.
+
+**Database** ⚠️ deletes all studio data (history imports, queue, approvals, media records), never site data. Export first if anything was imported. In Storage, empty the `li-studio-assets` bucket first, then in SQL Editor:
 
 ```sql
 drop table if exists public.li_assets, public.li_audit_log, public.li_llm_usage, public.li_executions,
   public.li_approvals, public.li_actions, public.li_draft_versions, public.li_drafts,
   public.li_metrics_snapshots, public.li_content cascade;
--- The private bucket must be emptied in Storage first, then:
 delete from storage.buckets where id = 'li-studio-assets';
 ```
 
-Both scripts are safe to re-run. They were validated on Postgres (PGlite): applied twice in a row, with every duplicate and invalid insert rejected.
+**Verify:** the step 3 query returns 0 rows and no bucket; site tables (`accounts`, `leads`, `diagnostic_sessions`, …) are unchanged.
 
-## Step 3: Vercel environment (you, Vercel dashboard)
+Tested on Postgres: the rollback removes the 10 tables and the bucket, keeps site rows, and both migrations re-apply afterwards.
 
-Project **growx-era** → Settings → Environment Variables:
+**Settings:** remove `STUDIO_OWNER_EMAIL` in Vercel (the studio returns 404 to everyone without it).
 
-| Key | Value | Environments |
-| --- | --- | --- |
-| `STUDIO_OWNER_EMAIL` | your sign-in email for growxera.com | Production, Preview |
+## Notes
 
-Leave all `XAI_*` variables unset (Grok stays off).
-
-**Preview vs Production.** The studio needs `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` in the environment it runs in. Without them it shows "database is not configured" and refuses every action (it never pretends to save). If Preview uses the same Supabase project as Production, the preview studio reads and writes the **same** studio data: that is fine for the activation checks (the owner gate is identical), but it means what you import on the preview is already in production.
-
-## Step 4: Deploy
-
-The studio code is on branch `claude/linkedin-brand-growth-agent-wu375g`, not on `main`. Production does not include it yet.
-
-1. Open the branch's **Preview** deployment in Vercel (Deployments → filter by branch). It appears automatically after each push if Git integration is on. Redeploy it after step 3 so it picks up the variable.
-2. Test on the preview (step 5).
-3. Merge to `main` (via a pull request) only after the preview checks pass. Production then deploys from `main`.
-
-## Step 5: Checks on the deployment (you, about 10 minutes)
-
-1. Signed out, open `/studio`: you are sent to the login page.
-2. Log in with a different email (or a private window with another account): `/studio` shows **404**.
-3. Log in with your email: `/studio` opens. The overview shows **0** items everywhere (empty database).
-4. `/studio/import`: upload the private files in this order:
-   1. `2026-10-10-history-with-metrics.json`
-   2. `2026-10-10-scheduled-before-pause.json`
-   3. `2026-10-10-update-1839-published-after-export.json`
-   4. `2026-10-10-reexport-current-state.json`
-5. The reconciliation must read: **Published history 58 · Migrated queue items 38 · Approved 0 · Blocked 1**, by status **Ready for review 36 · Draft 1 · Blocked 1**, and two exceptions for `6aca0aa7…` (the post Buffer published at 18:30 UTC).
-6. Import the same four files again: every message says "0 new".
-7. `/studio/import` → **Copy and verify media**: expected "37 referenced… 37 copied and verified, 0 failed". On a second run: "37 already secured". Open one queue item and click "secured copy".
-8. Safe workflow test **without publishing**: open the **Draft** item (the old Buffer draft), edit one word, save. Check that it's still "Draft" or "Ready for review", that a v2 exists, and that no "Publish" section appears. Do not approve migrated posts until you intend to publish them.
-
-If any number differs, stop and share the reconciliation section; don't re-import other files.
-
-## Step 6: Retire Buffer (after step 5 passes)
-
-Follow [BUFFER_MIGRATION.md](BUFFER_MIGRATION.md), steps 9 onwards. Disconnecting and deleting need your explicit go-ahead. Nothing in the studio depends on Buffer.
+- The migrations rely on Supabase's default `service_role` privileges on new tables, like the existing site migrations. If the studio reports database errors after step 3 while the step 3 query looks right, check those defaults.
+- The studio never pretends to save: without database variables it refuses every action.
