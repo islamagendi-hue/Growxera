@@ -718,6 +718,25 @@ describe("LinkedIn direct publishing", () => {
     expect(toLittleText("Not a tag: a#b and # alone")).toBe("Not a tag: a\\#b and \\# alone");
   });
 
+  it("uses app keys entered in the studio when the env has none, stored encrypted", async () => {
+    const { linkedInConfig, saveAppKeys, isValidClientId } = await import("./linkedin");
+    vi.stubEnv("LINKEDIN_CLIENT_ID", "");
+    vi.stubEnv("LINKEDIN_CLIENT_SECRET", "");
+    try {
+      await saveAppKeys("86abcdEFG123", SECRET);
+      const c = await linkedInConfig();
+      expect(c.source).toBe("studio");
+      expect(c.config).toMatchObject({ clientId: "86abcdEFG123", clientSecret: SECRET });
+      const rows = await select<{ client_secret_enc: string }>("li_linkedin_app", []);
+      expect(rows.some((r) => r.client_secret_enc.includes(SECRET))).toBe(false);
+      expect(isValidClientId("LINKEDIN_CLIENT_ID")).toBe(false);
+    } finally {
+      vi.stubEnv("LINKEDIN_CLIENT_ID", "client-id");
+      vi.stubEnv("LINKEDIN_CLIENT_SECRET", SECRET);
+    }
+    expect((await linkedInConfig()).source).toBe("env");
+  });
+
   it("stores the token encrypted and can't read it with another secret", async () => {
     const { encryptToken, decryptToken } = await import("./linkedin");
     const enc = encryptToken("secret-token", SECRET);

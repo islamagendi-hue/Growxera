@@ -6,18 +6,18 @@ import "server-only";
  * - Connection: the owner authorizes once at /studio/capabilities. LinkedIn issues a
  *   60-day access token and, for self-serve apps, no refresh token, so the owner
  *   reconnects before it expires (the studio warns 7 days ahead).
- * - The token is stored encrypted (AES-256-GCM). The key is derived from
- *   LINKEDIN_CLIENT_SECRET, which lives only in the deployment's env, never in the database.
+ * - The token is stored encrypted (AES-256-GCM, key derived from the client secret).
  * - Nothing here decides what to publish. publish.ts calls postToLinkedIn() only for an
  *   approved item whose approval still matches its content.
  *
- * Env (server-only): LINKEDIN_CLIENT_ID, LINKEDIN_CLIENT_SECRET.
- * Optional: LINKEDIN_REDIRECT_URI (default <site>/studio/linkedin/callback),
+ * App keys: env LINKEDIN_CLIENT_ID + LINKEDIN_CLIENT_SECRET, or entered on the Capabilities
+ * page (stored encrypted, see saveAppKeys).
+ * Optional env: LINKEDIN_REDIRECT_URI (default <site>/studio/linkedin/callback),
  *           LINKEDIN_API_VERSION (YYYYMM, sent as the LinkedIn-Version header).
  */
 import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from "node:crypto";
 import { SITE } from "@/config/site";
-import { eq, insert, selectAll, update } from "@/lib/server/store";
+import { eq, insert, selectAll, storageMode, update } from "@/lib/server/store";
 
 const clean = (v?: string) => v?.trim().replace(/^["']|["']$/g, "").trim() || undefined;
 
@@ -39,38 +39,87 @@ export function redirectUri(): string {
   return clean(process.env.LINKEDIN_REDIRECT_URI) ?? `${SITE.url}/studio/linkedin/callback`;
 }
 
-/** The config, or the names of the env vars still missing. */
-export function linkedInConfig(): { config: LinkedInConfig | null; missing: string[] } {
-  const clientId = clean(process.env.LINKEDIN_CLIENT_ID);
-  const clientSecret = clean(process.env.LINKEDIN_CLIENT_SECRET);
-  const missing = [!clientId && "LINKEDIN_CLIENT_ID", !clientSecret && "LINKEDIN_CLIENT_SECRET"].filter(Boolean) as string[];
-  if (missing.length) return { config: null, missing };
-  const apiVersion = clean(process.env.LINKEDIN_API_VERSION) ?? "202606";
-  return { config: { clientId: clientId!, clientSecret: clientSecret!, redirectUri: redirectUri(), apiVersion }, missing: [] };
-}
+// ── Encryption (AES-256-GCM, HKDF-derived keys) ─────────────────────────────
 
-// ── Token encryption ────────────────────────────────────────────────────────
+const keyFrom = (secret: string, info: string) => Buffer.from(hkdfSync("sha256", secret, "growxera-li-studio", info, 32));
 
-const keyFrom = (secret: string) => Buffer.from(hkdfSync("sha256", secret, "growxera-li-studio", "linkedin-access-token", 32));
-
-export function encryptToken(token: string, secret: string): string {
+function seal(value: string, secret: string, info: string): string {
   const iv = randomBytes(12);
-  const cipher = createCipheriv("aes-256-gcm", keyFrom(secret), iv);
-  const body = Buffer.concat([cipher.update(token, "utf8"), cipher.final()]);
+  const cipher = createCipheriv("aes-256-gcm", keyFrom(secret, info), iv);
+  const body = Buffer.concat([cipher.update(value, "utf8"), cipher.final()]);
   return ["v1", iv.toString("base64url"), cipher.getAuthTag().toString("base64url"), body.toString("base64url")].join(".");
 }
 
-/** Null when the value can't be decrypted (for example the client secret was rotated). */
-export function decryptToken(value: string, secret: string): string | null {
+function open(sealed: string, secret: string, info: string): string | null {
   try {
-    const [v, iv, tag, body] = value.split(".");
+    const [v, iv, tag, body] = sealed.split(".");
     if (v !== "v1") return null;
-    const decipher = createDecipheriv("aes-256-gcm", keyFrom(secret), Buffer.from(iv, "base64url"));
+    const decipher = createDecipheriv("aes-256-gcm", keyFrom(secret, info), Buffer.from(iv, "base64url"));
     decipher.setAuthTag(Buffer.from(tag, "base64url"));
     return Buffer.concat([decipher.update(Buffer.from(body, "base64url")), decipher.final()]).toString("utf8");
   } catch {
     return null;
   }
+}
+
+export const encryptToken = (token: string, clientSecret: string) => seal(token, clientSecret, "linkedin-access-token");
+/** Null when the value can't be decrypted (for example the client secret was changed). */
+export const decryptToken = (value: string, clientSecret: string) => open(value, clientSecret, "linkedin-access-token");
+
+// ── App keys (Client ID / Client Secret) ────────────────────────────────────
+// From the env (LINKEDIN_CLIENT_ID / LINKEDIN_CLIENT_SECRET) or, if those aren't set, entered
+// by the owner on the Capabilities page. The stored secret is encrypted with a key derived
+// from SUPABASE_SERVICE_ROLE_KEY, which is only in the deployment's env.
+
+interface AppKeysRow {
+  id: string;
+  created_at: string;
+  client_id: string;
+  client_secret_enc: string;
+}
+
+function appKeysSecret(): string | null {
+  const k = clean(process.env.SUPABASE_SERVICE_ROLE_KEY);
+  if (k) return k;
+  // Local development and tests only (no Supabase): a fixed key is fine, nothing real is stored.
+  return storageMode === "local" ? "local-development-only" : null;
+}
+
+export const isValidClientId = (v: string) => /^[A-Za-z0-9]{8,64}$/.test(v);
+export const isValidClientSecret = (v: string) => /^[\x21-\x7e]{8,256}$/.test(v);
+
+/** Saves app keys entered in the studio. The newest entry is used. */
+export async function saveAppKeys(clientId: string, clientSecret: string): Promise<void> {
+  const secret = appKeysSecret();
+  if (!secret) throw new Error("Storage isn't configured.");
+  await insert("li_linkedin_app", {
+    id: crypto.randomUUID(),
+    created_at: new Date().toISOString(),
+    client_id: clientId,
+    client_secret_enc: seal(clientSecret, secret, "linkedin-client-secret"),
+  });
+}
+
+export type KeysSource = "env" | "studio";
+
+/** The config (and where its keys came from), or what is still missing. */
+export async function linkedInConfig(): Promise<{ config: LinkedInConfig | null; missing: string[]; source: KeysSource | null }> {
+  const apiVersion = clean(process.env.LINKEDIN_API_VERSION) ?? "202606";
+  const envId = clean(process.env.LINKEDIN_CLIENT_ID);
+  const envSecret = clean(process.env.LINKEDIN_CLIENT_SECRET);
+  if (envId && envSecret) return { config: { clientId: envId, clientSecret: envSecret, redirectUri: redirectUri(), apiVersion }, missing: [], source: "env" };
+  const secret = appKeysSecret();
+  if (secret) {
+    try {
+      const rows = await selectAll<AppKeysRow>("li_linkedin_app", [], { order: { col: "created_at", ascending: false } });
+      const latest = rows[0];
+      const clientSecret = latest ? open(latest.client_secret_enc, secret, "linkedin-client-secret") : null;
+      if (latest && clientSecret) return { config: { clientId: latest.client_id, clientSecret, redirectUri: redirectUri(), apiVersion }, missing: [], source: "studio" };
+    } catch {
+      // Table not there yet (migration not applied): treated as not configured.
+    }
+  }
+  return { config: null, missing: ["LinkedIn Client ID and Client Secret"], source: null };
 }
 
 // ── Connection state ────────────────────────────────────────────────────────
@@ -98,7 +147,7 @@ async function latestConnection(): Promise<ConnectionRow | null> {
 }
 
 export async function connectionState(now = new Date()): Promise<ConnectionState> {
-  const { config, missing } = linkedInConfig();
+  const { config, missing } = await linkedInConfig();
   if (!config) return { state: "not_configured", missing };
   let row: ConnectionRow | null;
   try {
@@ -122,7 +171,7 @@ export async function connectionState(now = new Date()): Promise<ConnectionState
 
 /** Token and author for posting, or a reason it can't post right now. */
 export async function postingCredentials(now = new Date()): Promise<{ token: string; author: string; apiVersion: string } | { error: string }> {
-  const { config } = linkedInConfig();
+  const { config } = await linkedInConfig();
   const s = await connectionState(now);
   if (s.state !== "connected" || !config) {
     const why: Record<ConnectionState["state"], string> = {
@@ -139,7 +188,7 @@ export async function postingCredentials(now = new Date()): Promise<{ token: str
 }
 
 export async function saveConnection(input: { memberUrn: string; memberName: string | null; scopes: string; accessToken: string; expiresIn: number }) {
-  const { config } = linkedInConfig();
+  const { config } = await linkedInConfig();
   if (!config) throw new Error("LinkedIn isn't configured.");
   // Earlier authorizations stop being used; their encrypted token is erased.
   const previous = await selectAll<ConnectionRow>("li_linkedin_connection", [], { columns: "id,revoked_at" });

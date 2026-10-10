@@ -2,11 +2,11 @@ import { first, Notice } from "@/components/studio/StudioUi";
 import { buttonClass } from "@/components/ui/button";
 import { CAPABILITIES, CHECKED_ON, STATUS_TEXT, type CapabilityStatus } from "@/lib/studio/capabilities";
 import { grokStatus } from "@/lib/studio/grok";
-import { connectionState, redirectUri } from "@/lib/studio/linkedin";
+import { connectionState, linkedInConfig, redirectUri } from "@/lib/studio/linkedin";
 import { requireOwner } from "@/lib/studio/owner";
 import { formatRiyadh } from "@/lib/studio/time";
 import { eq, select } from "@/lib/server/store";
-import { checkGrokAction, disconnectLinkedInAction } from "../actions";
+import { checkGrokAction, disconnectLinkedInAction, saveLinkedInKeysAction } from "../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +21,7 @@ export default async function CapabilitiesPage({ searchParams }: PageProps<"/stu
   const sp = await searchParams;
   const grok = grokStatus();
   const li = await connectionState();
+  const keysSource = (await linkedInConfig()).source;
   const redirect = redirectUri();
   // Evidence, not a setting: direct posting counts as verified only after a real API post.
   const apiPosts = await select<{ created_at: string; verified_at: string | null }>(
@@ -79,12 +80,27 @@ export default async function CapabilitiesPage({ searchParams }: PageProps<"/stu
         <h2 className="text-h3 font-semibold">LinkedIn connection</h2>
         {li.state === "not_configured" && (
           <div className="mt-2 space-y-2 text-sm text-ink-2">
-            <p>Not set up. Missing in this deployment&apos;s environment: {li.missing.join(", ")}.</p>
             <p>
-              In the LinkedIn developer app, add this exact redirect URL:{" "}
+              Not set up. Paste your LinkedIn app&apos;s keys below (LinkedIn Developers → your app → Auth). The redirect URL there must be:{" "}
               <code className="break-all bg-paper-2 px-1 font-mono text-xs">{redirect}</code>
             </p>
           </div>
+        )}
+        {(li.state === "not_configured" || keysSource === "studio") && (
+          <form action={saveLinkedInKeysAction} className="mt-4 grid max-w-xl gap-3" autoComplete="off">
+            <label className="text-sm font-medium">
+              Client ID
+              <input name="clientId" required autoComplete="off" spellCheck={false} dir="ltr" className="mt-1 w-full border border-line-strong bg-card p-3 font-mono text-sm" />
+            </label>
+            <label className="text-sm font-medium">
+              Client Secret
+              <input name="clientSecret" type="password" required autoComplete="new-password" spellCheck={false} dir="ltr" className="mt-1 w-full border border-line-strong bg-card p-3 font-mono text-sm" />
+            </label>
+            <p className="text-xs text-ink-3">The secret is stored encrypted and is never shown again. Saving new keys replaces the old ones.</p>
+            <div>
+              <button className={buttonClass(li.state === "not_configured" ? "primary" : "secondary")}>Save keys</button>
+            </div>
+          </form>
         )}
         {li.state === "not_connected" && <p className="mt-2 text-sm text-ink-2">Not connected. Nothing can be posted directly.</p>}
         {(li.state === "expired" || li.state === "unreadable") && (

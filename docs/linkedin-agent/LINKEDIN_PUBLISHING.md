@@ -41,7 +41,12 @@ Approved posts with no planned time are only posted with **Publish now** on the 
 5. Keep the **Client ID** and **Client Secret** on that tab for step 2. Never paste them in chat,
    GitHub or docs.
 
-### 2. Vercel environment variables (Production)
+### 2. App keys
+
+Easiest: Studio → **Capabilities** → paste the Client ID and Client Secret → **Save keys**. The
+secret is stored encrypted (key derived from `SUPABASE_SERVICE_ROLE_KEY`, table `li_linkedin_app`,
+migration `20261013000000`). Alternatively set them as Vercel environment variables (Production),
+which take precedence:
 
 | Name | Value |
 |---|---|
