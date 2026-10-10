@@ -763,7 +763,10 @@ export const STEPS: Step[] = [
     title: "Your business",
     intro: "Your context sets the right questions, benchmarks and recommendations.",
     screens: [
-      ["industry", "segment", "businessType", "category", "geography", "city"],
+      // Light screens first: most drop-off was on a single six-question opening screen.
+      ["industry", "segment"],
+      ["businessType", "category"],
+      ["geography", "city"],
       ["businessAge", "monthlyRevenue", "monthlyNewCustomers", "monthlyOrders"],
       ["icpClarity", "differentiation"],
     ],
