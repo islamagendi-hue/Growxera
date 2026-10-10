@@ -4,6 +4,7 @@ import { CopyButton } from "@/components/studio/CopyButton";
 import { first, Notice, StatusBadge } from "@/components/studio/StudioUi";
 import { buttonClass } from "@/components/ui/button";
 import { requireOwner } from "@/lib/studio/owner";
+import { assetsByUrl } from "@/lib/studio/assets";
 import { getAction } from "@/lib/studio/repo";
 import { formatRiyadh, isPast, toRiyadhInput } from "@/lib/studio/time";
 import {
@@ -31,6 +32,7 @@ export default async function QueueItem({ params, searchParams }: PageProps<"/st
   const { action, draft, current, versions, approvals, executions, approvalValid } = d;
   const editable = !["executed", "verified"].includes(action.status);
   const chars = current.text.length;
+  const secured = await assetsByUrl(current.assets.map((a) => a.url));
   const overdue = ["ready_for_review", "approved"].includes(action.status) && isPast(current.target_at);
 
   return (
@@ -59,15 +61,27 @@ export default async function QueueItem({ params, searchParams }: PageProps<"/st
           <div className="mt-4">
             <p className="eyebrow">Assets ({current.assets.length})</p>
             <ul className="mt-2 space-y-1 text-sm">
-              {current.assets.map((a) => (
-                <li key={a.url}>
-                  <a href={a.url} target="_blank" rel="noreferrer" className="underline underline-offset-4">
-                    {a.type}: {a.title || a.url.split("/").pop()}
-                  </a>
-                </li>
-              ))}
+              {current.assets.map((a) => {
+                const copy = secured.get(a.url);
+                return (
+                  <li key={a.url}>
+                    {a.type}: {a.title || a.url.split("/").pop()} ·{" "}
+                    {copy?.verified_at ? (
+                      <a href={`/studio/assets/${copy.id}`} target="_blank" rel="noreferrer" className="underline underline-offset-4">
+                        secured copy
+                      </a>
+                    ) : (
+                      <span className="text-alert">not secured yet</span>
+                    )}{" "}
+                    ·{" "}
+                    <a href={a.url} target="_blank" rel="noreferrer" className="underline underline-offset-4">
+                      original
+                    </a>
+                  </li>
+                );
+              })}
             </ul>
-            <p className="mt-1 text-xs text-ink-3">Hosted outside the studio (see the Buffer migration checklist before relying on these links).</p>
+            <p className="mt-1 text-xs text-ink-3">Secure copies on the Import page (Media). The approval covers the files exactly as listed.</p>
           </div>
         )}
 

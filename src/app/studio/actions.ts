@@ -6,6 +6,7 @@
  */
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { secureAssets } from "@/lib/studio/assets";
 import { verifyGrok } from "@/lib/studio/grok";
 import { importSnapshot, snapshotSchema } from "@/lib/studio/import";
 import { ownerOrThrow } from "@/lib/studio/owner";
@@ -118,9 +119,10 @@ export async function importAction(form: FormData) {
     if (!parsed.success) throw new WorkflowError("This isn't a Buffer snapshot file from content/buffer-snapshots/.");
     const s = await importSnapshot(parsed.data, owner.email);
     q = `notice=${encodeURIComponent(
-      `Imported. History: ${s.history.added} new, ${s.history.existing} already there. ` +
-        `Metric snapshots: ${s.metricSnapshots}. Queue: ${s.queue.added} new, ${s.queue.existing} already there, ` +
-        `${s.queue.blockedAsDuplicate} blocked as likely duplicates. Skipped: ${s.skipped.length}.`,
+      `Imported ${file.name}: ${s.records} records. History ${s.history.added} new / ${s.history.existing} already there; ` +
+        `${s.metricSnapshots} metric snapshots; queue ${s.queue.added} new / ${s.queue.existing} already there; ` +
+        `${s.queue.blockedAsDuplicate} blocked as published or duplicate; ${s.invalid} invalid; ${s.skipped.length} skipped. ` +
+        `Full reconciliation below.`,
     )}`;
   } catch (err) {
     const message = err instanceof WorkflowError ? err.message : err instanceof SyntaxError ? "The file isn't valid JSON." : "Import failed. Nothing partial is hidden: re-running the import is safe.";
@@ -135,4 +137,19 @@ export async function checkGrokAction() {
   await ownerOrThrow();
   const r = await verifyGrok();
   redirect(`/studio/capabilities?${r.ok ? "notice" : "error"}=${encodeURIComponent(r.message)}#grok`);
+}
+
+export async function secureAssetsAction() {
+  const owner = await ownerOrThrow();
+  let q: string;
+  try {
+    const r = await secureAssets(owner.email);
+    const msg = `Media: ${r.referenced} referenced, ${r.alreadySecured} already secured, ${r.copied} copied and verified, ${r.failed.length} failed.`;
+    q = r.failed.length ? `error=${encodeURIComponent(msg + " Failed files are listed below; run again to retry.")}` : `notice=${encodeURIComponent(msg)}`;
+  } catch (err) {
+    console.error("[studio] secure assets failed", err instanceof Error ? err.message : "unknown");
+    q = `error=${encodeURIComponent("Copying media failed. Nothing was deleted; run it again.")}`;
+  }
+  revalidatePath("/studio", "layout");
+  redirect(`/studio/import?${q}#media`);
 }

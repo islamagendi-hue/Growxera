@@ -1,7 +1,7 @@
 import "server-only";
 /**
  * The studio is private to one person. Access requires a signed-in Growx Era account
- * whose email equals STUDIO_OWNER_EMAIL (server-only env). Anyone else gets a 404, so the
+ * with a verified email equal to STUDIO_OWNER_EMAIL (server-only env). Anyone else gets a 404, so the
  * studio's existence isn't revealed. If the variable is missing, nobody gets in.
  */
 import { notFound, redirect } from "next/navigation";
@@ -12,9 +12,10 @@ export function ownerEmail(): string | null {
   return v ? normalizeEmail(v) : null;
 }
 
-export function isOwner(account: Pick<Account, "email"> | null): boolean {
+/** The owner's email must match AND have been verified through a sign-in link. */
+export function isOwner(account: Pick<Account, "email" | "verified_at"> | null): boolean {
   const owner = ownerEmail();
-  return !!owner && !!account && normalizeEmail(account.email) === owner;
+  return !!owner && !!account && !!account.verified_at && normalizeEmail(account.email) === owner;
 }
 
 /** For pages: login redirect when signed out, 404 for anyone but the owner. */

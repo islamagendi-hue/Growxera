@@ -34,7 +34,8 @@ export type Table =
   | "li_approvals"
   | "li_executions"
   | "li_llm_usage"
-  | "li_audit_log";
+  | "li_audit_log"
+  | "li_assets";
 
 type Row = Record<string, unknown>;
 

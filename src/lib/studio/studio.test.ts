@@ -1,9 +1,25 @@
+import { execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 vi.mock("next/headers", () => ({ cookies: async () => ({ get: () => undefined }) }));
+// Failure injection: the next insert into this table throws (simulates a crash mid-import).
+const fail = vi.hoisted(() => ({ table: null as string | null }));
+vi.mock("@/lib/server/store", async (orig) => {
+  const actual = await orig<typeof import("@/lib/server/store")>();
+  return {
+    ...actual,
+    insert: async (table: Parameters<typeof actual.insert>[0], rows: Parameters<typeof actual.insert>[1]) => {
+      if (fail.table === table) {
+        fail.table = null;
+        throw new Error("Simulated failure");
+      }
+      return actual.insert(table, rows);
+    },
+  };
+});
 
 import { select } from "@/lib/server/store";
 import { generate, grokStatus, GrokUnavailableError } from "./grok";
@@ -218,7 +234,8 @@ const hasSnapshots = fs.existsSync(path.join(SNAPSHOT_DIR, "2026-10-10-scheduled
 
 describe.skipIf(!hasSnapshots)("Buffer snapshot import (real export of 10 Oct 2026)", () => {
   const dir = SNAPSHOT_DIR;
-  const load = (f: string) => snapshotSchema.parse(JSON.parse(fs.readFileSync(path.join(dir, f), "utf8")));
+  const raw = (f: string) => JSON.parse(fs.readFileSync(path.join(dir, f), "utf8"));
+  const load = (f: string) => snapshotSchema.parse(raw(f));
 
   it("imports history with metrics, then the scheduled posts as unapproved queue items", async () => {
     const history = await importSnapshot(load("2026-10-10-history-with-metrics.json"), ME);
@@ -243,15 +260,20 @@ describe.skipIf(!hasSnapshots)("Buffer snapshot import (real export of 10 Oct 20
   });
 
   it("preserves text, assets and the original date exactly", async () => {
-    const raw = load("2026-10-10-scheduled-before-pause.json").posts.edges[5].node;
+    const node = raw("2026-10-10-scheduled-before-pause.json").posts.edges[5].node as {
+      id: string;
+      text: string;
+      dueAt: string;
+      assets: { source: string }[];
+    };
     const drafts = await select<{ id: string; origin_ref: string }>("li_drafts", []);
-    const draft = drafts.find((d) => d.origin_ref === raw.id)!;
+    const draft = drafts.find((d) => d.origin_ref === node.id)!;
     const actions = await select<{ id: string; draft_id: string }>("li_actions", []);
     const d = (await getAction(actions.find((a) => a.draft_id === draft.id)!.id))!;
-    expect(d.current.text).toBe(raw.text);
-    expect(d.current.target_at).toBe(raw.dueAt);
-    expect(d.action.original_due_at).toBe(raw.dueAt);
-    expect(d.current.assets.map((a) => a.url)).toEqual(raw.assets.map((a) => a.source));
+    expect(d.current.text).toBe(node.text);
+    expect(d.current.target_at).toBe(node.dueAt);
+    expect(d.action.original_due_at).toBe(node.dueAt);
+    expect(d.current.assets.map((a) => a.url)).toEqual(node.assets.map((a) => a.source));
   });
 
   it("blocks a queued post that Buffer published after the export", async () => {
@@ -266,7 +288,9 @@ describe.skipIf(!hasSnapshots)("Buffer snapshot import (real export of 10 Oct 20
 
   it("is idempotent", async () => {
     const again = await importSnapshot(load("2026-10-10-scheduled-before-pause.json"), ME);
-    expect(again.queue).toMatchObject({ added: 0, existing: 37 });
+    // 36 still queued; the one Buffer published after the export is reported, not re-queued.
+    expect(again.queue).toMatchObject({ added: 0, existing: 36 });
+    expect(again.results.filter((r) => r.outcome === "blocked_published_by_source")).toHaveLength(1);
     const h = await importSnapshot(load("2026-10-10-history-with-metrics.json"), ME);
     expect(h.history).toMatchObject({ added: 0, existing: 57 });
     expect(h.queue.blockedAsDuplicate).toBe(0);
@@ -292,10 +316,13 @@ describe("owner gate", () => {
     delete process.env.STUDIO_OWNER_EMAIL;
   });
   it("admits only the configured owner, and nobody when unset", () => {
-    expect(isOwner({ email: "islam@example.com" })).toBe(false);
+    const v = "2026-10-10T00:00:00Z";
+    expect(isOwner({ email: "islam@example.com", verified_at: v })).toBe(false);
     process.env.STUDIO_OWNER_EMAIL = " Islam@Example.com ";
-    expect(isOwner({ email: "islam@example.com" })).toBe(true);
-    expect(isOwner({ email: "someone@example.com" })).toBe(false);
+    expect(isOwner({ email: "islam@example.com", verified_at: v })).toBe(true);
+    expect(isOwner({ email: "someone@example.com", verified_at: v })).toBe(false);
+    // An unverified account with the owner's address is not the owner.
+    expect(isOwner({ email: "islam@example.com", verified_at: null })).toBe(false);
     expect(isOwner(null)).toBe(false);
   });
 });
@@ -354,5 +381,177 @@ describe("Grok client", () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response("bad key xai-test-secret-key", { status: 401 })));
     const err = await generate(input).catch((e: Error) => e);
     expect(String(err)).not.toContain("xai-test-secret-key");
+  });
+});
+
+// ── Activation safety checks ───────────────────────────────────────────────
+
+const hex = () => Array.from({ length: 24 }, () => "0123456789abcdef"[Math.floor(Math.random() * 16)]).join("");
+const snap = (nodes: Record<string, unknown>[]) => snapshotSchema.parse({ posts: { edges: nodes.map((node) => ({ node })) } });
+const node = (over: Record<string, unknown> = {}) => ({
+  id: hex(),
+  status: "scheduled",
+  text: `Post ${crypto.randomUUID()}`,
+  dueAt: "2026-10-20T14:00:00.000Z",
+  assets: [],
+  ...over,
+});
+const actionFor = async (sourceId: string) => {
+  const drafts = await select<{ id: string; origin_ref: string | null }>("li_drafts", []);
+  const d = drafts.find((x) => x.origin_ref === sourceId);
+  if (!d) return null;
+  const actions = await select<{ id: string; draft_id: string; status: string }>("li_actions", []);
+  return actions.find((a) => a.draft_id === d.id) ?? null;
+};
+
+describe("import safety", () => {
+  it("never lets an already-published post enter the publishing queue", async () => {
+    const id = hex();
+    await importSnapshot(snap([node({ id, status: "sent", sentAt: "2026-10-10T18:30:47.108Z", externalLink: `https://www.linkedin.com/feed/update/urn:li:share:${Date.now()}` })]), ME);
+    // An older file that still lists the same post as scheduled:
+    const r = await importSnapshot(snap([node({ id, status: "scheduled" })]), ME);
+    expect(r.queue.added).toBe(0);
+    expect(r.results[0].outcome).toBe("blocked_published_by_source");
+    expect(await actionFor(id)).toBeNull();
+  });
+
+  it("does not treat same text with different media as identical, but still blocks it for a check", async () => {
+    const text = `Shared text ${crypto.randomUUID()}`;
+    await importSnapshot(snap([node({ status: "sent", text, sentAt: "2026-10-01T10:00:00Z", assets: [{ type: "image", source: "https://img.example.com/a.png" }] })]), ME);
+    const id = hex();
+    const r = await importSnapshot(snap([node({ id, text, assets: [{ type: "image", source: "https://img.example.com/b.png" }] })]), ME);
+    expect(r.results.find((x) => x.sourceId === id)?.outcome).toBe("blocked_possible_duplicate");
+    expect((await actionFor(id))!.status).toBe("blocked");
+  });
+
+  it("reports invalid records instead of silently dropping them, and imports the valid ones", async () => {
+    const good = node();
+    const r = await importSnapshot(snap([good, { id: "not-an-id", status: "scheduled", text: "x" }, { ...node(), text: "" }, good]), ME);
+    expect(r.records).toBe(4);
+    expect(r.queue.added).toBe(1);
+    expect(r.invalid).toBe(3); // bad id, empty text, duplicate id within the file
+    expect(r.results.filter((x) => x.outcome === "invalid")).toHaveLength(3);
+  });
+
+  it("leaves no partial or duplicate records after a failure mid-import, and the retry completes", async () => {
+    const nodes = [node(), node(), node()];
+    fail.table = "li_actions"; // crash after the draft and version of the first post were written
+    await expect(importSnapshot(snap(nodes), ME)).rejects.toThrow("Simulated failure");
+    const retry = await importSnapshot(snap(nodes), ME);
+    expect(retry.queue.added).toBe(3);
+    const drafts = await select<{ id: string; origin_ref: string | null }>("li_drafts", []);
+    for (const n of nodes) {
+      const mine = drafts.filter((d) => d.origin_ref === n.id);
+      expect(mine).toHaveLength(1);
+      const a = await actionFor(n.id as string);
+      expect(a?.status).toBe("ready_for_review");
+      const d = (await getAction(a!.id))!;
+      expect(d.versions).toHaveLength(1);
+      expect(d.current.text).toBe(n.text);
+    }
+    const again = await importSnapshot(snap(nodes), ME);
+    expect(again.queue).toMatchObject({ added: 0, existing: 3 });
+  });
+});
+
+describe("approval covers text, images and time; history is respected", () => {
+  it("voids approval when an image changes", async () => {
+    const id = await approved();
+    const d = (await getAction(id))!;
+    await addVersion(id, { text: d.current.text, assets: [{ type: "image", url: "https://img.example.com/new.png" }], target_at: d.current.target_at }, ME);
+    const after = (await getAction(id))!;
+    expect(after.approvalValid).toBe(false);
+    expect(after.action.status).toBe("ready_for_review");
+  });
+
+  it("refuses to approve content that is already in published history", async () => {
+    const text = `Published already ${crypto.randomUUID()}`;
+    await importSnapshot(snap([node({ status: "sent", text, sentAt: "2026-10-01T10:00:00Z" })]), ME);
+    const { actionId } = await post(text);
+    const d = (await getAction(actionId))!;
+    await expect(approve(actionId, d.current.id, d.current.content_hash, ME)).rejects.toThrow(/Already published/);
+  });
+
+  it("refuses a link that belongs to a post in published history", async () => {
+    const link = `https://www.linkedin.com/feed/update/urn:li:share:${Date.now()}1`;
+    await importSnapshot(snap([node({ status: "sent", sentAt: "2026-10-01T10:00:00Z", externalLink: link })]), ME);
+    const id = await approved();
+    await expect(recordManualExecution(id, link, ME)).rejects.toThrow(/published history/);
+  });
+});
+
+describe("no publishing path without approval", () => {
+  const src = path.join(process.cwd(), "src");
+  const files = (dir: string): string[] =>
+    fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? files(path.join(dir, e.name)) : [path.join(dir, e.name)]));
+  const code = files(src).filter((f) => /\.(ts|tsx)$/.test(f) && !f.endsWith(".test.ts"));
+
+  it("has no code that calls LinkedIn or Buffer, and no scheduled jobs", () => {
+    for (const f of code) {
+      const text = fs.readFileSync(f, "utf8");
+      expect(text, f).not.toMatch(/api\.linkedin\.com|linkedin\.com\/v2|api\.bufferapp\.com|api\.buffer\.com|graph\.buffer/);
+    }
+    expect(fs.existsSync(path.join(process.cwd(), "vercel.json"))).toBe(false);
+  });
+
+  it("checks the owner on every studio page, server action and route", () => {
+    const studio = code.filter((f) => f.includes(`${path.sep}app${path.sep}studio`));
+    for (const f of studio.filter((f) => f.endsWith("page.tsx") || f.endsWith("layout.tsx"))) {
+      expect(fs.readFileSync(f, "utf8"), f).toMatch(/await requireOwner\(/);
+    }
+    for (const f of studio.filter((f) => f.endsWith("route.ts"))) {
+      expect(fs.readFileSync(f, "utf8"), f).toMatch(/isOwner\(await currentAccount\(\)\)/);
+    }
+    const actions = fs.readFileSync(path.join(src, "app/studio/actions.ts"), "utf8");
+    const exported = [...actions.matchAll(/export async function (\w+)\([^)]*\)\s*\{([\s\S]*?)\n\}/g)];
+    expect(exported.length).toBeGreaterThanOrEqual(10);
+    for (const [, name, body] of exported) {
+      expect(/await ownerOrThrow\(\)|await run\(/.test(body), `${name} must check the owner`).toBe(true);
+    }
+    expect(actions).toMatch(/async function run\([\s\S]*?const owner = await ownerOrThrow\(\);/);
+  });
+});
+
+describe("public repository hygiene", () => {
+  const git = (args: string) => {
+    try {
+      return execSync(`git ${args}`, { cwd: process.cwd(), encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+    } catch {
+      return null;
+    }
+  };
+  it.skipIf(git("rev-parse --is-inside-work-tree") === null)("keeps private exports and secrets out of git", () => {
+    const tracked = git("ls-files")!.split("\n");
+    expect(tracked.filter((f) => f.startsWith("content/buffer-snapshots") || f.startsWith("content/private") || /(^|\/)\.env($|\.local)/.test(f))).toEqual([]);
+    expect(fs.readFileSync(".gitignore", "utf8")).toMatch(/\/content\/buffer-snapshots\//);
+    expect(git("check-ignore content/buffer-snapshots/x.json")?.trim()).toBe("content/buffer-snapshots/x.json");
+    const secret = /xai-[A-Za-z0-9]{20,}|sk-[A-Za-z0-9]{20,}|eyJhbGciOi[A-Za-z0-9_-]{30,}|re_[A-Za-z0-9]{24,}/;
+    for (const f of tracked.filter((f) => f && fs.existsSync(f) && !/\.(png|jpg|ico|woff2|svg)$/.test(f) && f !== "package-lock.json")) {
+      expect(secret.test(fs.readFileSync(f, "utf8")), f).toBe(false);
+    }
+  });
+});
+
+describe("media copies", () => {
+  afterEach(() => vi.unstubAllGlobals());
+  it("copies allowed files, verifies them by checksum, and is safe to re-run", async () => {
+    const { secureAssets, getObject, isAllowedSource } = await import("./assets");
+    const url = `https://stpnogsoeaofxlnighnt.supabase.co/storage/v1/object/public/li-assets/test/${crypto.randomUUID()}.png`;
+    const bytes = new Uint8Array([137, 80, 78, 71, 1, 2, 3]);
+    await createDraft({
+      kind: "post", actionKind: "publish_post", channel: "manual", origin: "manual", author: ME,
+      content: { text: `With image ${crypto.randomUUID()}`, assets: [{ type: "image", url }, { type: "image", url: "https://evil.example.com/x.png" }], target_at: null },
+    });
+    vi.stubGlobal("fetch", vi.fn(async (u: string) => (u === url ? new Response(bytes, { headers: { "content-type": "image/png" } }) : new Response("no", { status: 404 }))));
+    const r = await secureAssets(ME);
+    expect(r.failed.find((f) => f.url.includes("evil.example.com"))?.error).toMatch(/allowed list/);
+    const rows = await select<{ original_url: string; storage_path: string; verified_at: string | null; sha256: string }>("li_assets", []);
+    const row = rows.find((x) => x.original_url === url)!;
+    expect(row.verified_at).toBeTruthy();
+    expect(Buffer.from((await getObject(row.storage_path))!)).toEqual(Buffer.from(bytes));
+    expect(isAllowedSource("http://stpnogsoeaofxlnighnt.supabase.co/x.png")).toBe(false);
+    const again = await secureAssets(ME);
+    expect(again.copied).toBe(0);
+    expect(again.alreadySecured).toBeGreaterThanOrEqual(1);
   });
 });

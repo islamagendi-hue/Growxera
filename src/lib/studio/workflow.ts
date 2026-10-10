@@ -87,6 +87,18 @@ export function contentHash(v: VersionContent): string {
   return createHash("sha256").update(canonical).digest("hex");
 }
 
+/** Text compared for duplicate detection: whitespace and case don't matter. */
+export const normalizeText = (t: string) => t.replace(/\s+/g, " ").trim().toLowerCase();
+
+/**
+ * Fingerprint of what a reader sees: normalised text plus the media, but not the time.
+ * Matching text alone is not treated as the same post: the media must match too.
+ */
+export function publishedFingerprint(text: string, assets: { url: string }[]): string {
+  const media = assets.map((a) => a.url).sort();
+  return createHash("sha256").update(JSON.stringify([normalizeText(text), media])).digest("hex");
+}
+
 /** Idempotency key for executing an action: one execution per action per approved content. */
 export const idempotencyKey = (actionId: string, hash: string) => `${actionId}:${hash}`;
 

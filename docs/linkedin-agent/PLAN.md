@@ -1,6 +1,6 @@
 # LinkedIn Growth Studio: Version 1 plan
 
-Status: **Milestone 1 built** (approval engine, private studio, migration import). Updated 10 Oct 2026.
+Status: **Milestone 1 built and hardened; waiting for production activation** ([ACTIVATION.md](ACTIVATION.md)). Updated 10 Oct 2026.
 
 The studio is a private tool for one person: it prepares content and engagement for **the owner's personal LinkedIn account**, and nothing is published without the owner's explicit approval. It is hosted inside the Growxera app only to reuse its login, database and deployment. It publishes nothing on growxera.com or on any company page, is invisible to everyone else (404), is not linked from the site, and is excluded from search engines and analytics.
 

@@ -18,6 +18,8 @@ import {
   contentHash,
   idempotencyKey,
   isLinkedInContentUrl,
+  normalizeText,
+  publishedFingerprint,
   type Status,
   type VersionContent,
   WorkflowError,
@@ -107,19 +109,29 @@ export interface NewDraft {
   author: string;
 }
 
-/** Creates a draft, its first version and its action. Idempotent on (origin, originRef). */
+/**
+ * Creates a draft, its first version and its action. Idempotent on (origin, originRef), and
+ * safe after a crash: if an earlier attempt stopped part-way, the missing rows are completed
+ * instead of failing on the unique index or creating a second draft.
+ */
 export async function createDraft(input: NewDraft): Promise<{ actionId: string; created: boolean }> {
-  if (input.originRef) {
-    const existing = await selectOne<DraftRow>("li_drafts", [eq("origin", input.origin), eq("origin_ref", input.originRef)]);
-    if (existing) {
-      const action = await selectOne<ActionRow>("li_actions", [eq("draft_id", existing.id)]);
-      if (action) return { actionId: action.id, created: false };
-    }
+  const at = now();
+  const existing = input.originRef
+    ? await selectOne<DraftRow>("li_drafts", [eq("origin", input.origin), eq("origin_ref", input.originRef)])
+    : null;
+  if (existing) {
+    const action = await selectOne<ActionRow>("li_actions", [eq("draft_id", existing.id)]);
+    const versions = await select<VersionRow>("li_draft_versions", [eq("draft_id", existing.id)], { columns: "id" });
+    if (action && versions.length) return { actionId: action.id, created: false };
+    // Incomplete earlier attempt: finish it.
+    if (!versions.length) await insertFirstVersion(existing.current_version ?? crypto.randomUUID(), existing.id, input, at);
+    const actionId = action?.id ?? (await insertAction(existing.id, input, at));
+    await audit(input.author, "draft.repaired", "li_actions", actionId, { origin: input.origin, originRef: input.originRef ?? null });
+    return { actionId, created: !action };
   }
   const draftId = crypto.randomUUID();
   const versionId = crypto.randomUUID();
-  const actionId = crypto.randomUUID();
-  const at = now();
+  // Order matters for crash recovery: the draft row (with its unique origin key) first.
   await insert("li_drafts", {
     id: draftId,
     created_at: at,
@@ -130,6 +142,13 @@ export async function createDraft(input: NewDraft): Promise<{ actionId: string; 
     origin_ref: input.originRef ?? null,
     notes: input.notes ?? null,
   });
+  await insertFirstVersion(versionId, draftId, input, at);
+  const actionId = await insertAction(draftId, input, at);
+  await audit(input.author, "draft.created", "li_actions", actionId, { origin: input.origin, originRef: input.originRef ?? null });
+  return { actionId, created: true };
+}
+
+async function insertFirstVersion(versionId: string, draftId: string, input: NewDraft, at: string) {
   await insert("li_draft_versions", {
     id: versionId,
     created_at: at,
@@ -142,6 +161,11 @@ export async function createDraft(input: NewDraft): Promise<{ actionId: string; 
     author: input.author,
     change_note: "Created",
   });
+  await update("li_drafts", [eq("id", draftId)], { current_version: versionId });
+}
+
+async function insertAction(draftId: string, input: NewDraft, at: string): Promise<string> {
+  const actionId = crypto.randomUUID();
   await insert("li_actions", {
     id: actionId,
     created_at: at,
@@ -155,8 +179,39 @@ export async function createDraft(input: NewDraft): Promise<{ actionId: string; 
     original_due_at: input.originalDueAt ?? null,
     target_url: input.targetUrl ?? null,
   });
-  await audit(input.author, "draft.created", "li_actions", actionId, { origin: input.origin, originRef: input.originRef ?? null });
-  return { actionId, created: true };
+  return actionId;
+}
+
+// ── Published history checks ────────────────────────────────────────────────
+
+export interface PublishedMatch {
+  kind: "same_text_and_media" | "same_text_different_media";
+  url: string | null;
+  publishedAt: string | null;
+}
+
+/** Finds published history with the same text (and says whether the media matches too). */
+export async function findPublishedMatch(text: string, assets: { url: string }[]): Promise<PublishedMatch | null> {
+  const rows = await select<{ text: string; assets: { url: string }[]; external_url: string | null; published_at: string | null }>(
+    "li_content",
+    [],
+    { columns: "text,assets,external_url,published_at" },
+  );
+  const fp = publishedFingerprint(text, assets);
+  const norm = normalizeText(text);
+  let textOnly: PublishedMatch | null = null;
+  for (const r of rows) {
+    if (publishedFingerprint(r.text, r.assets ?? []) === fp) return { kind: "same_text_and_media", url: r.external_url, publishedAt: r.published_at };
+    if (!textOnly && normalizeText(r.text) === norm) textOnly = { kind: "same_text_different_media", url: r.external_url, publishedAt: r.published_at };
+  }
+  return textOnly;
+}
+
+export function describeMatch(m: PublishedMatch): string {
+  const where = m.url ? ` (${m.url})` : "";
+  return m.kind === "same_text_and_media"
+    ? `Already published${m.publishedAt ? ` on ${m.publishedAt.slice(0, 10)}` : ""}${where}. Do not publish again.`
+    : `Same text was already published with different media${where}. Check before publishing; edit it or reject it.`;
 }
 
 // ── Reading ─────────────────────────────────────────────────────────────────
@@ -315,6 +370,8 @@ export async function approve(actionId: string, versionId: string, hash: string,
   if (versionId !== d.current.id || hash !== d.current.content_hash || contentHash(d.current) !== hash) {
     throw new WorkflowError("The content changed since you opened it. Review the latest version.");
   }
+  const match = await findPublishedMatch(d.current.text, d.current.assets);
+  if (match) throw new WorkflowError(describeMatch(match));
   await transition(d.action, "approved", null);
   await insert("li_approvals", {
     id: crypto.randomUUID(),
@@ -394,6 +451,11 @@ export async function recordManualExecution(actionId: string, url: string, actor
   if (sameUrl.some((e) => e.action_id !== actionId)) {
     throw new WorkflowError("That link is already recorded for another item.");
   }
+  if (await selectOne("li_content", [eq("external_url", url)], { columns: "id" })) {
+    throw new WorkflowError("That link belongs to a post already in your published history.");
+  }
+  const match = await findPublishedMatch(d.current.text, d.current.assets);
+  if (match) throw new WorkflowError(describeMatch(match));
 
   const row: ExecutionRow = {
     id: crypto.randomUUID(),
