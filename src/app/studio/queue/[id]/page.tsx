@@ -1,0 +1,290 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { CopyButton } from "@/components/studio/CopyButton";
+import { first, Notice, StatusBadge } from "@/components/studio/StudioUi";
+import { buttonClass } from "@/components/ui/button";
+import { requireOwner } from "@/lib/studio/owner";
+import { assetsByUrl } from "@/lib/studio/assets";
+import { getAction } from "@/lib/studio/repo";
+import { formatRiyadh, isPast, toRiyadhInput } from "@/lib/studio/time";
+import {
+  approveAction,
+  editAction,
+  failedAction,
+  recordPublishedAction,
+  rejectAction,
+  reopenAction,
+  reviseAction,
+  verifyAction,
+} from "../../actions";
+
+export const dynamic = "force-dynamic";
+
+const field = "mt-1 w-full border border-line-strong bg-card p-3 text-sm focus:border-ink focus:outline-none";
+
+export default async function QueueItem({ params, searchParams }: PageProps<"/studio/queue/[id]">) {
+  const { id } = await params;
+  await requireOwner(`/studio/queue/${id}`);
+  if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
+  const d = await getAction(id);
+  if (!d) notFound();
+  const sp = await searchParams;
+  const { action, draft, current, versions, approvals, executions, approvalValid } = d;
+  const editable = !["executed", "verified"].includes(action.status);
+  const chars = current.text.length;
+  const secured = await assetsByUrl(current.assets.map((a) => a.url));
+  const overdue = ["ready_for_review", "approved"].includes(action.status) && isPast(current.target_at);
+
+  return (
+    <div className="mt-8 grid gap-10 lg:grid-cols-[1fr_340px]">
+      <div>
+        <Link href="/studio/queue" className="text-sm underline underline-offset-4">
+          ← Approval queue
+        </Link>
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <StatusBadge status={action.status} />
+          <span className="font-mono text-xs text-ink-3">
+            Version {current.version} · {chars} characters · hash {current.content_hash.slice(0, 12)}
+          </span>
+        </div>
+        {action.status_reason && <p className="mt-2 text-sm text-ink-2">{action.status_reason}</p>}
+        {overdue && (
+          <p className="mt-3 border border-alert bg-alert-soft p-3 text-sm text-alert">
+            The planned time ({formatRiyadh(current.target_at)}) has passed. Set a new time in Edit before approving.
+          </p>
+        )}
+        <Notice notice={first(sp.notice)} error={first(sp.error)} />
+
+        <article className="mt-6 whitespace-pre-wrap border border-line bg-card p-6 text-[0.95rem] leading-relaxed">{current.text}</article>
+
+        {current.assets.length > 0 && (
+          <div className="mt-4">
+            <p className="eyebrow">Assets ({current.assets.length})</p>
+            <ul className="mt-2 space-y-1 text-sm">
+              {current.assets.map((a) => {
+                const copy = secured.get(a.url);
+                return (
+                  <li key={a.url}>
+                    {a.type}: {a.title || a.url.split("/").pop()} ·{" "}
+                    {copy?.verified_at ? (
+                      <a href={`/studio/assets/${copy.id}`} target="_blank" rel="noreferrer" className="underline underline-offset-4">
+                        secured copy
+                      </a>
+                    ) : (
+                      <span className="text-alert">not secured yet</span>
+                    )}{" "}
+                    ·{" "}
+                    <a href={a.url} target="_blank" rel="noreferrer" className="underline underline-offset-4">
+                      original
+                    </a>
+                  </li>
+                );
+              })}
+            </ul>
+            <p className="mt-1 text-xs text-ink-3">Secure copies on the Import page (Media). The approval covers the files exactly as listed.</p>
+          </div>
+        )}
+
+        {action.status === "ready_for_review" && (
+          <section className="mt-8 border border-ink p-6">
+            <h2 className="text-h3 font-semibold">Review</h2>
+            <p className="mt-1 text-sm text-ink-2">Approving applies to version {current.version} exactly as shown, including the planned time.</p>
+            <form action={approveAction} className="mt-4">
+              <input type="hidden" name="actionId" value={action.id} />
+              <input type="hidden" name="versionId" value={current.id} />
+              <input type="hidden" name="hash" value={current.content_hash} />
+              <button className={buttonClass("primary")}>Approve version {current.version}</button>
+            </form>
+            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              <form action={reviseAction}>
+                <input type="hidden" name="actionId" value={action.id} />
+                <label className="text-sm font-medium">
+                  Needs revision: what should change?
+                  <textarea name="reason" required rows={3} className={field} />
+                </label>
+                <button className={buttonClass("secondary", "mt-2")}>Send back</button>
+              </form>
+              <form action={rejectAction}>
+                <input type="hidden" name="actionId" value={action.id} />
+                <label className="text-sm font-medium">
+                  Reject: why?
+                  <textarea name="reason" required rows={3} className={field} />
+                </label>
+                <button className={buttonClass("secondary", "mt-2")}>Reject</button>
+              </form>
+            </div>
+          </section>
+        )}
+
+        {action.status === "approved" && approvalValid && (
+          <section className="mt-8 border border-ink p-6">
+            <h2 className="text-h3 font-semibold">Publish (manual step)</h2>
+            <p className="mt-1 text-sm text-ink-2">
+              Direct publishing isn&apos;t verified for this app, so you publish this yourself. Planned time:{" "}
+              {formatRiyadh(current.target_at)} (Riyadh).
+            </p>
+            <ol className="mt-4 list-decimal space-y-1 pl-5 text-sm">
+              <li>Copy the approved text{current.assets.length ? " and download the assets above" : ""}.</li>
+              <li>Open LinkedIn, start a post, paste, attach, and post.</li>
+              <li>Paste the post link below. The studio refuses a second record for the same content.</li>
+            </ol>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <CopyButton text={current.text} />
+              <a
+                href="https://www.linkedin.com/feed/?shareActive=true"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex min-h-11 items-center border border-ink/80 px-4 text-sm font-medium hover:bg-ink hover:text-paper"
+              >
+                Open LinkedIn
+              </a>
+            </div>
+            <form action={recordPublishedAction} className="mt-6">
+              <input type="hidden" name="actionId" value={action.id} />
+              <label className="text-sm font-medium">
+                Link to the published post
+                <input name="url" type="url" required placeholder="https://www.linkedin.com/feed/update/urn:li:share:…" className={field} />
+              </label>
+              <button className={buttonClass("primary", "mt-2")}>Record as published</button>
+            </form>
+          </section>
+        )}
+
+        {action.status === "executed" && (
+          <section className="mt-8 border border-ink p-6">
+            <h2 className="text-h3 font-semibold">Verify</h2>
+            <p className="mt-1 text-sm text-ink-2">
+              Recorded as published:{" "}
+              <a href={executions[0]?.external_url ?? "#"} target="_blank" rel="noreferrer" className="underline underline-offset-4">
+                open the post
+              </a>
+              . Check that it is live and matches version {current.version}.
+            </p>
+            <form action={verifyAction} className="mt-4">
+              <input type="hidden" name="actionId" value={action.id} />
+              <label className="flex items-start gap-2 text-sm">
+                <input type="checkbox" name="confirm" value="yes" required className="mt-1" />I opened the link and the live post matches the approved text.
+              </label>
+              <button className={buttonClass("primary", "mt-3")}>Mark verified</button>
+            </form>
+            <form action={failedAction} className="mt-6">
+              <input type="hidden" name="actionId" value={action.id} />
+              <label className="text-sm font-medium">
+                Not live or different? Say what you saw.
+                <input name="reason" className={field} />
+              </label>
+              <button className={buttonClass("secondary", "mt-2")}>Mark failed</button>
+            </form>
+          </section>
+        )}
+
+        {action.status === "approved" && !approvalValid && (
+          <p className="mt-8 border border-alert bg-alert-soft p-4 text-sm text-alert">
+            This approval no longer matches the current version, so it can&apos;t be published. Return it to review and approve the current version.
+          </p>
+        )}
+
+        {(["rejected", "needs_revision", "failed", "blocked"].includes(action.status) || (action.status === "approved" && !approvalValid)) && (
+          <form action={reopenAction} className="mt-8">
+            <input type="hidden" name="actionId" value={action.id} />
+            <button className={buttonClass("secondary")}>Return to review without changes</button>
+          </form>
+        )}
+
+        {editable && (
+          <section className="mt-10">
+            <h2 className="text-h3 font-semibold">Edit</h2>
+            <p className="mt-1 text-sm text-ink-2">Saving creates version {Math.max(...versions.map((v) => v.version)) + 1}. Any approval of an earlier version stops applying.</p>
+            <form action={editAction} className="mt-4">
+              <input type="hidden" name="actionId" value={action.id} />
+              <label className="text-sm font-medium">
+                Text
+                <textarea name="text" defaultValue={current.text} rows={14} maxLength={3000} className={field} />
+              </label>
+              <label className="mt-3 block text-sm font-medium">
+                Planned time (Riyadh)
+                <input type="datetime-local" name="target_at" defaultValue={toRiyadhInput(current.target_at)} className={field} />
+              </label>
+              <label className="mt-3 block text-sm font-medium">
+                What changed (optional)
+                <input name="note" className={field} />
+              </label>
+              <button className={buttonClass("secondary", "mt-3")}>Save new version</button>
+            </form>
+          </section>
+        )}
+      </div>
+
+      <aside className="space-y-8 text-sm">
+        <div>
+          <p className="eyebrow">Details</p>
+          <dl className="mt-2 space-y-1">
+            <div>
+              <dt className="inline text-ink-3">Type: </dt>
+              <dd className="inline">{action.kind.replace("_", " ")}</dd>
+            </div>
+            <div>
+              <dt className="inline text-ink-3">Execution: </dt>
+              <dd className="inline">{action.channel === "manual" ? "Manual (copy and open)" : "LinkedIn API"}</dd>
+            </div>
+            <div>
+              <dt className="inline text-ink-3">Origin: </dt>
+              <dd className="inline">{draft.origin === "migrated_buffer" ? `Buffer export, post ${draft.origin_ref}` : draft.origin}</dd>
+            </div>
+            {action.original_due_at && (
+              <div>
+                <dt className="inline text-ink-3">Original schedule: </dt>
+                <dd className="inline">{formatRiyadh(action.original_due_at)}</dd>
+              </div>
+            )}
+          </dl>
+          {draft.notes && <p className="mt-2 text-ink-2">{draft.notes}</p>}
+        </div>
+
+        <div>
+          <p className="eyebrow">Versions</p>
+          <ul className="mt-2 space-y-1">
+            {versions.map((v) => (
+              <li key={v.id} className={v.id === current.id ? "font-medium" : "text-ink-2"}>
+                v{v.version} · {formatRiyadh(v.created_at)} · {v.author}
+                {v.change_note ? ` · ${v.change_note}` : ""}
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div>
+          <p className="eyebrow">Decisions</p>
+          {approvals.length ? (
+            <ul className="mt-2 space-y-1">
+              {approvals.map((a) => (
+                <li key={a.id}>
+                  {a.decision} v{versions.find((v) => v.id === a.version_id)?.version ?? "?"} · {formatRiyadh(a.created_at)}
+                  {a.reason ? ` · ${a.reason}` : ""}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-2 text-ink-2">None yet.</p>
+          )}
+        </div>
+
+        <div>
+          <p className="eyebrow">Executions</p>
+          {executions.length ? (
+            <ul className="mt-2 space-y-1">
+              {executions.map((e) => (
+                <li key={e.id}>
+                  {e.result} · {e.channel} · {formatRiyadh(e.created_at)}
+                  {e.verified_at ? ` · verified ${formatRiyadh(e.verified_at)}` : " · not verified"}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-2 text-ink-2">None.</p>
+          )}
+        </div>
+      </aside>
+    </div>
+  );
+}

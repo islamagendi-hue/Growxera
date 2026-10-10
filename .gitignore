@@ -41,3 +41,7 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .data
+
+# Private LinkedIn data (this repository is public). Snapshots are uploaded through /studio/import.
+/content/buffer-snapshots/
+/content/private/
