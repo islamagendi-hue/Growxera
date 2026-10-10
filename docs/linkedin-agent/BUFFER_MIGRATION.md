@@ -13,7 +13,7 @@ Private files, kept out of the public repository and sent to the owner directly:
 | `2026-10-10-history-with-metrics.json` | 57 published posts (text, date, link, assets, how published) with Buffer's lifetime metrics as of 10 Oct 12:07 UTC, plus 1 Buffer draft |
 | `2026-10-10-scheduled-before-pause.json` | 37 scheduled posts: full text, image/PDF links, original date and time, status, tags and notes |
 | `2026-10-10-update-1839-published-after-export.json` | The 1 queued post Buffer published at 18:30 UTC after the export ("More subscribers this month…") |
-| `2026-10-10-reexport-current-state.json` | Read-only re-export at 18:46 UTC: 36 scheduled (unchanged by id and by text+media+time fingerprint), 1 draft, nothing new; the 18:30 post confirmed sent. Buffer queue **not paused** |
+| `2026-10-10-reexport-current-state.json` | Read-only re-export at 18:46 UTC: 36 scheduled (unchanged by id and by text+media+time fingerprint), 1 draft, nothing new; the 18:30 post confirmed sent. (At 19:00 UTC the 36 were moved to Draft in Buffer; see step 1.) |
 | `assets/urls.tsv` | Every asset link. All 37 queued images/PDFs confirmed present in the source bucket (3.99 MB, PNG/PDF); copied into Growxera's private storage by the studio (Import → Media) |
 
 ## Checklist

@@ -29,7 +29,7 @@ Scope: LinkedIn only. No Facebook, no X.
 | --- | --- | --- |
 | App | Next.js 16 App Router, Supabase (server-only REST with service key, RLS on with no policies), own magic-link auth, Resend, Vercel | VERIFIED |
 | Repository visibility | **Public.** Private data (exports, drafts, metrics, the content standard) must never be committed. `content/buffer-snapshots/` and `content/private/` are git-ignored | VERIFIED |
-| Buffer queue | 37 scheduled posts and 1 draft exported read-only on 10 Oct 2026 with text, assets, original dates, status and metrics. **One of the 37 was published by Buffer at 18:30 UTC after the export; 36 remain scheduled** | VERIFIED |
+| Buffer queue | 37 scheduled posts and 1 draft exported read-only on 10 Oct 2026 with text, assets, original dates, status and metrics. **One of the 37 was published by Buffer at 18:30 UTC after the export. The other 36 were moved to Draft in Buffer at 19:00 UTC (owner-approved); 0 remain scheduled** | VERIFIED |
 | Post history | 57 published posts with Buffer's lifetime metrics (51 posted natively, 6 through Buffer), Feb to Oct 2026 | VERIFIED |
 | Post images | The queued posts' images are in a public bucket of a Supabase project named `leanapp-staging`, not in Buffer and not in Growxera's project. A staging project is not a durable home. This environment's network policy blocked downloading them | VERIFIED |
 | Grok API | xAI API is billed separately from SuperGrok/X subscriptions. Current flagship listed at $2 per million input tokens and $6 per million output tokens (third-party trackers; xAI's docs site was unreachable from here). No key configured | UNVERIFIED until a key is checked in the studio |
@@ -108,10 +108,12 @@ Claude (in Claude Code sessions) handles creative direction, design briefs and v
 
 ### For Milestone 1 (now)
 
-1. **Buffer:** pause the queue in Buffer's web app (Publishing → LinkedIn channel → Pause queue). Without this, Buffer keeps publishing the 36 remaining posts on their original times. Details in [BUFFER_MIGRATION.md](BUFFER_MIGRATION.md).
-2. **Supabase:** run `supabase/migrations/20261010000000_linkedin_studio.sql` in the Growxera project's SQL editor (the project the site's `SUPABASE_URL` points to).
-3. **Vercel:** add `STUDIO_OWNER_EMAIL` (your login email) to the `growx-era` project for Production and Preview, then redeploy.
-4. **Studio:** log in on growxera.com with that email, open `/studio/import`, upload the snapshot files you received, in the order shown on the page.
+1. **Buffer:** done. Publishing stopped (36 posts moved to Draft, verified). Remaining retirement steps in [BUFFER_MIGRATION.md](BUFFER_MIGRATION.md).
+2. **Supabase:** take a backup, then run **both** migrations in order (`20261010000000_linkedin_studio.sql`, then `20261011000000_linkedin_studio_hardening.sql`) in the Growxera project (the one with `accounts` and `leads`), and run the verification query.
+3. **Vercel:** add `STUDIO_OWNER_EMAIL` (your login email) to the `growx-era` project for Production and Preview.
+4. **Preview first:** on the pull request's Preview deployment, import the four private files in order, confirm the counts, and copy the media. Merge only after that.
+
+Exact clicks, the verification query and the expected numbers are in [ACTIVATION.md](ACTIVATION.md).
 
 ### Later, only when that milestone starts
 
