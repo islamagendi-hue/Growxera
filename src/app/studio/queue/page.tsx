@@ -30,8 +30,11 @@ export default async function Queue({ searchParams }: PageProps<"/studio/queue">
 
       {li.state === "connected" && (
         <form action={publishDueNowAction} className="mt-4 flex flex-wrap items-center gap-3 text-sm">
-          <span className="text-ink-2">LinkedIn connected: approved posts go out at their planned time.</span>
-          <button className={buttonClass("secondary")}>Publish due posts now</button>
+          <span className="text-ink-2">
+            LinkedIn connected. Only posts scheduled for automatic publishing one by one go out, and only while automatic publishing is
+            switched on (Capabilities).
+          </span>
+          <button className={buttonClass("secondary")}>Run scheduler now</button>
         </form>
       )}
 

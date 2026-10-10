@@ -816,23 +816,191 @@ describe("LinkedIn direct publishing", () => {
     expect(d.action.status).toBe("failed");
   });
 
-  it("the scheduler posts due items, waits for future ones, and holds back late ones", async () => {
-    const { publishDue } = await import("./publish");
-    const due = await approvedAt(new Date(Date.now() + 60_000).toISOString());
-    const later = await approvedAt(new Date(Date.now() + 10 * 3_600_000).toISOString());
-    const late = await approvedAt(new Date(Date.now() + 120_000).toISOString());
-    const noTime = await approvedAt(null);
-    // Five hours after `late` was due (limit is three), but two minutes after `due` would also be late:
-    // run once just after `due`, then once well after `late`.
-    const first = await publishDue("scheduler", new Date(Date.now() + 90_000), linkedinFetch);
-    expect(first.published.map((p) => p.actionId)).toContain(due);
-    expect(first.published.map((p) => p.actionId)).not.toContain(later);
-    expect(first.published.map((p) => p.actionId)).not.toContain(noTime);
-    const second = await publishDue("scheduler", new Date(Date.now() + 5 * 3_600_000), linkedinFetch);
-    expect(second.blockedLate).toContain(late);
-    expect((await getAction(late))!.action.status).toBe("blocked");
-    expect((await getAction(later))!.action.status).toBe("approved");
-    expect((await getAction(noTime))!.action.status).toBe("approved");
+  describe("automatic publishing safeguards (owner decisions G1, G2)", () => {
+    const MIN = 60_000;
+    /** Planned time far enough ahead to be authorized (lead time is 5 minutes). */
+    const soon = (minutes = 6) => new Date(Date.now() + minutes * MIN).toISOString();
+    const posts = () => fake.calls.filter((c) => c.url.endsWith("/rest/posts") && c.method === "POST").length;
+
+    async function switchOn() {
+      const { setAutoPublish } = await import("./autopublish");
+      vi.stubEnv("STUDIO_AUTO_PUBLISH_ALLOWED", "true");
+      await setAutoPublish(true, ME);
+    }
+    async function authorize(id: string) {
+      const { authorizeAutoPublish } = await import("./autopublish");
+      const d = (await getAction(id))!;
+      await authorizeAutoPublish(id, d.current.id, d.current.content_hash, ME);
+    }
+    afterEach(async () => {
+      const { setAutoPublish } = await import("./autopublish");
+      await setAutoPublish(false, ME);
+      vi.stubEnv("STUDIO_AUTO_PUBLISH_ALLOWED", "");
+    });
+
+    it("the switch is OFF by default and turning it on needs the deployment flag", async () => {
+      const { autoPublishSwitch, setAutoPublish } = await import("./autopublish");
+      expect((await autoPublishSwitch()).enabled).toBe(false);
+      await expect(setAutoPublish(true, ME)).rejects.toThrow(/isn't allowed for this deployment/);
+      vi.stubEnv("STUDIO_AUTO_PUBLISH_ALLOWED", "true");
+      expect((await autoPublishSwitch()).enabled).toBe(false); // flag alone isn't enough
+      await setAutoPublish(true, ME);
+      expect((await autoPublishSwitch()).enabled).toBe(true);
+      vi.stubEnv("STUDIO_AUTO_PUBLISH_ALLOWED", "");
+      expect((await autoPublishSwitch()).enabled).toBe(false); // removing the flag closes it again
+    });
+
+    it("never publishes while the switch is off, even an authorized post that is due", async () => {
+      const { publishDue } = await import("./publish");
+      const t = soon();
+      const id = await approvedAt(t);
+      await authorize(id);
+      const r = await publishDue("scheduler", new Date(new Date(t).getTime() + MIN), linkedinFetch);
+      expect(r).toMatchObject({ ran: false, switchOn: false });
+      expect(r.published).toHaveLength(0);
+      expect(posts()).toBe(0);
+      expect((await getAction(id))!.action.status).toBe("approved");
+    });
+
+    it("19 legacy approvals never publish automatically until each one is authorized individually", async () => {
+      const { publishDue } = await import("./publish");
+      const t = soon();
+      const legacy: string[] = [];
+      for (let i = 0; i < 19; i++) legacy.push(await approvedAt(t, `Legacy approved post ${i} ${crypto.randomUUID()}`));
+      await switchOn();
+      const at = new Date(new Date(t).getTime() + MIN);
+      const r = await publishDue("scheduler", at, linkedinFetch);
+      expect(r.ran).toBe(true);
+      expect(r.published.filter((p) => legacy.includes(p.actionId))).toHaveLength(0);
+      expect(r.held.filter((h) => legacy.includes(h))).toHaveLength(0);
+      expect(r.notAuthorized).toBeGreaterThanOrEqual(19);
+      for (const id of legacy) {
+        const d = (await getAction(id))!;
+        expect(d.action.status).toBe("approved");
+        expect(d.approvals.filter((a) => a.decision === "approved")).toHaveLength(1); // history preserved
+      }
+      const legacyPosts = () => fake.calls.filter((c) => c.url.endsWith("/rest/posts") && c.method === "POST" && c.body?.includes("Legacy approved post")).length;
+      expect(legacyPosts()).toBe(0);
+      // Confirm exactly one of them: only that one goes out.
+      await authorize(legacy[7]);
+      const r2 = await publishDue("scheduler", at, linkedinFetch);
+      expect(r2.published.map((p) => p.actionId).filter((x) => legacy.includes(x))).toEqual([legacy[7]]);
+      expect(legacyPosts()).toBe(1);
+      for (const id of legacy.filter((x) => x !== legacy[7])) expect((await getAction(id))!.action.status).toBe("approved");
+    });
+
+    it("a missed post is held for review with the reason, never published late, even after the switch comes on", async () => {
+      const { publishDue } = await import("./publish");
+      const t = soon();
+      const id = await approvedAt(t);
+      await authorize(id);
+      const late = new Date(new Date(t).getTime() + 10 * MIN + 1);
+      // Switch off when the time passes: still held, so it can't fire later.
+      const r = await publishDue("scheduler", late, linkedinFetch);
+      expect(r.held).toContain(id);
+      const d = (await getAction(id))!;
+      expect(d.action.status).toBe("ready_for_review");
+      expect(d.action.status_reason).toMatch(/^Held: its planned time/);
+      await switchOn();
+      await publishDue("scheduler", new Date(late.getTime() + MIN), linkedinFetch);
+      expect(posts()).toBe(0);
+    });
+
+    it("a missed post needs a new time and a new approval", async () => {
+      const { publishDue } = await import("./publish");
+      const t = soon();
+      const id = await approvedAt(t);
+      await authorize(id);
+      await switchOn();
+      await publishDue("scheduler", new Date(new Date(t).getTime() + 11 * MIN), linkedinFetch);
+      vi.useFakeTimers({ now: new Date(new Date(t).getTime() + 11 * MIN), toFake: ["Date"] });
+      try {
+        const d = (await getAction(id))!;
+        await expect(approve(id, d.current.id, d.current.content_hash, ME)).rejects.toThrow(/planned time has passed/);
+      } finally {
+        vi.useRealTimers();
+      }
+      expect(posts()).toBe(0);
+    });
+
+    it("publishes only from the planned time to 10 minutes after it", async () => {
+      const { publishDue } = await import("./publish");
+      await switchOn();
+      const t = soon();
+      const [early, start, end] = [await approvedAt(t, `Edge A ${crypto.randomUUID()}`), await approvedAt(soon(7), `Edge B ${crypto.randomUUID()}`), await approvedAt(soon(8), `Edge C ${crypto.randomUUID()}`)];
+      for (const id of [early, start, end]) await authorize(id);
+      const at = (id: string, offset: number) => getAction(id).then((d) => new Date(new Date(d!.current.target_at!).getTime() + offset));
+      const r1 = await publishDue("scheduler", await at(early, -1), linkedinFetch);
+      expect(r1.published.map((p) => p.actionId)).not.toContain(early);
+      const r2 = await publishDue("scheduler", await at(start, 0), linkedinFetch);
+      expect(r2.published.map((p) => p.actionId)).toContain(start);
+      const r3 = await publishDue("scheduler", await at(end, 10 * MIN), linkedinFetch);
+      expect(r3.published.map((p) => p.actionId)).toContain(end);
+    });
+
+    it("an edit voids the automatic-publishing authorization, and re-approval doesn't restore it", async () => {
+      const { publishDue } = await import("./publish");
+      await switchOn();
+      const id = await approvedAt(soon());
+      await authorize(id);
+      const d = (await getAction(id))!;
+      const t2 = soon(30);
+      await addVersion(id, { ...d.current, target_at: t2 }, ME);
+      const d2 = (await getAction(id))!;
+      await approve(id, d2.current.id, d2.current.content_hash, ME);
+      const r = await publishDue("scheduler", new Date(new Date(t2).getTime() + MIN), linkedinFetch);
+      expect(r.published.map((p) => p.actionId)).not.toContain(id);
+      expect(posts()).toBe(0);
+    });
+
+    it("a direct automatic call re-checks every lock", async () => {
+      const { publishAction } = await import("./publish");
+      const t = soon();
+      const id = await approvedAt(t);
+      const due = new Date(new Date(t).getTime() + MIN);
+      await expect(publishAction(id, "scheduler", linkedinFetch, { mode: "auto", now: due })).rejects.toThrow(/switched off/);
+      await switchOn();
+      await expect(publishAction(id, "scheduler", linkedinFetch, { mode: "auto", now: due })).rejects.toThrow(/isn't authorized/);
+      await authorize(id);
+      await expect(publishAction(id, "scheduler", linkedinFetch, { mode: "auto", now: new Date(new Date(t).getTime() + 11 * MIN) })).rejects.toThrow(/Outside its publishing window/);
+      expect(posts()).toBe(0);
+      await expect(publishAction(id, "scheduler", linkedinFetch, { mode: "auto", now: due })).resolves.toMatchObject({ verified: false });
+    });
+
+    it("two scheduler runs at the same moment publish an authorized post once", async () => {
+      const { publishDue } = await import("./publish");
+      await switchOn();
+      const t = soon();
+      const id = await approvedAt(t);
+      await authorize(id);
+      const at = new Date(new Date(t).getTime() + MIN);
+      const [a, b] = await Promise.all([publishDue("scheduler", at, linkedinFetch), publishDue("scheduler", at, linkedinFetch)]);
+      expect([...a.published, ...b.published].filter((p) => p.actionId === id)).toHaveLength(1);
+      expect(posts()).toBe(1);
+    });
+
+    it("authorizing refuses content that isn't approved, a time too close, and a stale page", async () => {
+      const { authorizeAutoPublish } = await import("./autopublish");
+      const { actionId } = await post();
+      let d = (await getAction(actionId))!;
+      await expect(authorizeAutoPublish(actionId, d.current.id, d.current.content_hash, ME)).rejects.toThrow(/Approve the content first/);
+      const close = await approvedAt(soon(2));
+      d = (await getAction(close))!;
+      await expect(authorizeAutoPublish(close, d.current.id, d.current.content_hash, ME)).rejects.toThrow(/too close/);
+      const ok = await approvedAt(soon());
+      d = (await getAction(ok))!;
+      await expect(authorizeAutoPublish(ok, d.current.id, "0".repeat(64), ME)).rejects.toThrow(/changed since you opened it/);
+    });
+
+    it("reads planned times as Riyadh time at the window boundaries", async () => {
+      const { timing } = await import("./autopublish");
+      const target = fromRiyadhInput("2026-12-01T17:00");
+      expect(target).toBe("2026-12-01T14:00:00.000Z");
+      expect(timing(target, new Date("2026-12-01T13:59:59.999Z"))).toBe("early");
+      expect(timing(target, new Date("2026-12-01T14:00:00.000Z"))).toBe("on_time");
+      expect(timing(target, new Date("2026-12-01T14:10:00.000Z"))).toBe("on_time");
+      expect(timing(target, new Date("2026-12-01T14:10:00.001Z"))).toBe("missed");
+    });
   });
 
   it("uploads an image from the verified copy before posting", async () => {

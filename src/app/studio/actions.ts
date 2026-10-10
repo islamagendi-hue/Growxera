@@ -9,7 +9,8 @@ import { revalidatePath } from "next/cache";
 import { secureAssets } from "@/lib/studio/assets";
 import { verifyGrok } from "@/lib/studio/grok";
 import { importSnapshot, snapshotSchema } from "@/lib/studio/import";
-import { connectionState, disconnect, isValidClientId, isValidClientSecret, saveAppKeys } from "@/lib/studio/linkedin";
+import { authorizeAutoPublish, revokeAutoPublish, setAutoPublish } from "@/lib/studio/autopublish";
+import { disconnect, isValidClientId, isValidClientSecret, saveAppKeys } from "@/lib/studio/linkedin";
 import { publishAction, publishDue, resolveUnknown } from "@/lib/studio/publish";
 import { ownerOrThrow } from "@/lib/studio/owner";
 import {
@@ -54,15 +55,44 @@ async function run(actionId: string, fn: (actor: string) => Promise<unknown>, no
 
 export async function approveAction(form: FormData) {
   const id = str(form, "actionId");
-  await ownerOrThrow();
-  const connected = (await connectionState()).state === "connected";
   await run(
     id,
     (actor) => approve(id, str(form, "versionId"), str(form, "hash"), actor),
-    connected
-      ? "Approved. The studio will post it on LinkedIn at its planned time. Any edit cancels this."
-      : "Approved. It will not be published until you complete the next step.",
+    "Approved. Nothing is published automatically unless you also schedule it for automatic publishing below.",
   );
+}
+
+export async function authorizeAutoPublishAction(form: FormData) {
+  const id = str(form, "actionId");
+  await run(
+    id,
+    (actor) => {
+      if (form.get("confirm") !== "yes") throw new WorkflowError("Tick the box to confirm automatic publishing of this exact version and time.");
+      return authorizeAutoPublish(id, str(form, "versionId"), str(form, "hash"), actor);
+    },
+    "Scheduled for automatic publishing. It goes out at its planned time only while automatic publishing is switched on; any edit cancels it.",
+  );
+}
+
+export async function revokeAutoPublishAction(form: FormData) {
+  const id = str(form, "actionId");
+  await run(id, (actor) => revokeAutoPublish(id, actor, "Cancelled by the owner"), "Automatic publishing cancelled. The approval of the content stays.");
+}
+
+export async function setAutoPublishAction(form: FormData) {
+  const owner = await ownerOrThrow();
+  const enable = str(form, "enabled") === "true";
+  let q: string;
+  try {
+    if (enable && form.get("confirm") !== "yes") throw new WorkflowError("Tick the box to confirm switching automatic publishing on.");
+    await setAutoPublish(enable, owner.email);
+    q = `notice=${encodeURIComponent(enable ? "Automatic publishing is ON. Only posts you scheduled for it individually will go out, on time." : "Automatic publishing is OFF. Nothing is published automatically.")}`;
+  } catch (err) {
+    q = `error=${encodeURIComponent(err instanceof WorkflowError ? err.message : "Changing the switch failed. Nothing changed.")}`;
+    if (!(err instanceof WorkflowError)) console.error("[studio] switch failed", safeLog(err));
+  }
+  revalidatePath("/studio", "layout");
+  redirect(`/studio/capabilities?${q}#autopublish`);
 }
 
 export async function rejectAction(form: FormData) {
@@ -198,9 +228,10 @@ export async function publishDueNowAction() {
   let q: string;
   try {
     const r = await publishDue(owner.email);
-    q = r.ran
-      ? `notice=${encodeURIComponent(`Due posts: ${r.published.length} posted, ${r.failed.length} failed, ${r.blockedLate.length} blocked as too late, ${r.waiting} waiting for their time.`)}`
-      : `error=${encodeURIComponent(r.reason ?? "LinkedIn isn't connected.")}`;
+    const summary =
+      `Scheduler: ${r.published.length} posted, ${r.failed.length} failed, ${r.held.length} held (missed time), ` +
+      `${r.waiting} scheduled for later, ${r.notAuthorized} approved but not scheduled for automatic publishing.`;
+    q = r.ran ? `notice=${encodeURIComponent(summary)}` : `error=${encodeURIComponent(`${r.reason ?? "Not running."} ${summary}`)}`;
   } catch (err) {
     console.error("[studio] publish due failed", safeLog(err));
     q = `error=${encodeURIComponent("Publishing due posts failed. Check the queue before trying again.")}`;

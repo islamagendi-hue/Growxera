@@ -6,7 +6,8 @@ import { connectionState, linkedInConfig, redirectUri } from "@/lib/studio/linke
 import { requireOwner } from "@/lib/studio/owner";
 import { formatRiyadh } from "@/lib/studio/time";
 import { eq, select } from "@/lib/server/store";
-import { checkGrokAction, disconnectLinkedInAction, saveLinkedInKeysAction } from "../actions";
+import { autoPublishSwitch } from "@/lib/studio/autopublish";
+import { checkGrokAction, disconnectLinkedInAction, saveLinkedInKeysAction, setAutoPublishAction } from "../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,7 @@ export default async function CapabilitiesPage({ searchParams }: PageProps<"/stu
   const sp = await searchParams;
   const grok = grokStatus();
   const li = await connectionState();
+  const auto = await autoPublishSwitch();
   const keysSource = (await linkedInConfig()).source;
   const redirect = redirectUri();
   // Evidence, not a setting: direct posting counts as verified only after a real API post.
@@ -75,6 +77,42 @@ export default async function CapabilitiesPage({ searchParams }: PageProps<"/stu
           </tbody>
         </table>
       </div>
+
+      <section id="autopublish" className="mt-10 border border-ink bg-card p-6">
+        <h2 className="text-h3 font-semibold">Automatic publishing: {auto.enabled ? "ON" : "OFF"}</h2>
+        <p className="mt-2 max-w-[70ch] text-sm text-ink-2">
+          When ON, the scheduler publishes only posts you scheduled for automatic publishing one by one, and only on time (up to 10
+          minutes after their planned time). Approving content never publishes it by itself. A missed post is held for review, never
+          posted late. Switching OFF stops all automatic publishing immediately.
+        </p>
+        {!auto.ready && <p className="mt-2 text-sm text-alert">The publishing-controls database update isn&apos;t applied yet, so automatic publishing stays OFF.</p>}
+        {!auto.deploymentAllowed && (
+          <p className="mt-2 text-sm text-ink-2">This deployment doesn&apos;t allow switching it on (owner-approved deployment setting needed).</p>
+        )}
+        {auto.changedAt && (
+          <p className="mt-2 text-xs text-ink-3">
+            Last changed {formatRiyadh(auto.changedAt)} by {auto.changedBy}.
+          </p>
+        )}
+        {auto.ownerEnabled ? (
+          <form action={setAutoPublishAction} className="mt-4">
+            <input type="hidden" name="enabled" value="false" />
+            <button className={buttonClass("primary")}>Switch automatic publishing OFF</button>
+          </form>
+        ) : (
+          auto.deploymentAllowed &&
+          auto.ready && (
+            <form action={setAutoPublishAction} className="mt-4">
+              <input type="hidden" name="enabled" value="true" />
+              <label className="flex items-start gap-2 text-sm">
+                <input type="checkbox" name="confirm" value="yes" required className="mt-1" />
+                Switch automatic publishing on for posts I schedule individually.
+              </label>
+              <button className={buttonClass("secondary", "mt-3")}>Switch ON</button>
+            </form>
+          )
+        )}
+      </section>
 
       <section id="linkedin" className="mt-10 border border-line bg-card p-6">
         <h2 className="text-h3 font-semibold">LinkedIn connection</h2>

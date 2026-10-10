@@ -6,11 +6,12 @@ import { buttonClass } from "@/components/ui/button";
 import { requireOwner } from "@/lib/studio/owner";
 import { assetsByUrl } from "@/lib/studio/assets";
 import { connectionState } from "@/lib/studio/linkedin";
-import { LATE_LIMIT_MS } from "@/lib/studio/publish";
+import { authorizationsFor, autoPublishSwitch, isAutoAuthorized, leadTimeOk, ON_TIME_WINDOW_MS } from "@/lib/studio/autopublish";
 import { getAction } from "@/lib/studio/repo";
 import { formatRiyadh, isPast, toRiyadhInput } from "@/lib/studio/time";
 import {
   approveAction,
+  authorizeAutoPublishAction,
   editAction,
   failedAction,
   publishNowAction,
@@ -19,6 +20,7 @@ import {
   reopenAction,
   resolveUnknownAction,
   reviseAction,
+  revokeAutoPublishAction,
   verifyAction,
 } from "../../actions";
 
@@ -41,6 +43,10 @@ export default async function QueueItem({ params, searchParams }: PageProps<"/st
   const li = await connectionState();
   const direct = li.state === "connected" && li.canPost && action.kind === "publish_post" && current.assets.length <= 1;
   const unknown = action.status === "executed" ? executions.find((e) => e.result === "unknown") : undefined;
+  const sw = await autoPublishSwitch();
+  const autoAuthorized = isAutoAuthorized(d, await authorizationsFor(action.id));
+  const canAuthorize =
+    action.status === "approved" && approvalValid && action.kind === "publish_post" && !autoAuthorized && leadTimeOk(current.target_at);
 
   return (
     <div className="mt-8 grid gap-10 lg:grid-cols-[1fr_340px]">
@@ -129,17 +135,49 @@ export default async function QueueItem({ params, searchParams }: PageProps<"/st
           </section>
         )}
 
+        {action.status === "approved" && approvalValid && action.kind === "publish_post" && (
+          <section id="auto" className="mt-8 border border-ink p-6">
+            <h2 className="text-h3 font-semibold">Automatic publishing</h2>
+            <p className="mt-1 text-sm text-ink-2">
+              Approving the content does not publish it. Automatic publishing needs your separate confirmation for this exact version and
+              time, and automatic publishing switched on ({sw.enabled ? "it is ON" : "it is OFF"}). It goes out only within{" "}
+              {ON_TIME_WINDOW_MS / 60_000} minutes after its planned time. If that is missed, it is held for review and never posted late.
+            </p>
+            {autoAuthorized ? (
+              <>
+                <p className="mt-3 text-sm font-medium">
+                  Scheduled for automatic publishing at {formatRiyadh(current.target_at)} (Riyadh)
+                  {sw.enabled ? "." : ". It won't go out while automatic publishing is OFF."}
+                </p>
+                <form action={revokeAutoPublishAction} className="mt-3">
+                  <input type="hidden" name="actionId" value={action.id} />
+                  <button className={buttonClass("secondary")}>Cancel automatic publishing</button>
+                </form>
+              </>
+            ) : canAuthorize ? (
+              <form action={authorizeAutoPublishAction} className="mt-4">
+                <input type="hidden" name="actionId" value={action.id} />
+                <input type="hidden" name="versionId" value={current.id} />
+                <input type="hidden" name="hash" value={current.content_hash} />
+                <label className="flex items-start gap-2 text-sm">
+                  <input type="checkbox" name="confirm" value="yes" required className="mt-1" />
+                  Publish version {current.version} automatically on my LinkedIn profile at {formatRiyadh(current.target_at)} (Riyadh).
+                </label>
+                <button className={buttonClass("primary", "mt-3")}>Schedule for automatic publishing</button>
+              </form>
+            ) : (
+              <p className="mt-3 text-sm text-ink-2">
+                Not scheduled for automatic publishing.{" "}
+                {current.target_at ? "Its planned time is too close or has passed: set a later time in Edit, then approve again." : "Set a planned time in Edit first."}
+              </p>
+            )}
+          </section>
+        )}
+
         {action.status === "approved" && approvalValid && direct && (
           <section className="mt-8 border border-ink p-6">
-            <h2 className="text-h3 font-semibold">Publishing on LinkedIn</h2>
-            {current.target_at ? (
-              <p className="mt-1 text-sm">
-                Scheduled: the studio posts this at <strong>{formatRiyadh(current.target_at)}</strong> (Riyadh). If it can&apos;t be posted within{" "}
-                {LATE_LIMIT_MS / 3_600_000} hours of that time, it is held back instead of posted late.
-              </p>
-            ) : (
-              <p className="mt-1 text-sm text-ink-2">No planned time, so it is not posted automatically. Post it now, or set a time in Edit.</p>
-            )}
+            <h2 className="text-h3 font-semibold">Publish now (LinkedIn connected)</h2>
+            <p className="mt-1 text-sm text-ink-2">Posts this version immediately, as a one-off action by you. It doesn&apos;t depend on automatic publishing.</p>
             <form action={publishNowAction} className="mt-4">
               <input type="hidden" name="actionId" value={action.id} />
               <label className="flex items-start gap-2 text-sm">

@@ -39,8 +39,10 @@ async function run(req: Request) {
       reason: r.reason ?? null,
       published: r.published.map((p) => ({ actionId: p.actionId, verified: p.verified })),
       failed: r.failed.map((x) => x.actionId),
-      blockedLate: r.blockedLate,
+      switchOn: r.switchOn,
+      held: r.held,
       waiting: r.waiting,
+      notAuthorized: r.notAuthorized,
     });
   } catch (err) {
     console.error("[studio] scheduler failed", err instanceof Error ? err.name : "unknown");
