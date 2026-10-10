@@ -31,7 +31,9 @@ Reported by the owner's browser session (Claude in Chrome), read from the dashbo
 - [x] Step 1: database identified (project growxera); Preview shares it (case A).
 - [x] Steps 2–3: activation script applied in project growxera. Verification: `li_tables 10`, `li_without_rls 0`, `browser_grants 0`, `bucket_public false`, `backup_tables 8`, backup counts equal to live (accounts 1/1, leads 3/3).
 - [x] Step 4: `STUDIO_OWNER_EMAIL` set for Production, Preview and Development. No `XAI_*` variables.
-- [ ] Step 5: deployment path (Git not connected).
+- [x] Production check: the live deployment was built from `main` @ `15c15ec` (the current `main`), so connecting Git changes nothing live.
+- [x] Step 5a: Git connected to `islamagendi-hue/Growxera`; Production Branch `main`; no deployment triggered by connecting. ⚠️ From now on every push to `main` deploys production.
+- [ ] Step 5b: Preview for PR #14 (created by the next push to the PR branch).
 - [ ] Steps 6–10.
 
 ## No-computer path for steps 2 and 3
