@@ -11,6 +11,17 @@ Nothing in this checklist publishes to LinkedIn. Buffer publishing is already st
 
 What Claude could verify from its session (10 Oct 2026): Vercel refuses project details and deployment lists (403/404); Supabase shows only `leanapp-staging`, which is **not** Growxera's database; growxera.com is blocked by the session's network. So every step below is done by you in the dashboards.
 
+## Findings for this project (read-only check, 10 Oct 2026)
+
+| Question | Answer | Consequence |
+|---|---|---|
+| Growxera database | Supabase project **growxera** (org "Growx Era", us-east-1, Free plan). It has the site tables; `leanapp-staging` is separate | Steps 3, 7, 8 target **growxera** only |
+| Preview vs Production database | `SUPABASE_URL` is one variable for all environments → **case A, shared** | Anything done in a Preview studio (import, media, approvals) is **production data** |
+| Backups | **None** (Free plan has no backups) | Step 2 must be a manual dump before step 3 |
+| Git integration | **Not connected** to Vercel; production deploys are redeploys | No Preview exists for PR #14, and **merging does not deploy** until Git is connected or a deployment is made manually (step 5) |
+| Deployment protection | Off | Preview URLs are public; the studio's owner gate still applies |
+| `STUDIO_OWNER_EMAIL`, `XAI_*` | Not set | Step 4 still needed; Grok stays off |
+
 ---
 
 ## 1. Identify the Growxera database (read-only)
@@ -38,9 +49,15 @@ What Claude could verify from its session (10 Oct 2026): Vercel refuses project 
 - **Pre-merge:** yes. No data changes.
 - **Target:** the Production project from step 1.
 
-Use either:
-- Supabase → Database → **Backups**: note the time of the latest daily backup (on paid plans), or
-- your own machine: `supabase db dump --db-url "<connection string>" -f growxera-before-studio.sql`. The connection string is under Settings → Database. Keep the file private, outside the repository.
+This project is on the Free plan, which has **no backups**, so make a manual dump on your own machine:
+
+1. Supabase → project growxera → **Connect** (top bar) → copy the **Session pooler** connection string, and put in your database password.
+2. In a terminal (needs the Supabase CLI or `pg_dump` 15+):
+   `supabase db dump --db-url "<connection string>" -f growxera-schema.sql` and
+   `supabase db dump --db-url "<connection string>" --data-only -f growxera-data.sql`
+3. Keep both files private, outside the repository.
+
+The migrations in step 3 only add new objects and were tested with a full rollback, so the dump is a safety net, not a requirement for correctness.
 
 **Verify:** a backup exists that is newer than any change you are about to make, and you know where it is.
 
@@ -90,8 +107,12 @@ Leave every `XAI_*` variable **unset**, so Grok stays off.
 - **Pre-merge:** yes. It's a preview build, not production.
 - **Target:** Vercel → Deployments, filtered by branch `claude/linkedin-brand-growth-agent-wu375g`.
 
-1. If a deployment for commit `5671bf8` or later exists: open it → **⋯ → Redeploy**, so it picks up the step 4 variables.
-2. If none exists: Vercel → Settings → **Git** must show the GitHub repository `islamagendi-hue/Growxera` connected. Pushes to the branch then create previews automatically. (No GitHub status or Vercel comment has appeared on PR #14 so far, which suggests the integration may not be connected.)
+Git is **not connected** for this project, so no Preview exists. Two ways to get one:
+
+- **Connect Git (recommended):** Vercel → growx-era → Settings → **Git** → Connect → GitHub → `islamagendi-hue/Growxera`, production branch `main`. ⚠️ From then on, **every push to `main` deploys production** and other branches get previews. Connecting doesn't deploy by itself; the next push to the PR branch creates its preview. First check that `main` matches what production runs today (Deployments → current production → Source).
+- **Or deploy a preview by hand:** on your machine, in a checkout of the PR branch, run `vercel deploy` (without `--prod`).
+
+Case A applies: the Preview uses the production database.
 
 **Verify:** the deployment shows **Ready**, the commit is `5671bf8` or later, and you have its URL. If deployment protection is on, open it while logged in to Vercel.
 
@@ -146,7 +167,7 @@ Upload no other file. Any other JSON is rejected or out of scope.
 ## 9. Merge PR #14 ⚠️ production deployment
 
 - **Pre-merge:** this *is* the merge. Needs your explicit go-ahead.
-- **Target:** GitHub PR #14 → Merge. Vercel then deploys `main` to production.
+- **Target:** GitHub PR #14 → Merge. Production updates only if Git is connected (step 5); otherwise deploy `main` manually with `vercel deploy --prod`.
 
 **Verify:**
 - The production deployment is **Ready**.
