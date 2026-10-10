@@ -5,15 +5,19 @@ import { first, Notice, StatusBadge } from "@/components/studio/StudioUi";
 import { buttonClass } from "@/components/ui/button";
 import { requireOwner } from "@/lib/studio/owner";
 import { assetsByUrl } from "@/lib/studio/assets";
+import { connectionState } from "@/lib/studio/linkedin";
+import { LATE_LIMIT_MS } from "@/lib/studio/publish";
 import { getAction } from "@/lib/studio/repo";
 import { formatRiyadh, isPast, toRiyadhInput } from "@/lib/studio/time";
 import {
   approveAction,
   editAction,
   failedAction,
+  publishNowAction,
   recordPublishedAction,
   rejectAction,
   reopenAction,
+  resolveUnknownAction,
   reviseAction,
   verifyAction,
 } from "../../actions";
@@ -34,6 +38,9 @@ export default async function QueueItem({ params, searchParams }: PageProps<"/st
   const chars = current.text.length;
   const secured = await assetsByUrl(current.assets.map((a) => a.url));
   const overdue = ["ready_for_review", "approved"].includes(action.status) && isPast(current.target_at);
+  const li = await connectionState();
+  const direct = li.state === "connected" && li.canPost && action.kind === "publish_post" && current.assets.length <= 1;
+  const unknown = action.status === "executed" ? executions.find((e) => e.result === "unknown") : undefined;
 
   return (
     <div className="mt-8 grid gap-10 lg:grid-cols-[1fr_340px]">
@@ -89,6 +96,12 @@ export default async function QueueItem({ params, searchParams }: PageProps<"/st
           <section className="mt-8 border border-ink p-6">
             <h2 className="text-h3 font-semibold">Review</h2>
             <p className="mt-1 text-sm text-ink-2">Approving applies to version {current.version} exactly as shown, including the planned time.</p>
+            {direct && current.target_at && (
+              <p className="mt-2 text-sm font-medium">
+                LinkedIn is connected: once approved, the studio posts this on your profile at {formatRiyadh(current.target_at)} (Riyadh). Any
+                later edit cancels the approval.
+              </p>
+            )}
             <form action={approveAction} className="mt-4">
               <input type="hidden" name="actionId" value={action.id} />
               <input type="hidden" name="versionId" value={current.id} />
@@ -116,7 +129,29 @@ export default async function QueueItem({ params, searchParams }: PageProps<"/st
           </section>
         )}
 
-        {action.status === "approved" && approvalValid && (
+        {action.status === "approved" && approvalValid && direct && (
+          <section className="mt-8 border border-ink p-6">
+            <h2 className="text-h3 font-semibold">Publishing on LinkedIn</h2>
+            {current.target_at ? (
+              <p className="mt-1 text-sm">
+                Scheduled: the studio posts this at <strong>{formatRiyadh(current.target_at)}</strong> (Riyadh). If it can&apos;t be posted within{" "}
+                {LATE_LIMIT_MS / 3_600_000} hours of that time, it is held back instead of posted late.
+              </p>
+            ) : (
+              <p className="mt-1 text-sm text-ink-2">No planned time, so it is not posted automatically. Post it now, or set a time in Edit.</p>
+            )}
+            <form action={publishNowAction} className="mt-4">
+              <input type="hidden" name="actionId" value={action.id} />
+              <label className="flex items-start gap-2 text-sm">
+                <input type="checkbox" name="confirm" value="yes" required className="mt-1" />
+                Post version {current.version} on my LinkedIn profile now.
+              </label>
+              <button className={buttonClass("primary", "mt-3")}>Publish now</button>
+            </form>
+          </section>
+        )}
+
+        {action.status === "approved" && approvalValid && !direct && (
           <section className="mt-8 border border-ink p-6">
             <h2 className="text-h3 font-semibold">Publish (manual step)</h2>
             <p className="mt-1 text-sm text-ink-2">
@@ -150,7 +185,39 @@ export default async function QueueItem({ params, searchParams }: PageProps<"/st
           </section>
         )}
 
-        {action.status === "executed" && (
+        {unknown && (
+          <section className="mt-8 border border-alert p-6">
+            <h2 className="text-h3 font-semibold">Check LinkedIn</h2>
+            <p className="mt-1 text-sm text-ink-2">
+              The studio sent this post, but LinkedIn didn&apos;t confirm it. It won&apos;t be sent again on its own. Open your profile&apos;s
+              activity and tell the studio what you see.
+            </p>
+            <a
+              href="https://www.linkedin.com/in/me/recent-activity/all/"
+              target="_blank"
+              rel="noreferrer"
+              className="mt-3 inline-flex min-h-11 items-center border border-ink/80 px-4 text-sm font-medium hover:bg-ink hover:text-paper"
+            >
+              Open my LinkedIn activity
+            </a>
+            <form action={resolveUnknownAction} className="mt-4">
+              <input type="hidden" name="actionId" value={action.id} />
+              <input type="hidden" name="found" value="published" />
+              <label className="text-sm font-medium">
+                It&apos;s there: link to the post
+                <input name="url" type="url" required placeholder="https://www.linkedin.com/feed/update/urn:li:share:…" className={field} />
+              </label>
+              <button className={buttonClass("primary", "mt-2")}>Record the link</button>
+            </form>
+            <form action={resolveUnknownAction} className="mt-4">
+              <input type="hidden" name="actionId" value={action.id} />
+              <input type="hidden" name="found" value="not_published" />
+              <button className={buttonClass("secondary")}>It isn&apos;t on LinkedIn</button>
+            </form>
+          </section>
+        )}
+
+        {action.status === "executed" && !unknown && (
           <section className="mt-8 border border-ink p-6">
             <h2 className="text-h3 font-semibold">Verify</h2>
             <p className="mt-1 text-sm text-ink-2">

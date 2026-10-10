@@ -35,7 +35,8 @@ export type Table =
   | "li_executions"
   | "li_llm_usage"
   | "li_audit_log"
-  | "li_assets";
+  | "li_assets"
+  | "li_linkedin_connection";
 
 type Row = Record<string, unknown>;
 

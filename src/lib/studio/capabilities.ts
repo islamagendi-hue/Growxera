@@ -29,9 +29,10 @@ export const CAPABILITIES: Capability[] = [
     method: "LinkedIn Posts API (Share on LinkedIn product)",
     permission: "w_member_social: self-serve product; the developer app must be associated with a LinkedIn Page",
     status: "unverified",
-    implementation: "Planned (Milestone 4): executes only approved items, once, with a duplicate check.",
-    manualStep: "Until verified: Copy text, Open LinkedIn, post, then paste the post link into the studio.",
-    evidence: "Documented as self-serve. No LinkedIn developer app or token exists yet, so it is untested.",
+    implementation:
+      "Built: once LinkedIn is connected, approved posts are published at their planned time (or with Publish now), once, after a duplicate check.",
+    manualStep: "Until connected: Copy text, Open LinkedIn, post, then paste the post link into the studio.",
+    evidence: "Documented as self-serve. Marked available only after the first API post is confirmed live.",
   },
   {
     id: "publish_media",
@@ -39,7 +40,7 @@ export const CAPABILITIES: Capability[] = [
     method: "Images API / Documents API + Posts API",
     permission: "w_member_social",
     status: "unverified",
-    implementation: "Planned (Milestone 4), after text posting is verified.",
+    implementation: "Built for one image or one PDF per post, uploaded from the studio's verified copies. Untested until the first such post.",
     manualStep: "Download the asset from the studio, attach it in LinkedIn, post, paste the link back.",
     evidence: "Sources disagree on document posts for personal profiles. Must be tested.",
   },
