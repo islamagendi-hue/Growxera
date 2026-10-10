@@ -24,6 +24,16 @@ What Claude could verify from its session (10 Oct 2026): Vercel refuses project 
 
 ---
 
+## Progress (10 Oct 2026)
+
+Reported by the owner's browser session (Claude in Chrome), read from the dashboards; not independently verifiable from the cloud session:
+
+- [x] Step 1: database identified (project growxera); Preview shares it (case A).
+- [x] Steps 2–3: activation script applied in project growxera. Verification: `li_tables 10`, `li_without_rls 0`, `browser_grants 0`, `bucket_public false`, `backup_tables 8`, backup counts equal to live (accounts 1/1, leads 3/3).
+- [x] Step 4: `STUDIO_OWNER_EMAIL` set for Production, Preview and Development. No `XAI_*` variables.
+- [ ] Step 5: deployment path (Git not connected).
+- [ ] Steps 6–10.
+
 ## No-computer path for steps 2 and 3
 
 Everything in steps 2 and 3 can be done from any browser (phone included) with one script:
