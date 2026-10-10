@@ -23,7 +23,7 @@ export async function GET(req: Request) {
 
   if (!expected || !same(state, expected)) return back("error", "The LinkedIn sign-in link expired or didn't come from this studio. Try Connect again.");
   if (url.searchParams.get("error")) return back("error", "LinkedIn access wasn't granted. Nothing was connected.");
-  const { config } = linkedInConfig();
+  const { config } = await linkedInConfig();
   if (!config || !code || studioStorageError()) return back("error", "LinkedIn isn't set up for this deployment.");
 
   try {

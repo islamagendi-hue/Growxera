@@ -7,7 +7,7 @@ import { isOwner, studioStorageError } from "@/lib/studio/owner";
 /** Starts LinkedIn's authorization for the owner. Everyone else: 404. */
 export async function GET(req: Request) {
   if (!isOwner(await currentAccount())) return new Response("Not found", { status: 404 });
-  const { config } = linkedInConfig();
+  const { config } = await linkedInConfig();
   if (!config || studioStorageError()) {
     return Response.redirect(new URL(`/studio/capabilities?error=${encodeURIComponent("LinkedIn isn't set up for this deployment.")}#linkedin`, req.url), 303);
   }

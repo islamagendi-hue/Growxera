@@ -9,7 +9,7 @@ import { revalidatePath } from "next/cache";
 import { secureAssets } from "@/lib/studio/assets";
 import { verifyGrok } from "@/lib/studio/grok";
 import { importSnapshot, snapshotSchema } from "@/lib/studio/import";
-import { connectionState, disconnect } from "@/lib/studio/linkedin";
+import { connectionState, disconnect, isValidClientId, isValidClientSecret, saveAppKeys } from "@/lib/studio/linkedin";
 import { publishAction, publishDue, resolveUnknown } from "@/lib/studio/publish";
 import { ownerOrThrow } from "@/lib/studio/owner";
 import {
@@ -207,6 +207,27 @@ export async function publishDueNowAction() {
   }
   revalidatePath("/studio", "layout");
   redirect(`/studio/queue?${q}`);
+}
+
+export async function saveLinkedInKeysAction(form: FormData) {
+  const owner = await ownerOrThrow();
+  const clientId = str(form, "clientId");
+  const clientSecret = str(form, "clientSecret");
+  let q: string;
+  if (!isValidClientId(clientId)) q = `error=${encodeURIComponent("That doesn't look like a LinkedIn Client ID (letters and numbers only).")}`;
+  else if (!isValidClientSecret(clientSecret)) q = `error=${encodeURIComponent("That doesn't look like a LinkedIn Client Secret.")}`;
+  else {
+    try {
+      await saveAppKeys(clientId, clientSecret);
+      await audit(owner.email, "linkedin.app_keys_saved", "li_linkedin_app", null, { clientId });
+      q = `notice=${encodeURIComponent("LinkedIn app keys saved (the secret is stored encrypted). Now click Connect LinkedIn.")}`;
+    } catch (err) {
+      console.error("[studio] saving LinkedIn keys failed", safeLog(err));
+      q = `error=${encodeURIComponent("Saving the keys failed. Nothing was saved.")}`;
+    }
+  }
+  revalidatePath("/studio", "layout");
+  redirect(`/studio/capabilities?${q}#linkedin`);
 }
 
 export async function disconnectLinkedInAction() {
