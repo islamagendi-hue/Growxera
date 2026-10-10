@@ -1,26 +1,35 @@
 import { timingSafeEqual } from "node:crypto";
+import { rpc } from "@/lib/server/store";
 import { publishDue } from "@/lib/studio/publish";
 import { studioStorageError } from "@/lib/studio/owner";
 
 /**
  * Scheduler entry point: publishes approved posts whose planned time has come.
- * Called every few minutes by a cron job with `Authorization: Bearer <CRON_SECRET>`.
- * Without CRON_SECRET set, the endpoint doesn't exist (404). It never publishes anything
+ * Called every few minutes by a cron job with `Authorization: Bearer <secret>`.
+ * Without the right secret the endpoint doesn't exist (404). It never publishes anything
  * that isn't approved; see src/lib/studio/publish.ts.
  */
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-function authorized(req: Request): boolean {
+/**
+ * Accepts the secret from CRON_SECRET (env) or the one kept in Supabase Vault
+ * ('studio_cron_secret', checked by the li_check_cron_secret function).
+ */
+async function authorized(req: Request): Promise<boolean> {
+  const given = (req.headers.get("authorization") ?? "").replace(/^Bearer /, "");
+  if (given.length < 32 || given.length > 256) return false;
   const secret = process.env.CRON_SECRET?.trim();
-  if (!secret || secret.length < 32) return false;
-  const given = req.headers.get("authorization") ?? "";
-  const expected = `Bearer ${secret}`;
-  return given.length === expected.length && timingSafeEqual(Buffer.from(given), Buffer.from(expected));
+  if (secret && secret.length >= 32 && given.length === secret.length && timingSafeEqual(Buffer.from(given), Buffer.from(secret))) return true;
+  try {
+    return (await rpc<boolean>("li_check_cron_secret", { token: given })) === true;
+  } catch {
+    return false;
+  }
 }
 
 async function run(req: Request) {
-  if (!authorized(req)) return new Response("Not found", { status: 404 });
+  if (!(await authorized(req))) return new Response("Not found", { status: 404 });
   if (studioStorageError()) return Response.json({ ran: false, reason: "storage not configured" }, { status: 503 });
   try {
     const r = await publishDue("scheduler");

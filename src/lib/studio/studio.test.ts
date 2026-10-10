@@ -866,6 +866,10 @@ describe("LinkedIn direct publishing", () => {
     expect((await GET(new Request("http://x/api/studio/publish-due"))).status).toBe(404);
     vi.stubEnv("CRON_SECRET", "c".repeat(40));
     expect((await GET(new Request("http://x/api/studio/publish-due", { headers: { authorization: "Bearer wrong" } }))).status).toBe(404);
+    expect((await GET(new Request("http://x/api/studio/publish-due", { headers: { authorization: `Bearer ${"d".repeat(40)}` } }))).status).toBe(404);
+    const ok = await GET(new Request("http://x/api/studio/publish-due", { headers: { authorization: `Bearer ${"c".repeat(40)}` } }));
+    expect(ok.status).toBe(200);
+    expect(JSON.stringify(await ok.json())).not.toMatch(/Direct post|commentary/);
     vi.stubEnv("CRON_SECRET", "");
   });
 });

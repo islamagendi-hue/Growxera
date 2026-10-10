@@ -19,3 +19,21 @@ create index if not exists li_linkedin_connection_created_idx on public.li_linke
 
 alter table public.li_linkedin_connection enable row level security;
 revoke all on public.li_linkedin_connection from anon, authenticated;
+
+-- ── Scheduler secret ────────────────────────────────────────────────────────
+-- The scheduler (pg_cron + pg_net, see docs/linkedin-agent/LINKEDIN_PUBLISHING.md) sends a
+-- secret kept in Supabase Vault under the name 'studio_cron_secret'. The app checks it with
+-- this function, so the secret never has to be copied anywhere. Server (service role) only.
+create or replace function public.li_check_cron_secret(token text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select coalesce(length(token) >= 32, false) and exists (
+    select 1 from vault.decrypted_secrets where name = 'studio_cron_secret' and decrypted_secret = token
+  );
+$$;
+revoke all on function public.li_check_cron_secret(text) from public, anon, authenticated;
+grant execute on function public.li_check_cron_secret(text) to service_role;

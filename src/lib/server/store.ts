@@ -289,6 +289,22 @@ export async function remove(table: Table, filters: Filter[]): Promise<number> {
   return 0;
 }
 
+/**
+ * Calls a Postgres function through PostgREST (service role only). Only the functions listed
+ * here can be called. Without Supabase there is nothing to call, so the result is null.
+ */
+export async function rpc<T>(fn: "li_check_cron_secret", args: Row): Promise<T | null> {
+  if (storageMode !== "supabase") return null;
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {
+    method: "POST",
+    headers: headers({ Prefer: "return=representation" }),
+    body: JSON.stringify(args),
+    cache: "no-store",
+  });
+  if (!res.ok) throw new StoreError(`rpc ${fn} failed: ${res.status}`);
+  return (await res.json()) as T;
+}
+
 export async function updateById(table: Table, id: string, patch: Row): Promise<boolean> {
   if (storageMode === "disabled") return false;
   await update(table, [eq("id", id)], patch);

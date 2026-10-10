@@ -47,10 +47,9 @@ Approved posts with no planned time are only posted with **Publish now** on the 
 |---|---|
 | `LINKEDIN_CLIENT_ID` | from the Auth tab |
 | `LINKEDIN_CLIENT_SECRET` | from the Auth tab (also the key that encrypts the stored token) |
-| `CRON_SECRET` | a random string of at least 32 characters |
 
-Optional: `LINKEDIN_API_VERSION` (`YYYYMM`, default `202606`) if LinkedIn retires the default.
-Redeploy after adding them.
+Optional: `LINKEDIN_API_VERSION` (`YYYYMM`, default `202606`) if LinkedIn retires the default;
+`CRON_SECRET` only if a scheduler other than the one below is used. Redeploy after adding them.
 
 ### 3. Database (Claude, with approval)
 
@@ -64,12 +63,13 @@ Studio → **Capabilities** → **Connect LinkedIn** → approve on LinkedIn. No
 ### 5. Scheduler (Claude, with approval)
 
 Free option: Supabase `pg_cron` + `pg_net` call the endpoint every 5 minutes. The secret is
-kept in Supabase Vault, not in the job text.
+generated inside the database and kept in Supabase Vault; nobody sees or copies it. The app checks
+it with `li_check_cron_secret()` (from the migration).
 
 ```sql
 create extension if not exists pg_cron;
 create extension if not exists pg_net;
-select vault.create_secret('<CRON_SECRET value>', 'studio_cron_secret');
+select vault.create_secret(encode(extensions.gen_random_bytes(32), 'hex'), 'studio_cron_secret');
 select cron.schedule('studio-publish-due', '*/5 * * * *', $$
   select net.http_post(
     url := 'https://www.growxera.com/api/studio/publish-due',
