@@ -20,8 +20,8 @@ Private files, kept out of the public repository and sent to the owner directly:
 
 ### Before disconnecting
 
-- [ ] **1. Pause Buffer's queue now** (exact clicks in [ACTIVATION.md](ACTIVATION.md), step 1). Buffer's API cannot pause, so this is manual; a Claude session can then confirm it read-only. This keeps all 36 remaining posts, their dates and their status exactly as they are, and stops publishing. (Do not delete posts; do not disconnect yet.)
-- [ ] **2. Check what Buffer published since the export.** In Buffer's Sent tab, note anything sent after 10 Oct 18:39 UTC. If there is any, a new read-only update export is needed (ask in a Claude session); the studio blocks those queue items on import.
+- [x] **1. Stop Buffer publishing.** Done 10 Oct 2026, 19:00 UTC, with the owner's approval: Buffer's API can't pause a queue, so the 36 scheduled posts were moved to **Draft** through Buffer's API. Verified read-only afterwards: 0 scheduled or sending; text, media and original dates identical to the export for all 36; the earlier Buffer draft untouched (37 drafts). Nothing deleted.
+- [x] **2. Check what Buffer published since the export.** Only the 18:30 UTC post (exported separately). In Buffer's Sent tab, note anything sent after 10 Oct 18:39 UTC. If there is any, a new read-only update export is needed (ask in a Claude session); the studio blocks those queue items on import.
 - [ ] **3. Apply the studio migration and set `STUDIO_OWNER_EMAIL`** (PLAN.md, section 6).
 - [ ] **4. Import in the studio** (`/studio/import`), in order: history, scheduled, update file(s).
 - [ ] **5. Confirm the counts** on `/studio/import`: 58 published posts in history; 38 migrated items = 36 Ready for review, 1 Draft, 1 Blocked (published by Buffer at 18:30 UTC); 0 approved.

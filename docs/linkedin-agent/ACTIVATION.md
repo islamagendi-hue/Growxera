@@ -1,6 +1,6 @@
 # LinkedIn Growth Studio: production activation runbook
 
-Status as of 10 Oct 2026, 19:00 UTC. Each step says who does it and how to verify it. Do the steps in order.
+Status as of 10 Oct 2026, 19:05 UTC. Each step says who does it and how to verify it. Do the steps in order.
 
 Nothing here publishes anything on LinkedIn. The studio has no LinkedIn or Buffer API code, no cron jobs, and executes nothing without an approval of the exact version.
 
@@ -8,22 +8,14 @@ Nothing here publishes anything on LinkedIn. The studio has no LinkedIn or Buffe
 
 | System | Access from the Claude session | Consequence |
 | --- | --- | --- |
-| Buffer | Read-only API works. The API has **no pause-queue action** (`isQueuePaused` is read-only) | Pausing is a manual step (step 1). Claude can verify it afterwards |
+| Buffer | API works. It has **no pause-queue action**; posts were moved to Draft instead (step 1, done) | No Buffer post can publish |
 | Growxera Supabase | **Not visible.** The Supabase connector only sees `leanapp-staging` (a separate project with the old workflow's `li_*` visual tables and the `li-assets` bucket; no `accounts`/`leads` tables) | Migrations must be run by you (step 2). **Never run them on `leanapp-staging`** |
 | Vercel | Can list team projects (`growx-era`), but reading or changing the project returns 404/403 | Env var and deployment are manual (step 3) |
 | growxera.com | Blocked by this session's network policy | Production checks are manual (step 5) |
 
-## Step 1: Pause Buffer (you, now, before 11 Oct 14:00 UTC)
+## Step 1: Stop Buffer publishing (done)
 
-36 posts are still scheduled; the next goes out **11 Oct 2026, 14:00 UTC (17:00 Riyadh)**.
-
-1. Open publish.buffer.com and sign in.
-2. In the left sidebar, select the LinkedIn channel **Islam Gendi**.
-3. Open the channel's **Settings** (gear icon next to the channel name) → **General**.
-4. Use **Pause Queue** and confirm. The queue then shows a "paused" banner.
-5. Do **not** delete posts, empty the queue or disconnect the channel.
-
-Verify: ask Claude to "check Buffer's queue". It reads `isQueuePaused` and the post counts (read-only) and confirms. Expected: paused, 36 scheduled, 1 draft, unchanged since the export.
+Done 10 Oct 2026, 19:00 UTC with your approval. Buffer's API has no pause action, so the 36 scheduled posts were moved to Draft through the API. A read-only check afterwards confirmed 0 scheduled or sending posts, with text, media and original dates identical to the export. Nothing was deleted. Buffer can no longer publish them.
 
 ## Step 2: Database migrations (you, Supabase dashboard)
 
