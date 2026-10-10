@@ -290,7 +290,7 @@ export async function statusCounts(): Promise<Record<Status, number>> {
  * Moves an action from `from` to `to` with a conditional update, so two requests racing
  * on the same item can't both succeed. Returns the updated row.
  */
-async function transition(action: ActionRow, to: Status, reason: string | null): Promise<ActionRow> {
+export async function transition(action: ActionRow, to: Status, reason: string | null): Promise<ActionRow> {
   assertTransition(action.status, to);
   const [row] = await update<ActionRow>("li_actions", [eq("id", action.id), eq("status", action.status)], {
     status: to,
@@ -301,7 +301,7 @@ async function transition(action: ActionRow, to: Status, reason: string | null):
   return row;
 }
 
-async function load(actionId: string): Promise<ActionDetail> {
+export async function load(actionId: string): Promise<ActionDetail> {
   const detail = await getAction(actionId);
   if (!detail) throw new WorkflowError("Item not found.");
   return detail;
@@ -374,6 +374,11 @@ export async function approve(actionId: string, versionId: string, hash: string,
   }
   if (versionId !== d.current.id || hash !== d.current.content_hash || contentHash(d.current) !== hash) {
     throw new WorkflowError("The content changed since you opened it. Review the latest version.");
+  }
+  // An approval includes the planned time, and the scheduler publishes at that time.
+  // A time that has already passed would mean publishing at a moment nobody approved.
+  if (d.current.target_at && new Date(d.current.target_at).getTime() < Date.now()) {
+    throw new WorkflowError("The planned time has passed. Set a new time in Edit, then approve.");
   }
   const match = await findPublishedMatch(d.current.text, d.current.assets);
   if (match) throw new WorkflowError(describeMatch(match));

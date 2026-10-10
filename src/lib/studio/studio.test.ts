@@ -48,7 +48,7 @@ const post = (text?: string) =>
     kind: "post",
     actionKind: "publish_post",
     channel: "manual",
-    content: { text: text ?? `Draft number ${++n} ${crypto.randomUUID()}`, assets: [], target_at: "2026-10-20T13:00:00.000Z" },
+    content: { text: text ?? `Draft number ${++n} ${crypto.randomUUID()}`, assets: [], target_at: "2099-10-20T13:00:00.000Z" },
     origin: "manual",
     author: ME,
   });
@@ -130,7 +130,7 @@ describe("approval enforcement", () => {
   it("treats a schedule change as material", async () => {
     const id = await approved();
     const d = (await getAction(id))!;
-    await addVersion(id, { text: d.current.text, assets: [], target_at: "2026-11-01T13:00:00.000Z" }, ME);
+    await addVersion(id, { text: d.current.text, assets: [], target_at: "2099-11-01T13:00:00.000Z" }, ME);
     expect((await getAction(id))!.approvalValid).toBe(false);
   });
 
@@ -549,7 +549,7 @@ describe("races and verification", () => {
     // Same text, different planned time: a different content hash, but the same post for readers.
     const { actionId: b } = await createDraft({
       kind: "post", actionKind: "publish_post", channel: "manual", origin: "manual", author: ME,
-      content: { text, assets: [], target_at: "2026-12-01T10:00:00.000Z" },
+      content: { text, assets: [], target_at: "2099-12-01T10:00:00.000Z" },
     });
     const db = (await getAction(b))!;
     await expect(approve(b, db.current.id, db.current.content_hash, ME)).rejects.toThrow(/Already published/);
@@ -562,11 +562,20 @@ describe("no publishing path without approval", () => {
     fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? files(path.join(dir, e.name)) : [path.join(dir, e.name)]));
   const code = files(src).filter((f) => /\.(ts|tsx)$/.test(f) && !f.endsWith(".test.ts"));
 
-  it("has no code that calls LinkedIn or Buffer, and no scheduled jobs", () => {
+  it("talks to LinkedIn only from linkedin.ts, posts only through publish.ts, and never calls Buffer", () => {
+    const client = path.join(src, "lib/studio/linkedin.ts");
+    const publisher = path.join(src, "lib/studio/publish.ts");
     for (const f of code) {
       const text = fs.readFileSync(f, "utf8");
-      expect(text, f).not.toMatch(/api\.linkedin\.com|linkedin\.com\/v2|api\.bufferapp\.com|api\.buffer\.com|graph\.buffer/);
+      expect(text, f).not.toMatch(/api\.bufferapp\.com|api\.buffer\.com|graph\.buffer/);
+      if (f !== client) expect(text, f).not.toMatch(/api\.linkedin\.com|linkedin\.com\/oauth|linkedin\.com\/v2/);
+      if (f !== client && f !== publisher && !f.endsWith(".test.ts")) expect(text, f).not.toMatch(/postToLinkedIn/);
     }
+    // publish.ts only posts after loading the item and checking its approval.
+    const pub = fs.readFileSync(publisher, "utf8");
+    expect(pub.indexOf("!d.approvalValid")).toBeGreaterThan(-1);
+    expect(pub.indexOf("!d.approvalValid")).toBeLessThan(pub.indexOf("await postToLinkedIn("));
+    expect(pub.indexOf('transition(d.action, "executed"')).toBeLessThan(pub.indexOf("await postToLinkedIn("));
     expect(fs.existsSync(path.join(process.cwd(), "vercel.json"))).toBe(false);
   });
 
@@ -576,7 +585,7 @@ describe("no publishing path without approval", () => {
       expect(fs.readFileSync(f, "utf8"), f).toMatch(/await requireOwner\(/);
     }
     for (const f of studio.filter((f) => f.endsWith("route.ts"))) {
-      expect(fs.readFileSync(f, "utf8"), f).toMatch(/isOwner\(await currentAccount\(\)\)/);
+      expect(fs.readFileSync(f, "utf8"), f).toMatch(/isOwner\(await currentAccount\(\)\)|const account = await currentAccount\(\);\s*if \(!isOwner\(account\)\) return/);
     }
     const actions = fs.readFileSync(path.join(src, "app/studio/actions.ts"), "utf8");
     const exported = [...actions.matchAll(/export async function (\w+)\([^)]*\)\s*\{([\s\S]*?)\n\}/g)];
@@ -643,5 +652,224 @@ describe("media copies", () => {
     const again = await secureAssets(ME);
     expect(again.copied).toBe(0);
     expect(again.alreadySecured).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe("LinkedIn direct publishing", () => {
+  const SECRET = "test-client-secret-0123456789";
+  const inAnHour = () => new Date(Date.now() + 3_600_000).toISOString();
+  let seq = 7_000_000_000_000_000_000;
+
+  /** A fake LinkedIn: records every call; behaviour per test via `mode`. */
+  const fake = {
+    mode: "ok" as "ok" | "reject" | "silent" | "read_ok",
+    calls: [] as { url: string; method: string; body?: string }[],
+    lastCommentary: "",
+  };
+  const linkedinFetch = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+    const u = String(input);
+    const method = init?.method ?? "GET";
+    fake.calls.push({ url: u, method, body: typeof init?.body === "string" ? init.body : undefined });
+    if (u.endsWith("/rest/posts") && method === "POST") {
+      if (fake.mode === "silent") throw new TypeError("network down");
+      if (fake.mode === "reject") return Response.json({ message: "Invalid content" }, { status: 422 });
+      fake.lastCommentary = JSON.parse(String(init!.body)).commentary;
+      return new Response(null, { status: 201, headers: { "x-restli-id": `urn:li:share:${++seq}` } });
+    }
+    if (u.includes("/rest/posts/")) {
+      return fake.mode === "read_ok" ? Response.json({ commentary: fake.lastCommentary }) : Response.json({ message: "Not enough permissions" }, { status: 403 });
+    }
+    if (u.includes("/rest/images?action=initializeUpload")) return Response.json({ value: { uploadUrl: "https://www.linkedin.com/dms-uploads/x", image: "urn:li:image:C4E1" } });
+    if (u.startsWith("https://www.linkedin.com/dms-uploads/")) return new Response(null, { status: 201 });
+    if (u.includes("/rest/images/")) return Response.json({ status: "AVAILABLE" });
+    return new Response("unexpected", { status: 500 });
+  }) as unknown as typeof fetch;
+
+  async function connect() {
+    const { saveConnection } = await import("./linkedin");
+    await saveConnection({ memberUrn: "urn:li:person:abc123", memberName: "Owner", scopes: "openid profile w_member_social", accessToken: "token-xyz", expiresIn: 60 * 86_400 });
+  }
+  async function approvedAt(target: string | null, text?: string) {
+    const { actionId } = await createDraft({
+      kind: "post", actionKind: "publish_post", channel: "manual", origin: "manual", author: ME,
+      content: { text: text ?? `Direct post ${crypto.randomUUID()} (with brackets) #UnitEconomics`, assets: [], target_at: target },
+    });
+    const d = (await getAction(actionId))!;
+    await approve(actionId, d.current.id, d.current.content_hash, ME);
+    return actionId;
+  }
+
+  beforeAll(async () => {
+    vi.stubEnv("LINKEDIN_CLIENT_ID", "client-id");
+    vi.stubEnv("LINKEDIN_CLIENT_SECRET", SECRET);
+    await connect();
+  });
+  afterEach(() => {
+    fake.mode = "ok";
+    fake.calls = [];
+  });
+
+  it("formats post text so LinkedIn keeps every character, with real hashtags", async () => {
+    const { toLittleText } = await import("./linkedin");
+    expect(toLittleText("Revenue (+16%) vs GMV_2 [note] @x <y> *z* ~w | {a} \\ end")).toBe(
+      "Revenue \\(+16%\\) vs GMV\\_2 \\[note\\] \\@x \\<y\\> \\*z\\* \\~w \\| \\{a\\} \\\\ end",
+    );
+    expect(toLittleText("Line\n\n#UnitEconomics #GTM")).toBe("Line\n\n{hashtag|\\#|UnitEconomics} {hashtag|\\#|GTM}");
+    expect(toLittleText("Not a tag: a#b and # alone")).toBe("Not a tag: a\\#b and \\# alone");
+  });
+
+  it("stores the token encrypted and can't read it with another secret", async () => {
+    const { encryptToken, decryptToken } = await import("./linkedin");
+    const enc = encryptToken("secret-token", SECRET);
+    expect(enc).not.toContain("secret-token");
+    expect(decryptToken(enc, SECRET)).toBe("secret-token");
+    expect(decryptToken(enc, "another-secret")).toBeNull();
+    const rows = await select<{ access_token_enc: string | null }>("li_linkedin_connection", []);
+    expect(rows.some((r) => r.access_token_enc?.includes("token-xyz"))).toBe(false);
+  });
+
+  it("publishes an approved post once, records it, and doesn't call it verified without evidence", async () => {
+    const { publishAction } = await import("./publish");
+    const id = await approvedAt(inAnHour());
+    const r = await publishAction(id, ME, linkedinFetch);
+    expect(r.url).toMatch(/^https:\/\/www\.linkedin\.com\/feed\/update\/urn:li:share:\d+\/$/);
+    expect(r.verified).toBe(false);
+    const sent = JSON.parse(fake.calls.find((c) => c.url.endsWith("/rest/posts"))!.body!);
+    expect(sent).toMatchObject({ author: "urn:li:person:abc123", visibility: "PUBLIC", lifecycleState: "PUBLISHED" });
+    expect(sent.commentary).toContain("\\(with brackets\\)");
+    const d = (await getAction(id))!;
+    expect(d.action.status).toBe("executed");
+    expect(d.executions[0]).toMatchObject({ channel: "linkedin_api", result: "executed", external_url: r.url });
+    const history = await select<{ source: string; external_url: string }>("li_content", []);
+    expect(history.some((h) => h.source === "studio" && h.external_url === r.url)).toBe(true);
+    await expect(publishAction(id, ME, linkedinFetch)).rejects.toThrow(/no valid approval/);
+    expect(fake.calls.filter((c) => c.url.endsWith("/rest/posts"))).toHaveLength(1);
+  });
+
+  it("marks it verified only when LinkedIn returns the same text", async () => {
+    const { publishAction } = await import("./publish");
+    fake.mode = "read_ok";
+    const id = await approvedAt(inAnHour());
+    expect((await publishAction(id, ME, linkedinFetch)).verified).toBe(true);
+    expect((await getAction(id))!.action.status).toBe("verified");
+  });
+
+  it("refuses without approval, after an edit, and for content already published", async () => {
+    const { publishAction } = await import("./publish");
+    const { actionId } = await post();
+    await expect(publishAction(actionId, ME, linkedinFetch)).rejects.toThrow(/no valid approval/);
+    const id = await approvedAt(inAnHour());
+    const d = (await getAction(id))!;
+    await addVersion(id, { ...d.current, text: d.current.text + " edited" }, ME);
+    await expect(publishAction(id, ME, linkedinFetch)).rejects.toThrow(/no valid approval/);
+    expect(fake.calls).toHaveLength(0);
+  });
+
+  it("a rejection by LinkedIn fails cleanly and can be tried again after re-approval", async () => {
+    const { publishAction } = await import("./publish");
+    fake.mode = "reject";
+    const id = await approvedAt(inAnHour());
+    await expect(publishAction(id, ME, linkedinFetch)).rejects.toThrow(/rejected the post \(422.*Nothing was posted/);
+    let d = (await getAction(id))!;
+    expect(d.action.status).toBe("failed");
+    expect(d.executions[0].result).toBe("failed");
+    await reopen(id, ME);
+    d = (await getAction(id))!;
+    await approve(id, d.current.id, d.current.content_hash, ME);
+    fake.mode = "ok";
+    await expect(publishAction(id, ME, linkedinFetch)).resolves.toMatchObject({ verified: false });
+  });
+
+  it("an unknown outcome is never retried and waits for the owner to check", async () => {
+    const { publishAction, publishDue, resolveUnknown } = await import("./publish");
+    fake.mode = "silent";
+    const id = await approvedAt(inAnHour());
+    await expect(publishAction(id, ME, linkedinFetch)).rejects.toThrow(/may or may not have been published/);
+    let d = (await getAction(id))!;
+    expect(d.action.status).toBe("executed");
+    expect(d.executions[0].result).toBe("unknown");
+    fake.mode = "ok";
+    await publishDue("scheduler", new Date(Date.now() + 2 * 3_600_000), linkedinFetch);
+    expect(fake.calls.filter((c) => c.url.endsWith("/rest/posts"))).toHaveLength(1);
+    await expect(addVersion(id, { ...d.current, text: "change" }, ME)).rejects.toThrow(/can't be edited/);
+    await resolveUnknown(id, "not_published", ME);
+    d = (await getAction(id))!;
+    expect(d.action.status).toBe("failed");
+  });
+
+  it("the scheduler posts due items, waits for future ones, and holds back late ones", async () => {
+    const { publishDue } = await import("./publish");
+    const due = await approvedAt(new Date(Date.now() + 60_000).toISOString());
+    const later = await approvedAt(new Date(Date.now() + 10 * 3_600_000).toISOString());
+    const late = await approvedAt(new Date(Date.now() + 120_000).toISOString());
+    const noTime = await approvedAt(null);
+    // Five hours after `late` was due (limit is three), but two minutes after `due` would also be late:
+    // run once just after `due`, then once well after `late`.
+    const first = await publishDue("scheduler", new Date(Date.now() + 90_000), linkedinFetch);
+    expect(first.published.map((p) => p.actionId)).toContain(due);
+    expect(first.published.map((p) => p.actionId)).not.toContain(later);
+    expect(first.published.map((p) => p.actionId)).not.toContain(noTime);
+    const second = await publishDue("scheduler", new Date(Date.now() + 5 * 3_600_000), linkedinFetch);
+    expect(second.blockedLate).toContain(late);
+    expect((await getAction(late))!.action.status).toBe("blocked");
+    expect((await getAction(later))!.action.status).toBe("approved");
+    expect((await getAction(noTime))!.action.status).toBe("approved");
+  });
+
+  it("uploads an image from the verified copy before posting", async () => {
+    const { publishAction } = await import("./publish");
+    const { secureAssets } = await import("./assets");
+    const imgUrl = `https://stpnogsoeaofxlnighnt.supabase.co/storage/v1/object/public/li-assets/test/${crypto.randomUUID()}.png`;
+    const bytes = new Uint8Array([137, 80, 78, 71, 9, 9, 9]);
+    const { actionId } = await createDraft({
+      kind: "post", actionKind: "publish_post", channel: "manual", origin: "manual", author: ME,
+      content: { text: `Image post ${crypto.randomUUID()}`, assets: [{ type: "image", url: imgUrl }], target_at: inAnHour() },
+    });
+    vi.stubGlobal("fetch", vi.fn(async (u: string) => (u === imgUrl ? new Response(bytes, { headers: { "content-type": "image/png" } }) : new Response("no", { status: 404 }))));
+    await secureAssets(ME);
+    vi.unstubAllGlobals();
+    const d = (await getAction(actionId))!;
+    await approve(actionId, d.current.id, d.current.content_hash, ME);
+    await publishAction(actionId, ME, linkedinFetch);
+    const put = fake.calls.find((c) => c.method === "PUT");
+    expect(put?.url).toBe("https://www.linkedin.com/dms-uploads/x");
+    const sent = JSON.parse(fake.calls.find((c) => c.url.endsWith("/rest/posts"))!.body!);
+    expect(sent.content).toEqual({ media: { id: "urn:li:image:C4E1" } });
+  });
+
+  it("approval refuses a planned time that has passed", async () => {
+    const { actionId } = await createDraft({
+      kind: "post", actionKind: "publish_post", channel: "manual", origin: "manual", author: ME,
+      content: { text: `Past ${crypto.randomUUID()}`, assets: [], target_at: "2020-01-01T10:00:00.000Z" },
+    });
+    const d = (await getAction(actionId))!;
+    await expect(approve(actionId, d.current.id, d.current.content_hash, ME)).rejects.toThrow(/planned time has passed/);
+  });
+
+  it("does nothing when LinkedIn isn't connected", async () => {
+    const { publishDue, publishAction } = await import("./publish");
+    const { disconnect } = await import("./linkedin");
+    const id = await approvedAt(inAnHour());
+    await disconnect();
+    try {
+      expect(await publishDue("scheduler", new Date(Date.now() + 3_700_000), linkedinFetch)).toMatchObject({ ran: false });
+      await expect(publishAction(id, ME, linkedinFetch)).rejects.toThrow(/isn't connected/);
+      expect(fake.calls).toHaveLength(0);
+    } finally {
+      await connect();
+    }
+  });
+
+  it("the scheduler endpoint is hidden without the right secret", async () => {
+    const { GET } = await import("@/app/api/studio/publish-due/route");
+    vi.stubEnv("CRON_SECRET", "");
+    expect((await GET(new Request("http://x/api/studio/publish-due"))).status).toBe(404);
+    vi.stubEnv("CRON_SECRET", "c".repeat(40));
+    expect((await GET(new Request("http://x/api/studio/publish-due", { headers: { authorization: "Bearer wrong" } }))).status).toBe(404);
+    expect((await GET(new Request("http://x/api/studio/publish-due", { headers: { authorization: `Bearer ${"d".repeat(40)}` } }))).status).toBe(404);
+    const ok = await GET(new Request("http://x/api/studio/publish-due", { headers: { authorization: `Bearer ${"c".repeat(40)}` } }));
+    expect(ok.status).toBe(200);
+    expect(JSON.stringify(await ok.json())).not.toMatch(/Direct post|commentary/);
+    vi.stubEnv("CRON_SECRET", "");
   });
 });

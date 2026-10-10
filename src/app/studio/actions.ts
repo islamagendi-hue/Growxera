@@ -9,10 +9,13 @@ import { revalidatePath } from "next/cache";
 import { secureAssets } from "@/lib/studio/assets";
 import { verifyGrok } from "@/lib/studio/grok";
 import { importSnapshot, snapshotSchema } from "@/lib/studio/import";
+import { connectionState, disconnect } from "@/lib/studio/linkedin";
+import { publishAction, publishDue, resolveUnknown } from "@/lib/studio/publish";
 import { ownerOrThrow } from "@/lib/studio/owner";
 import {
   addVersion,
   approve,
+  audit,
   getAction,
   markFailed,
   recordManualExecution,
@@ -51,7 +54,15 @@ async function run(actionId: string, fn: (actor: string) => Promise<unknown>, no
 
 export async function approveAction(form: FormData) {
   const id = str(form, "actionId");
-  await run(id, (actor) => approve(id, str(form, "versionId"), str(form, "hash"), actor), "Approved. It will not be published until you complete the next step.");
+  await ownerOrThrow();
+  const connected = (await connectionState()).state === "connected";
+  await run(
+    id,
+    (actor) => approve(id, str(form, "versionId"), str(form, "hash"), actor),
+    connected
+      ? "Approved. The studio will post it on LinkedIn at its planned time. Any edit cancels this."
+      : "Approved. It will not be published until you complete the next step.",
+  );
 }
 
 export async function rejectAction(form: FormData) {
@@ -156,4 +167,52 @@ export async function secureAssetsAction() {
   }
   revalidatePath("/studio", "layout");
   redirect(`/studio/import?${q}#media`);
+}
+
+// ── LinkedIn direct publishing ──────────────────────────────────────────────
+
+export async function publishNowAction(form: FormData) {
+  const id = str(form, "actionId");
+  await run(
+    id,
+    async (actor) => {
+      if (form.get("confirm") !== "yes") throw new WorkflowError("Tick the box to confirm you want to post it now.");
+      await publishAction(id, actor);
+    },
+    "Posted to LinkedIn. See the result below.",
+  );
+}
+
+export async function resolveUnknownAction(form: FormData) {
+  const id = str(form, "actionId");
+  const notPublished = str(form, "found") === "not_published";
+  await run(
+    id,
+    (actor) => resolveUnknown(id, notPublished ? "not_published" : { url: str(form, "url") }, actor),
+    notPublished ? "Recorded as not published. Return it to review to try again." : "Recorded. Confirm it is live to verify.",
+  );
+}
+
+export async function publishDueNowAction() {
+  const owner = await ownerOrThrow();
+  let q: string;
+  try {
+    const r = await publishDue(owner.email);
+    q = r.ran
+      ? `notice=${encodeURIComponent(`Due posts: ${r.published.length} posted, ${r.failed.length} failed, ${r.blockedLate.length} blocked as too late, ${r.waiting} waiting for their time.`)}`
+      : `error=${encodeURIComponent(r.reason ?? "LinkedIn isn't connected.")}`;
+  } catch (err) {
+    console.error("[studio] publish due failed", safeLog(err));
+    q = `error=${encodeURIComponent("Publishing due posts failed. Check the queue before trying again.")}`;
+  }
+  revalidatePath("/studio", "layout");
+  redirect(`/studio/queue?${q}`);
+}
+
+export async function disconnectLinkedInAction() {
+  const owner = await ownerOrThrow();
+  const done = await disconnect();
+  if (done) await audit(owner.email, "linkedin.disconnected", "li_linkedin_connection", null);
+  revalidatePath("/studio", "layout");
+  redirect(`/studio/capabilities?notice=${encodeURIComponent(done ? "Disconnected. The studio no longer holds a LinkedIn token." : "Nothing was connected.")}#linkedin`);
 }

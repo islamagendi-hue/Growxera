@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { first, Notice, StatusBadge } from "@/components/studio/StudioUi";
+import { buttonClass } from "@/components/ui/button";
+import { connectionState } from "@/lib/studio/linkedin";
 import { requireOwner } from "@/lib/studio/owner";
+import { publishDueNowAction } from "../actions";
 import { listActions, statusCounts } from "@/lib/studio/repo";
 import { formatRiyadh } from "@/lib/studio/time";
 import { STATUS_LABELS, STATUSES, type Status } from "@/lib/studio/workflow";
@@ -14,16 +17,23 @@ export default async function Queue({ searchParams }: PageProps<"/studio/queue">
   const status = STATUSES.includes(wanted as Status) ? (wanted as Status) : null;
   const [items, counts] = await Promise.all([listActions(status ? [status] : undefined), statusCounts()]);
   const now = new Date().toISOString();
+  const li = await connectionState();
   const sorted = [...items].sort((a, b) => (a.current?.target_at ?? "9").localeCompare(b.current?.target_at ?? "9"));
 
   return (
     <div className="mt-8">
       <h1 className="text-h2 font-semibold">Approval queue</h1>
       <p className="mt-2 max-w-[70ch] text-ink-2">
-        Nothing here is published until you approve the exact version and complete the publishing step. Editing after approval
-        voids the approval.
+        Nothing here is published until you approve the exact version. Editing after approval voids the approval.
       </p>
       <Notice notice={first(sp.notice)} error={first(sp.error)} />
+
+      {li.state === "connected" && (
+        <form action={publishDueNowAction} className="mt-4 flex flex-wrap items-center gap-3 text-sm">
+          <span className="text-ink-2">LinkedIn connected: approved posts go out at their planned time.</span>
+          <button className={buttonClass("secondary")}>Publish due posts now</button>
+        </form>
+      )}
 
       <div className="mt-6 flex flex-wrap gap-2 text-sm">
         <Link href="/studio/queue" className={`border px-3 py-1 ${!status ? "border-ink bg-ink text-paper" : "border-line"}`}>
