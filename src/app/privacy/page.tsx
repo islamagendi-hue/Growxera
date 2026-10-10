@@ -95,7 +95,7 @@ export default function Privacy() {
         <section>
           <h2>Who processes it</h2>
           <ul>
-            <li>Vercel Inc. (website hosting).</li>
+            <li>Vercel Inc. (website hosting, and cookieless, aggregated visit statistics).</li>
             <li>Supabase Inc. (database), hosted in the United States (us-east-1) region.</li>
             <li>Resend (sending your report, sign-in links and booking emails).</li>
             <li>Google LLC (Google Analytics 4), only if you accept analytics.</li>

@@ -225,8 +225,8 @@ export function DiagnosticApp() {
       void submit(answers);
       return;
     }
-    if (page === 0) {
-      // Optional: fill the numbers in from a file, once the business model is known.
+    if (current.ids.includes("geography")) {
+      // Optional: fill the numbers in from a file, once the business context is complete.
       setPhase("upload");
       scrollTop();
       return;
@@ -304,7 +304,7 @@ export function DiagnosticApp() {
                 track("diagnostic_upload_applied", { kind: applied.summary.kind, metrics: applied.summary.applied.length });
               }
               setPhase("questions");
-              setPage(1);
+              setPage(pages.findIndex((p) => p.ids.includes("geography")) + 1);
               scrollTop();
             }}
           />

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Mono } from "next/font/google";
 import localFont from "next/font/local";
+import { Analytics } from "@vercel/analytics/next";
 import { AttributionCapture } from "@/components/site/AttributionCapture";
 import { ConsentBanner } from "@/components/site/ConsentBanner";
 import { Footer } from "@/components/site/Footer";
@@ -92,6 +93,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         </HideOnLanding>
         <ConsentBanner />
         <GoogleAnalytics />
+        {/* Cookieless page counts (no personal data), so every visit is counted, not only consented ones. */}
+        <Analytics />
       </body>
     </html>
   );
