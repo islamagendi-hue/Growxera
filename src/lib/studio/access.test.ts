@@ -155,6 +155,33 @@ describe("sign-in", () => {
   });
 });
 
+describe("recovery", () => {
+  it("a new setup link gets the owner back in during a global lockout and replaces the old password and authenticator", async () => {
+    const oldSecret = await setUp();
+    const oldSession = jar.get(SESSION_COOKIE)!;
+    const rows = Array.from({ length: GLOBAL_MAX_FAILURES }, () => ({ id: crypto.randomUUID(), created_at: new Date().toISOString(), ok: false, ip_hash: crypto.randomUUID() }));
+    await insert("li_access_attempts", rows);
+    await expect(signIn({ email: OWNER, password: PASSWORD, code: totpAt(oldSecret, step() + 1), ip: "owner", userAgent: null })).rejects.toThrow(/Too many attempts/);
+
+    // Recovery: a fresh one-time link (scripts/studio-setup-link.mjs) skips the lockout.
+    const NEW_PASSWORD = "a brand new long password";
+    const token = await createSetupToken();
+    const s = (await startSetup(token))!;
+    jar.clear();
+    const session = await completeSetup({ token, sealed: s.sealed, password: NEW_PASSWORD, confirm: NEW_PASSWORD, code: totpAt(s.secret, step()), userAgent: null });
+    jar.set(SESSION_COOKIE, session);
+    expect(await studioOwner()).toEqual({ email: OWNER });
+    // Every earlier session is signed out.
+    jar.set(SESSION_COOKIE, oldSession);
+    expect(await studioOwner()).toBeNull();
+    // Once the lockout window has passed, the old password and old authenticator no longer work; the new ones do.
+    vi.useFakeTimers({ now: Date.now() + 61 * 60_000, toFake: ["Date"] });
+    await expect(signIn({ email: OWNER, password: PASSWORD, code: totpAt(s.secret, step()), ip: "owner-2", userAgent: null })).rejects.toThrow(/aren't right/);
+    await expect(signIn({ email: OWNER, password: NEW_PASSWORD, code: totpAt(oldSecret, step() + 1), ip: "owner-3", userAgent: null })).rejects.toThrow(/aren't right/);
+    await expect(signIn({ email: OWNER, password: NEW_PASSWORD, code: totpAt(s.secret, step() + 1), ip: "owner-4", userAgent: null })).resolves.toBeTruthy();
+  });
+});
+
 describe("sessions", () => {
   it("cookie is httpOnly, SameSite=Lax, whole-site path, 7 days", () => {
     expect(sessionCookie("x")).toMatchObject({ httpOnly: true, sameSite: "lax", path: "/", maxAge: 7 * 86_400 });
