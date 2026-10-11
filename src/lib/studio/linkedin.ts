@@ -18,6 +18,7 @@ import "server-only";
 import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from "node:crypto";
 import { SITE } from "@/config/site";
 import { eq, insert, selectAll, storageMode, update } from "@/lib/server/store";
+import { PUBLISHING_OFF, publishingSwitch } from "./switch";
 
 const clean = (v?: string) => v?.trim().replace(/^["']|["']$/g, "").trim() || undefined;
 
@@ -364,6 +365,12 @@ export async function postToLinkedIn(
   input: { token: string; author: string; apiVersion: string; text: string; media: PostMedia | null },
   f: Fetch = fetch,
 ): Promise<{ urn: string; sentCommentary: string }> {
+  // Second check of the all-publishing switch (the first is in publishAction): before any upload,
+  // and again right before the post request, so switching OFF stops even a run already under way.
+  const stopIfOff = async () => {
+    if (!(await publishingSwitch()).enabled) throw new LinkedInError(PUBLISHING_OFF, null, true);
+  };
+  await stopIfOff();
   const mediaUrn = input.media ? await uploadMedia(f, input.token, input.author, input.apiVersion, input.media) : null;
   const commentary = toLittleText(input.text);
   const body: Record<string, unknown> = {
@@ -376,6 +383,7 @@ export async function postToLinkedIn(
   };
   if (mediaUrn) body.content = { media: input.media!.kind === "document" ? { id: mediaUrn, title: input.media!.title } : { id: mediaUrn } };
 
+  await stopIfOff();
   let res: Response;
   try {
     res = await f(`${API}/rest/posts`, {

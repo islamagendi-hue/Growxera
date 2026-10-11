@@ -8,6 +8,7 @@ import { assetsByUrl } from "@/lib/studio/assets";
 import { connectionState } from "@/lib/studio/linkedin";
 import { authorizationsFor, autoPublishSwitch, isAutoAuthorized, leadTimeOk } from "@/lib/studio/autopublish";
 import { getAction } from "@/lib/studio/repo";
+import { publishingSwitch } from "@/lib/studio/switch";
 import { formatRiyadh, isPast, toRiyadhInput } from "@/lib/studio/time";
 import {
   approveAction,
@@ -44,6 +45,7 @@ export default async function QueueItem({ params, searchParams }: PageProps<"/st
   const direct = li.state === "connected" && li.canPost && action.kind === "publish_post" && current.assets.length <= 1;
   const unknown = action.status === "executed" ? executions.find((e) => e.result === "unknown") : undefined;
   const sw = await autoPublishSwitch();
+  const all = await publishingSwitch();
   const autoAuthorized = isAutoAuthorized(d, await authorizationsFor(action.id));
   const canAuthorize =
     action.status === "approved" && approvalValid && action.kind === "publish_post" && !autoAuthorized && leadTimeOk(current.target_at);
@@ -140,7 +142,8 @@ export default async function QueueItem({ params, searchParams }: PageProps<"/st
             <h2 className="text-h3 font-semibold">Automatic publishing</h2>
             <p className="mt-1 text-sm text-ink-2">
               Approving the content does not publish it. Automatic publishing needs your separate confirmation for this exact version and
-              time, and automatic publishing switched on ({sw.enabled ? "it is ON" : "it is OFF"}). It goes out only at its planned time, never early and never late. If the scheduler doesn&apos;t
+              time, and both automatic publishing ({sw.enabled ? "ON" : "OFF"}) and all publishing ({all.enabled ? "ON" : "OFF"})
+              switched on. It goes out only at its planned time, never early and never late. If the scheduler doesn&apos;t
               run at that moment, the post is held for review with the reason, and needs a new time and a new approval.
             </p>
             {autoAuthorized ? (
@@ -178,14 +181,24 @@ export default async function QueueItem({ params, searchParams }: PageProps<"/st
           <section className="mt-8 border border-ink p-6">
             <h2 className="text-h3 font-semibold">Publish now (LinkedIn connected)</h2>
             <p className="mt-1 text-sm text-ink-2">Posts this version immediately, as a one-off action by you. It doesn&apos;t depend on automatic publishing.</p>
-            <form action={publishNowAction} className="mt-4">
-              <input type="hidden" name="actionId" value={action.id} />
-              <label className="flex items-start gap-2 text-sm">
-                <input type="checkbox" name="confirm" value="yes" required className="mt-1" />
-                Post version {current.version} on my LinkedIn profile now.
-              </label>
-              <button className={buttonClass("primary", "mt-3")}>Publish now</button>
-            </form>
+            {all.enabled ? (
+              <form action={publishNowAction} className="mt-4">
+                <input type="hidden" name="actionId" value={action.id} />
+                <label className="flex items-start gap-2 text-sm">
+                  <input type="checkbox" name="confirm" value="yes" required className="mt-1" />
+                  Post version {current.version} on my LinkedIn profile now.
+                </label>
+                <button className={buttonClass("primary", "mt-3")}>Publish now</button>
+              </form>
+            ) : (
+              <p className="mt-3 text-sm font-medium">
+                All publishing is OFF, so this can&apos;t be posted.{" "}
+                <Link href="/studio/capabilities#publishing" className="underline">
+                  Switch it on in Capabilities
+                </Link>
+                .
+              </p>
+            )}
           </section>
         )}
 

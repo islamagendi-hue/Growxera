@@ -17,6 +17,7 @@ import "server-only";
  */
 import { eq, insert, select, selectOne, update } from "@/lib/server/store";
 import { type AssetRow, getObject } from "./assets";
+import { assertPublishingOn, PUBLISHING_OFF, publishingSwitch } from "./switch";
 import { authorizationsFor, autoPublishSwitch, holdMissed, isAutoAuthorized, timing } from "./autopublish";
 import { LinkedInError, postingCredentials, postToLinkedIn, postUrl, type PostMedia, readBackPost } from "./linkedin";
 import {
@@ -67,6 +68,8 @@ export async function publishAction(
 ): Promise<PublishResult> {
   const mode = opts.mode ?? "manual";
   const at = opts.now ?? new Date();
+  // All publishing (manual and automatic) is blocked while the all-publishing switch is OFF.
+  await assertPublishingOn();
   const creds = await postingCredentials(at);
   if ("error" in creds) throw new WorkflowError(creds.error);
   const d = await load(actionId);
@@ -239,7 +242,9 @@ export async function publishDue(actor: string, at = new Date(), f: typeof fetch
     } else due.push(action.id);
   }
 
-  if (!sw.enabled) report.reason = "Automatic publishing is switched off.";
+  const all = await publishingSwitch();
+  if (!all.enabled) report.reason = PUBLISHING_OFF;
+  else if (!sw.enabled) report.reason = "Automatic publishing is switched off.";
   else {
     const creds = await postingCredentials(at);
     if ("error" in creds) report.reason = creds.error;
