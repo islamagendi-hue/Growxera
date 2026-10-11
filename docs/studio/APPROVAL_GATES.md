@@ -26,11 +26,13 @@ Approve as one batch. Execute in the order below; each step has a check and a wa
 |---|---|---|---|---|---|
 | 1 | A2 | Apply migrations `20261014000000_studio_access.sql` and `20261015000000_publishing_controls.sql` to project growxera | 6 new tables; nothing existing changes. Production code ignores them | Leave them (harmless), or drop only these 6 tables | 0 |
 | 2 | A3 🌐⛔ | Add `agent.growxera.com` to Vercel project `growx-era`; add the DNS record Vercel shows (CNAME `agent`) at Unstoppable Domains; wait until Vercel shows the domain valid with a certificate | New public subdomain. The hostname is recorded permanently in Certificate Transparency logs when the certificate is issued | Remove the record and the domain (the log entry stays) | 0 |
-| 3 | A1 🌐⛔ | Merge PR #17 → #18 → #19 → #20 into `main` (production deploys) | Studio leaves www (404 there); sign-in moves to agent.growxera.com; publishing switches OFF. Merge commits stay in the public history | Promote the previous production deployment in Vercel (instant), or revert the merges | 0 |
-| 4 | A4 | Create the one-time setup link (24 h, single use) right after A1 is live; the owner sets the password and pairs the authenticator | 1 setup-token row | A new link if it expires or is lost | 0 |
+| 3 | A1 🌐⛔ | Collapse the stack (#20 → #19 → #18 → #17 branches; previews only), then **one** merge of #17 into `main`: the only production deployment | Studio leaves www (404 there); sign-in moves to agent.growxera.com; publishing switches OFF. Merge commits stay in the public history | Promote the previous production deployment in Vercel (instant), or revert the merges | 0 |
+| 4 | A4 | Create the one-time setup link (2 h, single use, token in the URL fragment, delivered as a private file) right after A1 is live; the owner sets the password and pairs the authenticator | 1 setup-token row | A new link if it expires or is lost | 0 |
 | 5 | A5 | LinkedIn app → Auth: **add** `https://agent.growxera.com/studio/linkedin/callback`. Keep the www callback (needed for rollback) | LinkedIn app setting | Remove the added URL | 0 |
 
 Batch A doesn't connect LinkedIn, publish, change Buffer, switch anything ON, or cost anything.
+
+**Product build:** `claude/studio-m2-product` (dashboard, posts, calendar, uploads, activity, settings, E2E) is stacked on #20. It can join A1, as one more collapse step before the single merge into `main`, or be merged after go-live. That is the owner's choice; either way it changes no database schema.
 
 ## Pending: batch B, "first real post" (after batch A)
 
