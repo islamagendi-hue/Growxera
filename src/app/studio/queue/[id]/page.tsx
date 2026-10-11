@@ -59,7 +59,7 @@ export default async function QueueItem({ params, searchParams }: PageProps<"/st
     <div className="mt-8 grid gap-10 lg:grid-cols-[1fr_340px]">
       <div>
         <Link href="/studio/queue" className="text-sm underline underline-offset-4">
-          ← Approval queue
+          ← Posts
         </Link>
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <StatusBadge status={action.status} />
@@ -231,7 +231,7 @@ export default async function QueueItem({ params, searchParams }: PageProps<"/st
               <p className="mt-3 text-sm font-medium">
                 All publishing is OFF, so this can&apos;t be posted.{" "}
                 <Link href="/studio/capabilities#publishing" className="underline">
-                  Switch it on in Capabilities
+                  Switch it on in Integrations
                 </Link>
                 .
               </p>
