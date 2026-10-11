@@ -15,7 +15,8 @@ import "server-only";
  */
 import { cache } from "react";
 import { cookies, headers } from "next/headers";
-import { eq, gt, insert, isNull, select, selectOne, update } from "@/lib/server/store";
+import { studioDataBlocked } from "@/lib/server/deployment";
+import { eq, gt, insert, isNull, select, selectOne, storageMode, update } from "@/lib/server/store";
 import { hashPassword, newTotpSecret, open, randomToken, seal, serverSecret, sha256, verifyPassword, verifyTotp } from "./crypto";
 import { isStudioHost } from "./host";
 import { ownerEmail } from "./owner-email";
@@ -184,6 +185,8 @@ export function sessionCookie(token: string) {
 export const studioOwner = cache(async (): Promise<{ email: string } | null> => {
   const owner = ownerEmail();
   if (!owner) return null;
+  // Never on a deployment that may not touch studio data (a preview sharing the production database).
+  if (storageMode === "supabase" && studioDataBlocked()) return null;
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   if (!token || !/^[A-Za-z0-9_-]{20,100}$/.test(token)) return null;
   // Server actions can be invoked through any page URL on any host, not only studio paths, so the

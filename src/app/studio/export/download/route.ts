@@ -2,13 +2,15 @@ import { studioOwner } from "@/lib/studio/access";
 import { buildExport } from "@/lib/studio/export";
 import { studioStorageError } from "@/lib/studio/owner";
 import { audit } from "@/lib/studio/repo";
+import { startedHere } from "@/lib/studio/request";
 
 export const dynamic = "force-dynamic";
 
 /** Owner-only download of the weekly backup export (see src/lib/studio/export.ts). Everyone else: 404. */
-export async function GET() {
+export async function GET(req: Request) {
   const account = await studioOwner();
   if (!account) return new Response("Not found", { status: 404 });
+  if (!startedHere(req)) return new Response("Not found", { status: 404 });
   if (studioStorageError()) return new Response("Storage isn't configured.", { status: 503 });
   try {
     const file = await buildExport(account.email);

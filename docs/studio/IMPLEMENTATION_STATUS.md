@@ -23,7 +23,8 @@ As of 11 Oct 2026. Nothing below is merged or deployed. Production still runs `m
 | `da19fbf`, `9bbc9c5` | Product audit, plan, status, runbook, architecture docs |
 | `5a48946` | Audit fixes: honest capability register, accurate publishing texts, error/loading states, damaged-local-store fix, broader E2E |
 | `816cdae` | Docs |
-| readiness round (see the final report for the hash) | Session counts only on the studio's address; publishing notices name both switches; `noindex` on the studio's address; runbook readiness review; launch verification list |
+| `c9dd5f2` | Readiness round: session counts only on the studio's address; publishing notices name both switches; `noindex` on the studio's address; runbook readiness review; launch verification list |
+| security round (see the final report for the hash) | Studio data refused on non-production deployments (preview isolation); cross-site GET checks on backup download and LinkedIn connect; anti-framing and referrer headers on the studio host; SECURITY_REVIEW.md |
 
 ## Test results
 
@@ -31,11 +32,11 @@ As of 11 Oct 2026. Nothing below is merged or deployed. Production still runs `m
 
 | Check | Result |
 |---|---|
-| Unit tests | `npx vitest run`: **221 passed**, 0 skipped |
-| End-to-end | `npx playwright test`: **22 passed**, 1 skipped (screenshots run only on request) |
+| Unit tests | `npx vitest run`: **226 passed**, 0 skipped |
+| End-to-end | `npx playwright test`: **23 passed**, 1 skipped (screenshots run only on request) |
 | Types | `npx tsc --noEmit`: pass |
 | Lint | `npx eslint src scripts`: pass |
-| Build | `npx next build`: pass; `next start` host smoke test: studio paths 404 on www and preview hosts, studio host redirects signed-out visitors to sign-in and sends `noindex`, scheduler 404 without its secret |
+| Build | `npx next build`: pass; preview-mode `next start` against a request-logging fake database: 0 studio requests reached it (production mode: it did, as expected); `next start` host smoke test: studio paths 404 on www and preview hosts, studio host redirects signed-out visitors to sign-in and sends `noindex`, scheduler 404 without its secret |
 | Dependencies | `npm audit --omit=dev`: 0 vulnerabilities. The full audit lists 5 high advisories in lint tooling only (see PRODUCT_AUDIT §5) |
 
 **CI (GitHub Actions, push to `claude/studio-m2-product`):**

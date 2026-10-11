@@ -13,6 +13,7 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { studioDataBlocked } from "@/lib/server/deployment";
 import { eq, insert, select, selectAll, selectOne, storageMode, update } from "@/lib/server/store";
 import { audit } from "./repo";
 
@@ -54,7 +55,14 @@ const SUPABASE_URL = () => clean(process.env.SUPABASE_URL)?.replace(/\/$/, "");
 const KEY = () => clean(process.env.SUPABASE_SERVICE_ROLE_KEY);
 const localPath = (p: string) => path.join(process.env.GX_DATA_DIR || path.join(process.cwd(), ".data"), "storage", BUCKET, p);
 
+/** The studio's bucket is studio data: refused on non-production deployments (deployment.ts). */
+function guardBucket(): void {
+  const blocked = storageMode === "supabase" ? studioDataBlocked() : null;
+  if (blocked) throw new Error(blocked);
+}
+
 async function putObject(p: string, body: Uint8Array, contentType: string): Promise<void> {
+  guardBucket();
   if (storageMode === "supabase") {
     const res = await fetch(`${SUPABASE_URL()}/storage/v1/object/${BUCKET}/${p}`, {
       method: "POST",
@@ -77,6 +85,7 @@ async function putObject(p: string, body: Uint8Array, contentType: string): Prom
 }
 
 export async function getObject(p: string): Promise<Uint8Array | null> {
+  guardBucket();
   if (storageMode === "supabase") {
     const res = await fetch(`${SUPABASE_URL()}/storage/v1/object/${BUCKET}/${p}`, {
       headers: { apikey: KEY()!, Authorization: `Bearer ${KEY()}` },

@@ -260,6 +260,15 @@ test("backup downloads a valid export without secrets", async () => {
   expect(file).not.toHaveProperty("tables.li_access_credentials");
 });
 
+test("a link from another site can't take a backup or start a LinkedIn connection, even signed in", async () => {
+  for (const url of ["/studio/export/download", "/studio/linkedin/connect"]) {
+    const res = await page.request.get(url, { headers: { "sec-fetch-site": "cross-site" }, maxRedirects: 0 });
+    expect(res.status(), url).toBe(404);
+  }
+  // The same request started on the studio still works.
+  expect((await page.request.get("/studio/export/download", { headers: { "sec-fetch-site": "same-origin" } })).status()).toBe(200);
+});
+
 test("on a phone-sized screen the studio fits and the calendar becomes a list", async ({ browser }) => {
   const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, storageState: await context.storageState() });
   const p = await phone.newPage();

@@ -49,6 +49,19 @@ Batch A **does not** connect LinkedIn, publish anything, change Buffer, switch a
    - table counts recorded.
 3. Confirm no one else will merge to `main` during the window.
 
+## Step 0b: preview isolation (owner, Vercel dashboard) · ↩️ Reversible · not externally visible
+
+From [SECURITY_REVIEW.md](SECURITY_REVIEW.md) §1. Done before step 1, and none of it touches production deployments:
+1. **V1:** Settings → Deployment Protection → Vercel Authentication → **Standard Protection** (previews). Every existing and future preview URL then needs your Vercel login; www and agent.growxera.com don't change.
+2. **V2:** Settings → Environment Variables → `SUPABASE_SERVICE_ROLE_KEY`, **Preview** entry → remove it (or replace it with a separate project's key). Production's entry stays untouched. It takes effect for previews built afterwards.
+3. **V3:** confirm "Automatically expose System Environment Variables" is on, so the code guard sees `VERCEL_ENV`.
+
+**Checks:**
+- A preview URL opened in a private window asks for a Vercel login.
+- www.growxera.com and www/studio still work (owner).
+
+**Way back:** switch protection off, or re-add the Preview variable.
+
 ## Stop rule
 
 After every step, Claude reports the check results and **stops**. The next step starts only when the owner says so. A failed or unclear check means: stop, report, and use that step's way back. Nothing continues automatically.
@@ -282,11 +295,13 @@ The link is a secret. Deliver it to the owner privately, never in chat logs, iss
 ## Including PR #21 (owner decision)
 
 PR #21 adds no migration, no new environment variable and no change to the publishing, scheduler, proxy or host code. If it is included:
-- **Collapse:** merge #21 into `claude/studio-m1-ops` first (merge commit), then continue with step 3.2 as written. Still one production deployment.
+- **Collapse:** mark #21 ready for review, then merge it into `claude/studio-m1-ops` (merge commit). Continue with step 3.2 as written. Still one production deployment: only merges into `main` deploy to production; the other merges build previews.
 - **Tree check:** #17's head tree must equal #21's reviewed head tree.
-- **Extra checks after step 3:** `agent.growxera.com/` answers with `X-Robots-Tag: noindex, nofollow`; www answers without it. After step 4, the dashboard shows both switches OFF.
+- **Extra checks after step 3:**
+- `agent.growxera.com/` answers with `X-Robots-Tag: noindex, nofollow`, `X-Frame-Options: DENY` and `frame-ancestors 'none'`; www answers without them.
+- After step 4, the dashboard shows both switches OFF and the studio works. A working studio shows `VERCEL_ENV` isn't `preview` or `development` there (the guard would switch it off); V3 confirms the variable is exposed at all.
 
-If it is left out, nothing in steps 1–5 changes; #21 is rebased onto `main` later as its own reviewed deployment.
+If it is left out, nothing in steps 1–5 changes, but the release then lacks the cross-host session check, the preview data guard, the anti-framing headers and the cross-site GET checks (SECURITY_REVIEW.md); #21 would follow as its own reviewed deployment.
 
 ## Readiness review (11 Oct 2026, read-only; nothing executed)
 
@@ -300,7 +315,7 @@ Checked against the repository (#20 `f6ac88c`, #21) and the hosting configuratio
 | `STUDIO_OWNER_EMAIL` | Set in Production; required (without it nobody can sign in) | No |
 | `LINKEDIN` variable | Set but read by no code | No (optional cleanup later) |
 | `STUDIO_AUTO_PUBLISH_ALLOWED` unset | Automatic publishing can't be switched on | No; keep unset until B3 |
-| Preview deployments | Public (protection off) and connected to the production database. Studio pages and sign-in are 404 there; with #21, a studio session also counts only on the studio's address, so server actions invoked through a preview or www page are refused | **Recommended, owner decision:** turn on Vercel deployment protection for previews, or limit `SUPABASE_SERVICE_ROLE_KEY` to Production. Not required for safety of the studio itself |
+| Preview deployments | Public (protection off), `SUPABASE_URL` shared with production, a separate Preview service-key entry (value unreadable). With #21, studio data is refused in code on every non-production deployment built from it (SECURITY_REVIEW.md §1). Older previews keep their baked credentials | **Yes: V1 (Vercel Authentication for previews), V2 (Preview service key), V3 (system env exposure)** before step 1. Owner actions; see step 0b |
 | Server-action body limit 4.4 MB (#21) | Applies to all server actions; the only ones are the studio's and its sign-in (both refuse other hosts). Below the platform's 4.5 MB request cap | No |
 | Rollback | Vercel "Promote" of the previous production deployment; only one production deployment is made (step 3), so "previous" is `8542b1e` | No; still unverified end to end (see table above) |
 | Runbook heads | Corrected in this revision (#19 `ee4ac16`, #20 `f6ac88c`) | Done |

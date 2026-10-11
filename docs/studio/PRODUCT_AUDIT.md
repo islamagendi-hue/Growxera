@@ -82,6 +82,14 @@ Verified on 11 Oct 2026 against the code, CI and read-only production checks. Ea
 | **Readiness round:** the expired-connection banner said "approved posts are not being published", implying they otherwise would be | layout | "Nothing can be posted through it until you reconnect" |
 | **Readiness round:** the public website also answers on agent.growxera.com and could be indexed there | hosting | `X-Robots-Tag: noindex, nofollow` on every response for the studio's address only [test]; production-build smoke test |
 
+**Security round (see [SECURITY_REVIEW.md](SECURITY_REVIEW.md)):**
+
+| Finding | Fix |
+|---|---|
+| Previews (public, built from any branch) use the production database URL with a service key | Studio data refused in code on every non-production Vercel deployment [unit; local preview-mode build: 0 database requests]. Old previews need V1/V2 (owner) |
+| A link from another site could take a backup (recording it and silencing the reminder) or start LinkedIn's authorization | `Sec-Fetch-Site` check on both GET routes [unit + E2E] |
+| Studio pages could be framed (clickjacking of the publish controls from a same-site page) | `X-Frame-Options: DENY`, `frame-ancestors 'none'`, `Referrer-Policy: same-origin` on the studio host [unit + build smoke test] |
+
 ## 3a. Classification (readiness round)
 
 - **Working (tested locally, end to end):** sign-in and recovery, dashboard, posts list, new post with upload, review and versioning, per-post status, calendar, activity, settings, both publishing switches, manual publish recording, weekly export and validation, error and loading states.

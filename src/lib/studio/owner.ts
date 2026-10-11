@@ -6,6 +6,7 @@ import "server-only";
  * (src/proxy.ts), so the website gives no sign it exists.
  */
 import { redirect } from "next/navigation";
+import { studioDataBlocked } from "@/lib/server/deployment";
 import { storageMode } from "@/lib/server/store";
 import { studioOwner } from "./access";
 
@@ -16,10 +17,12 @@ export { ownerEmail } from "./owner-email";
  * which would make imports and approvals look successful while saving nothing. The studio
  * refuses to work in that mode instead.
  */
-export function studioStorageError(mode: typeof storageMode = storageMode): string | null {
-  return mode === "disabled"
-    ? "The studio's database is not configured for this deployment (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY). Nothing can be saved, so the studio is switched off here."
-    : null;
+export function studioStorageError(mode: typeof storageMode = storageMode, env: Record<string, string | undefined> = process.env): string | null {
+  if (mode === "disabled") {
+    return "The studio's database is not configured for this deployment (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY). Nothing can be saved, so the studio is switched off here.";
+  }
+  // A preview shares the production database: the studio stays off there (deployment.ts).
+  return mode === "supabase" ? studioDataBlocked(env) : null;
 }
 
 /** For pages: sends anyone who isn't signed in to the studio's sign-in page. */

@@ -9,6 +9,12 @@ Run these during batch A ([DEPLOYMENT_RUNBOOK.md](DEPLOYMENT_RUNBOOK.md)), in it
 - [ ] Claude (read-only SQL): 0 LinkedIn connections, 0 executions, scheduler `ran:false`, post counts recorded.
 - [ ] `main` is still `8542b1e`; CI green on the head being merged.
 
+## Step 0b (preview isolation, owner in Vercel)
+- [ ] V1: Vercel Authentication for previews is on; a preview URL in a private window asks for a Vercel login.
+- [ ] V2: the Preview entry of `SUPABASE_SERVICE_ROLE_KEY` is removed (or points at a separate project); the Production entry is untouched.
+- [ ] V3: "Automatically expose System Environment Variables" is on.
+- [ ] www and www/studio still work.
+
 ## After step 1 (migrations)
 - [ ] Check queries match the runbook (6 tables, RLS on, ACL `postgres` + `service_role` only, 0 policies, counts unchanged).
 - [ ] Owner: www/studio still works.
@@ -21,7 +27,7 @@ Run these during batch A ([DEPLOYMENT_RUNBOOK.md](DEPLOYMENT_RUNBOOK.md)), in it
 - [ ] `https://www.growxera.com/studio` and `/access` → 404.
 - [ ] `https://agent.growxera.com/` → `/studio` → sign-in page.
 - [ ] Public pages, the website sign-in and the diagnostic still work on www.
-- [ ] With #21: response headers on agent.growxera.com include `X-Robots-Tag: noindex, nofollow`; www's don't.
+- [ ] With #21: response headers on agent.growxera.com include `X-Robots-Tag: noindex, nofollow`, `X-Frame-Options: DENY` and `Content-Security-Policy: frame-ancestors 'none'`; www's don't.
 - [ ] Scheduler keeps answering 200 `ran:false` (Supabase `net._http_response`).
 
 ## After step 4 (setup link, first sign-in)
@@ -36,7 +42,7 @@ Run these during batch A ([DEPLOYMENT_RUNBOOK.md](DEPLOYMENT_RUNBOOK.md)), in it
 - [ ] Posts: search and each filter; open a legacy approved post: the status panel lists every blocker (all publishing OFF, LinkedIn not connected, not confirmed).
 - [ ] Optional (writes one draft row and one file to production): save a **draft** with a small image; it opens only while signed in. Reject it afterwards.
 - [ ] Calendar month and agenda; Activity shows the sign-in setup and the draft.
-- [ ] Settings shows this device's session; Backup downloads and validates the weekly export.
+- [ ] Settings shows this device's session; Backup downloads (from the Backup page) and validates the weekly export. Opening the download address from a link on another site gives 404.
 - [ ] Phone-sized screen: navigation scrolls, no layout overflow.
 - [ ] No confirmation for automatic publishing is given, and no switch is turned on (batch B).
 
