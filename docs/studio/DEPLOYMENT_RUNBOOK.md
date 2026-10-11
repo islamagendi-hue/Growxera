@@ -16,7 +16,7 @@ Batch A **does not** connect LinkedIn, publish anything, change Buffer, switch a
 
 | Item | State | How checked |
 |---|---|---|
-| PRs | #17 `4715694` ← #18 `f596a93` ← #19 `75edc1f` ← #20 (head after this commit); all unmerged, stack linear, merges into `main` without conflict | git |
+| PRs | #17 `4715694` ← #18 `f596a93` ← #19 `ee4ac16` ← #20 `f6ac88c` ← draft #21 (`claude/studio-m2-product`, optional, see "Including PR #21"); all unmerged, every base an ancestor of the next head, merges into `main` without conflict (`git merge-tree`, re-checked 11 Oct) | git |
 | Production database (growxera) | 19 approved, 17 in review, 1 draft, 1 rejected; 0 LinkedIn connections; none of the 6 new tables present | Supabase SQL |
 | Scheduler | `studio-publish-due`, every 5 min, every run 200 with `ran:false` | `cron.job`, `net._http_response` |
 | Current studio access | Website sign-in (email link) for `STUDIO_OWNER_EMAIL`: 1 verified account; last sign-in session 10 Oct 19:52 UTC; 72 owner studio actions in the last 3 days, latest 10 Oct 21:08 UTC | Supabase SQL |
@@ -36,7 +36,7 @@ Batch A **does not** connect LinkedIn, publish anything, change Buffer, switch a
   - the script refuses to run without `--confirm`;
   - its token format matches what the app accepts;
   - both use SHA-256 hex.
-- **Tests (200 on the full stack):** setup-link single use, expiry and page binding; recovery during a global lockout; host 404s on www and previews; both publishing switches; the submission window.
+- **Tests (200 on #20; 221 unit + 22 E2E on #21):** setup-link single use, expiry and page binding; recovery during a global lockout; host 404s on www and previews; both publishing switches; the submission window.
 
 ## Step 0: before starting (read-only, owner + Claude)
 
@@ -189,6 +189,7 @@ where n.nspname = 'public' and c.relname in ('li_access_credentials','li_access_
 
 **Externally visible:**
 - `www.growxera.com/studio` and `/access` return **404**;
+- with #21: every response on `agent.growxera.com` carries `X-Robots-Tag: noindex, nofollow` (the public pages also answer on that address, with canonical links to www);
 - the studio moves to `agent.growxera.com`, behind password + authenticator;
 - the public website and its own sign-in don't change.
 
@@ -260,7 +261,7 @@ The link is a secret. Deliver it to the owner privately, never in chat logs, iss
 
 **Owner:** open the link, choose a password (12+ characters), scan the QR code, enter the 6-digit code. You are signed in.
 
-**Checks:** the owner reaches `/studio` on agent.growxera.com. Capabilities shows **All publishing: OFF** and **Automatic publishing: OFF**.
+**Checks:** the owner reaches `/studio` on agent.growxera.com. The Integrations page (called Capabilities before #21; with #21 the dashboard's Publishing controls show the same) shows **All publishing: OFF** and **Automatic publishing: OFF**.
 
 **Recovery:**
 
@@ -277,6 +278,33 @@ The link is a secret. Deliver it to the owner privately, never in chat logs, iss
 **What:** LinkedIn Developers → your app → Auth → **add** `https://agent.growxera.com/studio/linkedin/callback`. **Keep** the existing www callback; rollback needs it.
 
 **Checks:** both URLs are listed. Nothing is connected: connecting is batch B1.
+
+## Including PR #21 (owner decision)
+
+PR #21 adds no migration, no new environment variable and no change to the publishing, scheduler, proxy or host code. If it is included:
+- **Collapse:** merge #21 into `claude/studio-m1-ops` first (merge commit), then continue with step 3.2 as written. Still one production deployment.
+- **Tree check:** #17's head tree must equal #21's reviewed head tree.
+- **Extra checks after step 3:** `agent.growxera.com/` answers with `X-Robots-Tag: noindex, nofollow`; www answers without it. After step 4, the dashboard shows both switches OFF.
+
+If it is left out, nothing in steps 1–5 changes; #21 is rebased onto `main` later as its own reviewed deployment.
+
+## Readiness review (11 Oct 2026, read-only; nothing executed)
+
+Checked against the repository (#20 `f6ac88c`, #21) and the hosting configuration read earlier on 11 Oct. On a re-check, the Vercel connector answered "project not found" for the same project id, so hosting values below are from the earlier read.
+
+| Item | Finding | Change needed before the first deployment? |
+|---|---|---|
+| Scheduler URL (`www.growxera.com/api/studio/publish-due`) | `/api` is outside the proxy matcher, so it keeps working on www after the merge; 404 without the secret (production-build smoke test) | No |
+| `STUDIO_HOST` unset | Defaults to `agent.growxera.com`, as intended | No |
+| `LINKEDIN_REDIRECT_URI` unset | Defaults to `https://agent.growxera.com/studio/linkedin/callback`, the URL added in step 5 | No |
+| `STUDIO_OWNER_EMAIL` | Set in Production; required (without it nobody can sign in) | No |
+| `LINKEDIN` variable | Set but read by no code | No (optional cleanup later) |
+| `STUDIO_AUTO_PUBLISH_ALLOWED` unset | Automatic publishing can't be switched on | No; keep unset until B3 |
+| Preview deployments | Public (protection off) and connected to the production database. Studio pages and sign-in are 404 there; with #21, a studio session also counts only on the studio's address, so server actions invoked through a preview or www page are refused | **Recommended, owner decision:** turn on Vercel deployment protection for previews, or limit `SUPABASE_SERVICE_ROLE_KEY` to Production. Not required for safety of the studio itself |
+| Server-action body limit 4.4 MB (#21) | Applies to all server actions; the only ones are the studio's and its sign-in (both refuse other hosts). Below the platform's 4.5 MB request cap | No |
+| Rollback | Vercel "Promote" of the previous production deployment; only one production deployment is made (step 3), so "previous" is `8542b1e` | No; still unverified end to end (see table above) |
+| Runbook heads | Corrected in this revision (#19 `ee4ac16`, #20 `f6ac88c`) | Done |
+| Public pages on agent.growxera.com | The website answers there too (canonical links point to www). #21 adds `noindex`. Without #21 they may be indexed until the canonical is honoured | No; #21 removes the concern |
 
 ## After go-live
 

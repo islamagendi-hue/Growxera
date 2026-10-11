@@ -14,9 +14,10 @@ import "server-only";
  * - The email must equal STUDIO_OWNER_EMAIL.
  */
 import { cache } from "react";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { eq, gt, insert, isNull, select, selectOne, update } from "@/lib/server/store";
 import { hashPassword, newTotpSecret, open, randomToken, seal, serverSecret, sha256, verifyPassword, verifyTotp } from "./crypto";
+import { isStudioHost } from "./host";
 import { ownerEmail } from "./owner-email";
 
 export const SESSION_COOKIE = process.env.NODE_ENV === "production" ? "__Host-gx_studio" : "gx_studio";
@@ -185,6 +186,9 @@ export const studioOwner = cache(async (): Promise<{ email: string } | null> => 
   if (!owner) return null;
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   if (!token || !/^[A-Za-z0-9_-]{20,100}$/.test(token)) return null;
+  // Server actions can be invoked through any page URL on any host, not only studio paths, so the
+  // proxy's 404 alone doesn't keep them on the studio's address. The session counts only there.
+  if (!isStudioHost((await headers()).get("host"))) return null;
   const s = await selectOne<SessionRow>("li_access_sessions", [eq("token_hash", sha256(token))]);
   if (!s || s.revoked_at || new Date(s.expires_at).getTime() <= Date.now()) return null;
   return { email: owner };

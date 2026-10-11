@@ -73,7 +73,7 @@ export async function authorizeAutoPublishAction(form: FormData) {
       if (form.get("confirm") !== "yes") throw new WorkflowError("Tick the box to confirm automatic publishing of this exact version and time.");
       return authorizeAutoPublish(id, str(form, "versionId"), str(form, "hash"), actor);
     },
-    "Scheduled for automatic publishing. It goes out at its planned time only while automatic publishing is switched on; any edit cancels it.",
+    "Confirmed for automatic publishing. It can go out at its planned time only while both all publishing and automatic publishing are ON; otherwise it is held. Any edit cancels it.",
   );
 }
 
@@ -89,7 +89,7 @@ export async function setAutoPublishAction(form: FormData) {
   try {
     if (enable && form.get("confirm") !== "yes") throw new WorkflowError("Tick the box to confirm switching automatic publishing on.");
     await setAutoPublish(enable, owner.email);
-    q = `notice=${encodeURIComponent(enable ? "Automatic publishing is ON. Only posts you scheduled for it individually will go out, on time." : "Automatic publishing is OFF. Nothing is published automatically.")}`;
+    q = `notice=${encodeURIComponent(enable ? "Automatic publishing is ON. Only posts you confirmed one by one can go out, and only while all publishing is also ON." : "Automatic publishing is OFF. Nothing is published automatically.")}`;
   } catch (err) {
     q = `error=${encodeURIComponent(err instanceof WorkflowError ? err.message : "Changing the switch failed. Nothing changed.")}`;
     if (!(err instanceof WorkflowError)) console.error("[studio] switch failed", safeLog(err));

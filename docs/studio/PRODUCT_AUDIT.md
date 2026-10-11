@@ -15,7 +15,7 @@ Verified on 11 Oct 2026 against the code, CI and read-only production checks. Ea
 | PR #17 | `4715694` | Handover docs; signed-out 404 | [code] |
 | PR #18 | `f596a93` | All-publishing switch (P2), automatic switch, per-post confirmation (G1), submission window T−60 s…T−10 s (G2/P1) | [code], [test] |
 | PR #19 | `ee4ac16` | agent.growxera.com, password + authenticator sign-in, fragment setup links | [code], [test] |
-| PR #20 | `79939be` | Weekly export, CI, studio docs, deployment runbook | [code], [test]; CI ✅ |
+| PR #20 | `f6ac88c` | Weekly export, CI, studio docs, deployment runbook | [code], [test]; CI ✅ |
 | `claude/studio-m2-product`, draft PR #21 (base #20) | see IMPLEMENTATION_STATUS | **This round:** dashboard, posts, calendar, new post, file uploads, activity, settings, error/loading states, E2E suite | [code], [test], [e2e] |
 
 **Previews:**
@@ -77,6 +77,20 @@ Verified on 11 Oct 2026 against the code, CI and read-only production checks. Ea
 | No error or loading state: a database failure showed Next's default error | studio | `error.tsx` (generic message, reference, Try again), `loading.tsx` [e2e] |
 | Local development store read a damaged file as empty, so the next write would overwrite it | `store.ts` (dev/test only) | Fails loudly; only a missing file is empty [test][e2e] |
 | Backup page didn't say restore is unsupported | Backup | Recovery limits stated |
+| **Readiness round:** a valid session counted on any host. Next serves server actions through any page URL, so studio actions could be invoked via a www or preview page; only the host-only cookie kept them on the studio's address | `access.ts` | The session now counts only on the studio's address [test] |
+| **Readiness round:** "Scheduled for automatic publishing … goes out while automatic publishing is switched on" and "Automatic publishing is ON … will go out, on time" ignored the all-publishing switch | post page, Integrations | Notices name both switches and say the post is held otherwise [e2e] |
+| **Readiness round:** the expired-connection banner said "approved posts are not being published", implying they otherwise would be | layout | "Nothing can be posted through it until you reconnect" |
+| **Readiness round:** the public website also answers on agent.growxera.com and could be indexed there | hosting | `X-Robots-Tag: noindex, nofollow` on every response for the studio's address only [test]; production-build smoke test |
+
+## 3a. Classification (readiness round)
+
+- **Working (tested locally, end to end):** sign-in and recovery, dashboard, posts list, new post with upload, review and versioning, per-post status, calendar, activity, settings, both publishing switches, manual publish recording, weekly export and validation, error and loading states.
+- **Built, never run live (tested only against a fake LinkedIn API in unit tests):** Publish now through the API, automatic timed publishing, LinkedIn OAuth connect.
+- **Partial:** analytics (frozen 10 Oct import only); restore (local round trip only); uploads (4 MB, one file per post).
+- **Present in code, not exposed:** Grok client ($0 decision, no UI).
+- **Planned, not built (the Integrations page says "Not built yet"):** analytics upload, engagement inbox and reply drafting, newsletter, daily report, LinkedIn data-export import.
+- **Mocked in the product UI:** none. The only fakes are in tests (fake LinkedIn server, local store).
+- **Misleading texts:** the four found this round are fixed (table above); none known remaining.
 
 ## 4. Remaining gaps and blockers
 

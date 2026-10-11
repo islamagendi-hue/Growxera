@@ -38,7 +38,7 @@ Paths are relative to the repository root, at commit `e430e71` unless marked WIP
 | `src/app/studio/{page,new,calendar,activity,settings}` | Dashboard, new post, calendar, activity, settings (product build) |
 | `src/components/studio/StudioNavLinks.tsx` | Studio navigation |
 | `e2e/*`, `playwright.config.ts` | Browser end-to-end tests |
-| `docs/studio/{PRODUCT_AUDIT,IMPLEMENTATION_PLAN,IMPLEMENTATION_STATUS,RUNBOOK,ARCHITECTURE}.md` | Product audit, plan, status, runbook, architecture and security |
+| `docs/studio/{PRODUCT_AUDIT,IMPLEMENTATION_PLAN,IMPLEMENTATION_STATUS,RUNBOOK,ARCHITECTURE,LAUNCH_VERIFICATION}.md` | Product audit, plan, status, runbook, architecture and security, manual launch checks |
 | `docs/studio/*` | Plan, risks, roadmap, tests, operations and deployment runbooks, scheduling architecture, gates, log |
 
 ## Pages and routes (`src/app/`)

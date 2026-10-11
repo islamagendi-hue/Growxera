@@ -149,6 +149,16 @@ test("editing after approval voids the approval", async () => {
   await expect(status).toContainText("Version 2 approved");
 });
 
+test("confirming a post for automatic publishing says it won't go out while the switches are OFF", async () => {
+  await page.goto(postUrl);
+  await page.getByLabel(/Publish version 2 automatically/).check();
+  await page.getByRole("button", { name: "Schedule for automatic publishing" }).click();
+  await expect(notice("only while both all publishing and automatic publishing are ON")).toBeVisible();
+  await expect(page.locator("#auto")).toContainText("It won't go out while all publishing and automatic publishing are OFF.");
+  await page.getByRole("button", { name: "Cancel automatic publishing" }).click();
+  await expect(notice("Automatic publishing cancelled.")).toBeVisible();
+});
+
 test("drafts are saved, then submitted for review", async () => {
   await page.goto("/studio/new");
   await page.getByLabel("Post text").fill(`Draft idea ${Date.now()}`);

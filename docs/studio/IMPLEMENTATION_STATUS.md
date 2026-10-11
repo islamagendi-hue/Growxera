@@ -9,7 +9,7 @@ As of 11 Oct 2026. Nothing below is merged or deployed. Production still runs `m
 | `claude/linkedin-brand-growth-agent-wu375g` | `4715694` | #17 | Handover; signed-out 404 |
 | `claude/studio-m1-publishing-safeguards` | `f596a93` | #18 | Publishing switches, per-post confirmation, submission window |
 | `claude/studio-m1-agent-host-auth` | `ee4ac16` | #19 | agent.growxera.com sign-in, fragment setup links |
-| `claude/studio-m1-ops` | `79939be` | #20 | Weekly export, CI, studio docs |
+| `claude/studio-m1-ops` | `f6ac88c` | #20 | Weekly export, CI, studio docs |
 | `claude/studio-m2-product` | see the final report | #21 (draft, base #20) | Product build on top of #20 (this round) |
 
 ## Done this round (`claude/studio-m2-product`)
@@ -22,6 +22,8 @@ As of 11 Oct 2026. Nothing below is merged or deployed. Production still runs `m
 | `2070a06` | Verified file uploads (image or PDF, 4 MB) on new posts and edits |
 | `da19fbf`, `9bbc9c5` | Product audit, plan, status, runbook, architecture docs |
 | `5a48946` | Audit fixes: honest capability register, accurate publishing texts, error/loading states, damaged-local-store fix, broader E2E |
+| `816cdae` | Docs |
+| readiness round (see the final report for the hash) | Session counts only on the studio's address; publishing notices name both switches; `noindex` on the studio's address; runbook readiness review; launch verification list |
 
 ## Test results
 
@@ -29,11 +31,11 @@ As of 11 Oct 2026. Nothing below is merged or deployed. Production still runs `m
 
 | Check | Result |
 |---|---|
-| Unit tests | `npx vitest run`: **218 passed**, 0 skipped |
-| End-to-end | `npx playwright test`: **21 passed**, 1 skipped (screenshots run only on request) |
+| Unit tests | `npx vitest run`: **221 passed**, 0 skipped |
+| End-to-end | `npx playwright test`: **22 passed**, 1 skipped (screenshots run only on request) |
 | Types | `npx tsc --noEmit`: pass |
 | Lint | `npx eslint src scripts`: pass |
-| Build | `npx next build`: pass |
+| Build | `npx next build`: pass; `next start` host smoke test: studio paths 404 on www and preview hosts, studio host redirects signed-out visitors to sign-in and sends `noindex`, scheduler 404 without its secret |
 | Dependencies | `npm audit --omit=dev`: 0 vulnerabilities. The full audit lists 5 high advisories in lint tooling only (see PRODUCT_AUDIT §5) |
 
 **CI (GitHub Actions, push to `claude/studio-m2-product`):**
@@ -50,6 +52,8 @@ As of 11 Oct 2026. Nothing below is merged or deployed. Production still runs `m
 - LinkedIn posting (API or OAuth), and the timed scheduler against LinkedIn: tested only against a fake LinkedIn API;
 - Supabase storage uploads: tested on the local store; the same code path as the media copy already used in production;
 - restore into Supabase.
+
+Before launch, the owner's manual checks are listed in [LAUNCH_VERIFICATION.md](LAUNCH_VERIFICATION.md).
 
 ## Outstanding
 
