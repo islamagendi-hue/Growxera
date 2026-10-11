@@ -49,11 +49,33 @@ Batch A **does not** connect LinkedIn, publish anything, change Buffer, switch a
    - table counts recorded.
 3. Confirm no one else will merge to `main` during the window.
 
+## Stop rule
+
+After every step, Claude reports the check results and **stops**. The next step starts only when the owner says so. A failed or unclear check means: stop, report, and use that step's way back. Nothing continues automatically.
+
 ## Step 1 · A2: apply the two migrations · ↩️ Reversible · not externally visible
 
 **What:** apply `20261014000000_studio_access.sql`, then `20261015000000_publishing_controls.sql`, to project growxera.
 
 **Effect:** 6 new, empty tables. The current production code doesn't use them, so the live studio and website are unaffected.
+
+**How:** with the Supabase connector's `apply_migration` (project `upffkhzdjphqqacfbyjp`), one call per file, with the file's exact contents. Names: `studio_access`, then `publishing_controls`. Both files are idempotent (`if not exists`), so a partial run can be re-run.
+
+**Check query (read-only), expected values in brackets:**
+```sql
+select
+  (select count(*) from information_schema.tables where table_schema = 'public' and table_name in
+    ('li_settings','li_publish_authorizations','li_access_credentials','li_access_sessions',
+     'li_access_setup_tokens','li_access_attempts')) as new_tables,                          -- [6]
+  (select count(*) from pg_tables where schemaname = 'public' and tablename like 'li\_%'
+     and not rowsecurity) as li_tables_without_rls,                                          -- [0]
+  (select count(*) from information_schema.role_table_grants where table_schema = 'public'
+     and table_name like 'li\_%' and grantee in ('anon','authenticated')) as browser_grants, -- [0]
+  (select count(*) from public.li_settings) as settings_rows,                                -- [0] = both switches OFF
+  (select json_object_agg(status, n) from (select status, count(*) n from public.li_actions group by status) t) as actions,
+                                                       -- [{"approved":19,"ready_for_review":17,"draft":1,"rejected":1}]
+  (select count(*) from public.li_linkedin_connection) as li_connections;                    -- [0]
+```
 
 **Checks:**
 - the 6 tables exist;
@@ -70,8 +92,19 @@ drop table public.li_publish_authorizations, public.li_settings, public.li_acces
 ## Step 2 · A3: domain and DNS · 🌐 Externally visible · ⛔ partly irreversible
 
 **What:**
-1. Vercel → project `growx-era` → Domains → add `agent.growxera.com`.
-2. At Unstoppable Domains (growxera.com DNS), add `CNAME agent → cname.vercel-dns.com`. That is Vercel's recommended value, read from its domain config.
+1. **Vercel** (Claude, with the Vercel connector's `add_project_domain`, or the owner in the dashboard): project `growx-era` → Domains → add `agent.growxera.com`, Production, no redirect.
+2. **Unstoppable Domains** (the owner; no connector exists for it): growxera.com → DNS records → add:
+
+   | Type | Host / name | Value | TTL |
+   |---|---|---|---|
+   | CNAME | `agent` | `cname.vercel-dns.com` | default (or 600) |
+
+   That is Vercel's recommended value, read from its domain config on 11 Oct. If Vercel asks for an extra `TXT _vercel…` verification record, add it exactly as Vercel shows it; it is usually not needed, because growxera.com is already verified in this project.
+
+**HTTPS readiness:** after the CNAME resolves, Vercel issues the certificate automatically. "Ready" means all of these:
+- Vercel's domain config shows `misconfigured: false` (Claude checks it read-only), and the project lists the domain as verified;
+- the dashboard shows "Valid Configuration" and a certificate;
+- the owner opens `https://agent.growxera.com` and sees the padlock. Until step 3 it shows the current website. Claude can't open growxera.com from this container.
 
 **Externally visible:**
 - the subdomain resolves publicly;
@@ -86,7 +119,9 @@ drop table public.li_publish_authorizations, public.li_settings, public.li_acces
 - `https://agent.growxera.com` answers over HTTPS;
 - `https://www.growxera.com` is unchanged.
 
-**If the domain doesn't verify:** **don't merge.** DNS can take minutes to hours. Rollback: remove the DNS record and the Vercel domain. The studio stays on www.
+**Stop condition:** if the domain isn't verified with a certificate, **don't merge.** DNS can take minutes to hours; wait or roll back.
+
+**Rollback:** delete the CNAME at Unstoppable Domains and remove the domain from the Vercel project. The studio stays on www; only the Certificate Transparency entry remains.
 
 ## Step 3 · A1: merge #17 → #18 → #19 → #20 into `main` · 🌐 Externally visible · ⛔ partly irreversible
 
@@ -113,9 +148,27 @@ drop table public.li_publish_authorizations, public.li_settings, public.li_acces
 
 ## Step 4 · A4: setup link and first sign-in · ↩️ Reversible · not externally visible
 
-**What:** right after step 3 is Ready, create a one-time link: valid **24 hours**, single use, stored only as its SHA-256.
-- **Preferred:** `SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… node scripts/studio-setup-link.mjs --confirm`, from a local shell with the production values.
-- **Without the service key:** generate a random token locally, then insert only its hash through the Supabase SQL editor:
+**What:** right after step 3 is Ready, create a one-time link: single use, stored only as its SHA-256. It is valid for **2 hours** in this run, because the owner is present (the script's default is 24 h).
+
+**Delivery (the link never appears in chat, commands, logs or Git):**
+1. In this session, a local script generates the token and writes the full link to a private file in the session's scratchpad (`setup-link.txt`, mode 600). The only thing it prints is the token's SHA-256.
+2. Claude inserts only that hash with the Supabase connector:
+   ```sql
+   insert into public.li_access_setup_tokens (token_hash, expires_at)
+   values ('<sha256>', now() + interval '2 hours');
+   ```
+3. The owner opens `setup-link.txt` in the Claude app and uses the link at once. Claude then deletes the file. Anyone with access to this session could open the file until then. The link is single use and short-lived.
+
+**Exposed? Invalidate immediately** (works whether the link was used or not):
+```sql
+update public.li_access_setup_tokens set used_at = now() where used_at is null;  -- kills every unused link
+select count(*) from public.li_access_credentials;                               -- 1 after the owner's setup
+```
+If someone else may already have used it, create a new link and complete it yourself. That replaces the password and authenticator and signs out every session (tested). Then use **Sign out everywhere**.
+
+**Other ways to create the link:**
+- With the service key: `SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… node scripts/studio-setup-link.mjs --confirm`, from a local shell with the production values.
+- In the Supabase SQL editor: generate a random token locally, then insert only its hash:
   ```sql
   insert into public.li_access_setup_tokens (token_hash, expires_at)
   values ('<sha256 hex of the token>', now() + interval '24 hours');
@@ -132,7 +185,7 @@ The link is a secret. Deliver it to the owner privately, never in chat logs, iss
 
 | Situation | Do this |
 |---|---|
-| Link expired (24 h) or already used | Create a new link (same step). Nothing else changes |
+| Link expired or already used | Create a new link (same step). Nothing else changes |
 | Link possibly leaked before use | Invalidate unused links: `update public.li_access_setup_tokens set used_at = now() where used_at is null;` then create a new one |
 | Link used by someone else | Create a new link and complete it: it replaces the password and authenticator and signs out every session (tested) |
 | Setup keeps failing | Promote the previous deployment (step 3) and investigate |
