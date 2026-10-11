@@ -6,7 +6,7 @@ import { buttonClass } from "@/components/ui/button";
 import { requireOwner } from "@/lib/studio/owner";
 import { assetsByUrl } from "@/lib/studio/assets";
 import { connectionState } from "@/lib/studio/linkedin";
-import { authorizationsFor, autoPublishSwitch, isAutoAuthorized, leadTimeOk, ON_TIME_WINDOW_MS } from "@/lib/studio/autopublish";
+import { authorizationsFor, autoPublishSwitch, isAutoAuthorized, leadTimeOk } from "@/lib/studio/autopublish";
 import { getAction } from "@/lib/studio/repo";
 import { formatRiyadh, isPast, toRiyadhInput } from "@/lib/studio/time";
 import {
@@ -140,8 +140,8 @@ export default async function QueueItem({ params, searchParams }: PageProps<"/st
             <h2 className="text-h3 font-semibold">Automatic publishing</h2>
             <p className="mt-1 text-sm text-ink-2">
               Approving the content does not publish it. Automatic publishing needs your separate confirmation for this exact version and
-              time, and automatic publishing switched on ({sw.enabled ? "it is ON" : "it is OFF"}). It goes out only within{" "}
-              {ON_TIME_WINDOW_MS / 60_000} minutes after its planned time. If that is missed, it is held for review and never posted late.
+              time, and automatic publishing switched on ({sw.enabled ? "it is ON" : "it is OFF"}). It goes out only at its planned time, never early and never late. If the scheduler doesn&apos;t
+              run at that moment, the post is held for review with the reason, and needs a new time and a new approval.
             </p>
             {autoAuthorized ? (
               <>
