@@ -9,7 +9,7 @@ import { revalidatePath } from "next/cache";
 import { secureAssets } from "@/lib/studio/assets";
 import { verifyGrok } from "@/lib/studio/grok";
 import { importSnapshot, snapshotSchema } from "@/lib/studio/import";
-import { authorizeAutoPublish, revokeAutoPublish, setAutoPublish } from "@/lib/studio/autopublish";
+import { authorizeAutoPublish, revokeAutoPublish, setAutoPublish, setPublishing } from "@/lib/studio/autopublish";
 import { disconnect, isValidClientId, isValidClientSecret, saveAppKeys } from "@/lib/studio/linkedin";
 import { publishAction, publishDue, resolveUnknown } from "@/lib/studio/publish";
 import { ownerOrThrow } from "@/lib/studio/owner";
@@ -93,6 +93,22 @@ export async function setAutoPublishAction(form: FormData) {
   }
   revalidatePath("/studio", "layout");
   redirect(`/studio/capabilities?${q}#autopublish`);
+}
+
+export async function setPublishingAction(form: FormData) {
+  const owner = await ownerOrThrow();
+  const enable = str(form, "enabled") === "true";
+  let q: string;
+  try {
+    if (enable && form.get("confirm") !== "yes") throw new WorkflowError("Tick the box to confirm switching publishing on.");
+    await setPublishing(enable, owner.email);
+    q = `notice=${encodeURIComponent(enable ? "All publishing is ON. Each post still needs its approval and your confirmation." : "All publishing is OFF. Nothing can be posted to LinkedIn.")}`;
+  } catch (err) {
+    q = `error=${encodeURIComponent(err instanceof WorkflowError ? err.message : "Changing the switch failed. Nothing changed.")}`;
+    if (!(err instanceof WorkflowError)) console.error("[studio] publishing switch failed", safeLog(err));
+  }
+  revalidatePath("/studio", "layout");
+  redirect(`/studio/capabilities?${q}#publishing`);
 }
 
 export async function rejectAction(form: FormData) {
