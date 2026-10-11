@@ -594,6 +594,20 @@ describe("no publishing path without approval", () => {
   });
 });
 
+describe("capability register is honest", () => {
+  it("claims nothing available before live verification, and marks unbuilt features as not built", async () => {
+    const { CAPABILITIES } = await import("./capabilities");
+    expect(CAPABILITIES.filter((c) => c.status === "available")).toEqual([]);
+    for (const id of ["newsletter", "read_comments", "write_comments", "post_analytics", "account_metrics"]) {
+      expect(CAPABILITIES.find((c) => c.id === id)!.implementation, id).toMatch(/^Not built yet\./);
+    }
+    // Approval alone never publishes (G1, P2): the description names the switches.
+    const text = CAPABILITIES.find((c) => c.id === "publish_text")!.implementation;
+    expect(text).toMatch(/All publishing ON/);
+    expect(text).not.toMatch(/approved posts are published at their planned time/);
+  });
+});
+
 describe("public repository hygiene", () => {
   const git = (args: string) => {
     try {

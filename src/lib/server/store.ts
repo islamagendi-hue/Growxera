@@ -150,11 +150,18 @@ function locked<T>(fn: () => Promise<T>): Promise<T> {
 }
 
 async function readTable(table: Table): Promise<Row[]> {
+  let raw: string;
   try {
-    return JSON.parse(await readFile(path.join(dataDir(), `${table}.json`), "utf8")) as Row[];
-  } catch {
-    return [];
+    raw = await readFile(path.join(dataDir(), `${table}.json`), "utf8");
+  } catch (err) {
+    // No file yet means an empty table. Anything else is a real error.
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return [];
+    throw err;
   }
+  // A damaged file must fail loudly: treating it as empty would let the next write overwrite it.
+  const rows = JSON.parse(raw) as unknown;
+  if (!Array.isArray(rows)) throw new StoreError(`Local table ${table} is damaged (not a list of rows).`);
+  return rows as Row[];
 }
 
 async function writeTable(table: Table, rows: Row[]) {

@@ -215,6 +215,28 @@ test("the post appears on the dashboard, calendar, posts search and activity", a
   await expect(page.getByText("Post created").first()).toBeVisible();
 });
 
+test("calendar: month navigation, today link, and a bad month falls back to this month", async () => {
+  await page.goto("/studio/calendar");
+  const month = page.getByRole("navigation", { name: "Month" });
+  const current = await month.locator("span").innerText();
+  await month.getByRole("link", { name: /Next/ }).click();
+  await expect(month.locator("span")).not.toHaveText(current);
+  await month.getByRole("link", { name: "Today" }).click();
+  await expect(month.locator("span")).toHaveText(current);
+  await page.goto("/studio/calendar?month=2026-13");
+  await expect(month.locator("span")).toHaveText(current);
+});
+
+test("activity: category and problems-only filters", async () => {
+  await page.goto("/studio/activity");
+  await page.getByRole("link", { name: "Approvals", exact: true }).click();
+  await expect(page).toHaveURL(/category=approvals/);
+  await expect(page.getByText("Approved this exact version").first()).toBeVisible();
+  await expect(page.getByText("Post created")).toHaveCount(0);
+  await page.getByRole("link", { name: "Problems only" }).click();
+  await expect(page.getByText(/No matching activity/)).toBeVisible();
+});
+
 test("backup downloads a valid export without secrets", async () => {
   await page.goto("/studio/export");
   const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("link", { name: /Download export/ }).click()]);
@@ -231,7 +253,7 @@ test("backup downloads a valid export without secrets", async () => {
 test("on a phone-sized screen the studio fits and the calendar becomes a list", async ({ browser }) => {
   const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, storageState: await context.storageState() });
   const p = await phone.newPage();
-  for (const url of ["/studio", "/studio/queue", "/studio/calendar", "/studio/settings", postUrl]) {
+  for (const url of ["/studio", "/studio/queue", "/studio/calendar", "/studio/new", "/studio/activity", "/studio/capabilities", "/studio/import", "/studio/export", "/studio/settings", postUrl]) {
     await p.goto(url);
     const overflow = await p.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     expect(overflow, url).toBeLessThanOrEqual(1);
@@ -247,12 +269,44 @@ test("screenshots for visual review (only with E2E_SCREENSHOTS=<folder>)", async
   for (const [name, viewport] of [["desktop", { width: 1440, height: 1000 }], ["phone", { width: 390, height: 844 }]] as const) {
     const ctx = await browser.newContext({ viewport, storageState: await context.storageState() });
     const p = await ctx.newPage();
-    for (const [slug, url] of [["dashboard", "/studio"], ["posts", "/studio/queue"], ["post", postUrl], ["calendar", "/studio/calendar"], ["new", "/studio/new"], ["activity", "/studio/activity"], ["settings", "/studio/settings"], ["integrations", "/studio/capabilities"]]) {
+    for (const [slug, url] of [["dashboard", "/studio"], ["posts", "/studio/queue"], ["post", postUrl], ["calendar", "/studio/calendar"], ["new", "/studio/new"], ["activity", "/studio/activity"], ["settings", "/studio/settings"], ["integrations", "/studio/capabilities"], ["import", "/studio/import"], ["backup", "/studio/export"], ["queue-filter", "/studio/queue?filter=attention"], ["empty-search", "/studio/queue?q=nothing-matches-this"]]) {
       await p.goto(url);
       await p.screenshot({ path: path.join(dir!, `${name}-${slug}.png`), fullPage: true });
     }
     await ctx.close();
   }
+});
+
+test("signed out: every studio page redirects to sign-in and every studio route is a 404", async ({ browser }) => {
+  const anon = await browser.newContext();
+  const p = await anon.newPage();
+  for (const url of ["/studio", "/studio/queue", "/studio/new", "/studio/calendar", "/studio/activity", "/studio/settings", "/studio/capabilities", "/studio/import", "/studio/export", postUrl]) {
+    await p.goto(url);
+    await expect(p, url).toHaveURL(/\/access$/);
+  }
+  for (const url of ["/studio/export/download", "/studio/linkedin/connect", `/studio/assets/${crypto.randomUUID()}`]) {
+    expect((await anon.request.get(url, { maxRedirects: 0 })).status(), url).toBe(404);
+  }
+  await anon.close();
+});
+
+test("a page that can't read its data shows a recoverable error without internal details", async () => {
+  const file = path.join(E2E_DATA, "li_actions.json");
+  const original = fs.readFileSync(file, "utf8");
+  fs.writeFileSync(file, "{ not json");
+  try {
+    await page.goto("/studio");
+    const box = page.locator("div[role=alert]").filter({ has: page.getByRole("heading", { name: "This page couldn't load" }) });
+    await expect(box).toBeVisible();
+    // The studio's message has no internal details (Next's own dev overlay shows them only in development).
+    await expect(box).not.toContainText(/JSON|SyntaxError|li_actions/);
+  } finally {
+    fs.writeFileSync(file, original);
+  }
+  await page.getByRole("button", { name: "Try again" }).click();
+  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+  // The error above is expected; don't count it as a browser error.
+  consoleErrors.length = 0;
 });
 
 test("no browser errors on any page visited", async () => {

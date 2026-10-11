@@ -100,7 +100,12 @@ export default async function Posts({ searchParams }: PageProps<"/studio/queue">
               <Link href={`/studio/queue/${p.action.id}`} className="block p-4 hover:bg-paper-2">
                 <div className="flex flex-wrap items-center gap-3">
                   <StatusBadge status={p.action.status} />
-                  <span className="font-mono text-xs text-ink-3">{formatRiyadh(p.current.target_at)}</span>
+                  <span className="font-mono text-xs text-ink-3">{p.current.target_at ? formatRiyadh(p.current.target_at) : "No planned time"}</span>
+                  {p.current.assets.length > 0 && (
+                    <span className="font-mono text-xs text-ink-3">
+                      {p.current.assets.length} file{p.current.assets.length === 1 ? "" : "s"}
+                    </span>
+                  )}
                   <span className="font-mono text-xs text-ink-3">{p.draft.origin === "migrated_buffer" ? "Migrated from Buffer" : p.draft.origin === "studio" ? "Written in studio" : p.draft.origin}</span>
                   {p.action.sensitive && <span className="font-mono text-xs text-alert">Sensitive</span>}
                   {p.held && <span className="font-mono text-xs text-alert">Held</span>}

@@ -46,11 +46,21 @@ export default async function ExportPage({ searchParams }: PageProps<"/studio/ex
 
       <section className="mt-10 border border-line bg-card p-6">
         <h2 className="text-h3 font-semibold">Check a saved export</h2>
-        <p className="mt-1 text-sm text-ink-2">Confirms the file is complete and unchanged. Nothing is imported.</p>
+        <p className="mt-1 text-sm text-ink-2">Confirms the file is complete and unchanged. Nothing is imported. Files up to 4 MB.</p>
         <form action={validateExportAction} className="mt-4">
           <input type="file" name="file" accept="application/json,.json" required className="text-sm" />
           <button className={buttonClass("secondary", "mt-3 block")}>Check file</button>
         </form>
+      </section>
+
+      <section className="mt-10 border border-line bg-card p-6">
+        <h2 className="text-h3 font-semibold">Recovery: current limits</h2>
+        <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-ink-2">
+          <li>Restoring an export is not available from the studio, and restoring into the live database is not supported.</li>
+          <li>Recovery into a new, empty database is a manual, owner-approved procedure (operations runbook). It has been tested on a local store only.</li>
+          <li>After a restore you would set up sign-in again with a new setup link and reconnect LinkedIn; secrets are never in the export.</li>
+          <li>Media files aren&apos;t in the export. They stay in the private storage bucket, and the export lists each file&apos;s checksum.</li>
+        </ul>
       </section>
     </div>
   );

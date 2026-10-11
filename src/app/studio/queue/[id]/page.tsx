@@ -193,7 +193,9 @@ export default async function QueueItem({ params, searchParams }: PageProps<"/st
               <>
                 <p className="mt-3 text-sm font-medium">
                   Scheduled for automatic publishing at {formatRiyadh(current.target_at)} (Riyadh)
-                  {sw.enabled ? "." : ". It won't go out while automatic publishing is OFF."}
+                  {sw.enabled && all.enabled
+                    ? "."
+                    : `. It won't go out while ${[!all.enabled && "all publishing", !sw.enabled && "automatic publishing"].filter(Boolean).join(" and ")} ${!all.enabled && !sw.enabled ? "are" : "is"} OFF.`}
                 </p>
                 <form action={revokeAutoPublishAction} className="mt-3">
                   <input type="hidden" name="actionId" value={action.id} />
@@ -249,8 +251,12 @@ export default async function QueueItem({ params, searchParams }: PageProps<"/st
           <section className="mt-8 border border-ink p-6">
             <h2 className="text-h3 font-semibold">Publish (manual step)</h2>
             <p className="mt-1 text-sm text-ink-2">
-              Direct publishing isn&apos;t verified for this app, so you publish this yourself. Planned time:{" "}
-              {formatRiyadh(current.target_at)} (Riyadh).
+              {current.assets.length > 1
+                ? "Posts with more than one file are published by hand."
+                : li.state === "connected"
+                  ? "This post can't be published directly, so you publish it yourself."
+                  : "LinkedIn isn't connected to the studio, so you publish this yourself."}{" "}
+              {current.target_at ? `Planned time: ${formatRiyadh(current.target_at)} (Riyadh).` : "No planned time."}
             </p>
             <ol className="mt-4 list-decimal space-y-1 pl-5 text-sm">
               <li>Copy the approved text{current.assets.length ? " and download the assets above" : ""}.</li>
