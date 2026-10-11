@@ -89,6 +89,26 @@ select
 - 12 `li_` tables;
 - 0 row-level policies on `li_` tables. That is the intended model: RLS on, no policies, so browsers get nothing and only the server's service role reads and writes.
 
+**Security model, verified layer by layer (not "0 policies" alone):**
+
+| Layer | Migration definition | Intended post-migration state | Evidence |
+|---|---|---|---|
+| Table grants | `revoke all … from anon, authenticated` for all 6 tables | ACL = `postgres` (owner) + `service_role` only, as on the 12 existing `li_` tables | Production's default privileges grant anon/authenticated **full rights on new tables in `public`**, so the revoke is what protects them. Rehearsal with production's default privileges: each new table's ACL is `{postgres=…, service_role=…}`; 0 column grants |
+| Row-level security | `enable row level security` on all 6 | RLS on, not forced, **0 policies**, so any role without bypass sees no rows even if a grant came back | Rehearsal: RLS on for all 6, 0 policies. Production's existing 12 tables: the same |
+| Roles that bypass RLS | (unchanged) | Only `service_role` (server key, never sent to browsers) and `postgres`; `anon`/`authenticated` don't | Production `pg_roles` |
+| Other paths in | No views, functions or sequences created | No view uses an `li_` table; the only `li_` function is `li_check_cron_secret` (executable by `service_role` only); uuid keys, so no sequences | Production catalog query; rehearsal |
+| Real access attempt | — | `anon`/`authenticated` refused | Rehearsal: `select` as anon and `insert` as authenticated, both "permission denied"; service_role allowed |
+| Indexes | Primary keys; unique `token_hash` on sessions and setup tokens; `li_access_attempts_created_idx`; `li_publish_authorizations_action_idx` | All present | Rehearsal: 10 indexes, as listed |
+
+The post-migration check therefore also reads each new table's ACL. The expected value is `postgres` and `service_role` only; PostgreSQL 17 shows `arwdDxtm`.
+```sql
+select c.relname, c.relrowsecurity, c.relforcerowsecurity, c.relacl::text,
+       (select count(*) from pg_policies p where p.schemaname = 'public' and p.tablename = c.relname) as policies
+from pg_class c join pg_namespace n on n.oid = c.relnamespace
+where n.nspname = 'public' and c.relname in ('li_access_credentials','li_access_sessions','li_access_setup_tokens',
+  'li_access_attempts','li_settings','li_publish_authorizations') order by 1;
+```
+
 **Expected after:** 8 history rows (`studio_access`, `publishing_controls` added), 18 `li_` tables, still 0 policies, 0 browser grants.
 
 **If a call fails or a check doesn't match: stop. No automatic retry, no automatic drop.**
@@ -158,10 +178,14 @@ select
 ## Step 3 · A1: merge #17 → #18 → #19 → #20 into `main` · 🌐 Externally visible · ⛔ partly irreversible
 
 **What:** collapse the stack first, then merge once into `main`, so production deploys **once**. Merging #17 → #18 → #19 → #20 into `main` one by one would produce four production deployments, and "the previous deployment" would then be a half-merged state.
-1. Note the current production deployment in Vercel (commit `8542b1e`, PR #16). This is the **rollback target**.
+1. Confirm `main` is still `8542b1e` (PR #16) and that it is the current production deployment in Vercel. This is the **rollback target**. If `main` has moved, stop and re-review.
 2. Merge #20 into its base (`claude/studio-m1-agent-host-auth`), then #19 into `claude/studio-m1-publishing-safeguards`, then #18 into `claude/linkedin-brand-growth-agent-wu375g`. These bases aren't `main`, so they only produce previews.
-3. Check that #17's head now equals the reviewed stack (same tree as `770f727` or later) and that its CI and preview are green.
-4. Merge #17 into `main`. **This is the one production deployment.**
+   Use GitHub's "Create a merge commit" each time. Every base is an ancestor of the next head, so nothing is rewritten.
+3. Check, before the final merge:
+   - #17's head tree equals the reviewed #20 head tree (`git rev-parse <commit>^{tree}`);
+   - the simulated merge into `main` gives the same tree (`git merge-tree --write-tree origin/main <#17 head>`; proven for every collapse step on 11 Oct);
+   - #17's CI and preview are green. CI runs only on PRs where the workflow exists; after the collapse #17 contains it.
+4. Merge #17 into `main` with "Create a merge commit". **That merge commit is the sole production deployment.** Its tree is exactly the reviewed tree.
 
 **Externally visible:**
 - `www.growxera.com/studio` and `/access` return **404**;
@@ -187,7 +211,11 @@ select
 **What:** right after step 3 is Ready, create a one-time link: single use, stored only as its SHA-256. It is valid for **2 hours** in this run, because the owner is present (the script's default is 24 h).
 
 **Delivery (the link never appears in chat, commands, logs or Git):**
-1. In this session, a local script generates the token and writes the full link to a private file in the session's scratchpad (`setup-link.txt`, mode 600). The only thing it prints is the token's SHA-256.
+1. In this session Claude runs, from the repository:
+   ```
+   node scripts/studio-setup-link.mjs --hash-only --hours 2 --out <scratchpad>/setup-link.txt
+   ```
+   It writes the full link to a new file with owner-only permissions (600; it refuses to overwrite one) and prints only the token's SHA-256. It touches no database. The link has the form `https://agent.growxera.com/access/setup#token=…`.
 2. Claude inserts only that hash with the Supabase connector:
    ```sql
    insert into public.li_access_setup_tokens (token_hash, expires_at)
@@ -196,7 +224,21 @@ select
 3. **How the owner opens it:** Claude's message gives only the file's path, never its contents. Tap or click the path in the Claude app; the app opens files in this session's scratchpad. Copy the link into your browser and complete the setup.
 4. **Privacy:** the file lives only in this session's cloud container: outside the repository (never committed), owner-only permissions (600), deleted when the session ends. Only someone signed in to your Claude account with access to this session could open it. Claude never prints, sends or attaches it, and never runs a command that shows it.
 5. **Deleted immediately after setup succeeds:** Claude deletes it and shows that it is gone (`ls` reports no such file). It is also deleted if setup is abandoned or the link is invalidated.
-6. **Residual exposure:** opening the link sends the token as a URL parameter to agent.growxera.com, so Vercel's request log for that single request may contain it. It is single use and expires in 2 hours, so once setup completes, the logged value can't be used.
+6. **Fragment flow (PR #19):** the token is after `#`, which browsers never send. So it isn't in the page request, the Referer header or any request log, including Vercel's.
+   - The setup page reads it in the browser and removes it from the address bar and that history entry at once.
+   - It then sends it to the server only as form data in a POST body. Request logs record paths, not bodies, and Next only logs server-function calls in development; even there form data shows as `{}`.
+   - Errors come back on the page, never as a redirect carrying the token. Old `?token=` links are refused without being looked up.
+   - **Verified locally end to end** (dev server, local store, Chromium):
+     - the address bar is cleaned;
+     - the token is sent only in POST bodies to `/access/setup`;
+     - a wrong code shows an error, and the right one signs in;
+     - a used link and a `?token=` link are both refused;
+     - the token is absent from the server log.
+   - **Not verified on production** until step 4 itself.
+7. **Remaining exposure:**
+   - the file in this session until it is deleted;
+   - the owner's own browser (the page is open in it), including any browser extension able to read pages.
+   - If either may be compromised, or the link was shown anywhere, invalidate it immediately (below) and create a new one.
 
 **Exposed? Invalidate immediately** (works whether the link was used or not):
 ```sql
@@ -206,13 +248,13 @@ select count(*) from public.li_access_credentials;                              
 If someone else may already have used it, create a new link and complete it yourself. That replaces the password and authenticator and signs out every session (tested). Then use **Sign out everywhere**.
 
 **Other ways to create the link:**
-- With the service key: `SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… node scripts/studio-setup-link.mjs --confirm`, from a local shell with the production values.
+- With the service key, from a local shell with the production values: `SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… node scripts/studio-setup-link.mjs --confirm --hours 2 --out setup-link.txt`. Without `--out` the script prints the link, so use `--out` whenever a terminal may be logged.
 - In the Supabase SQL editor: generate a random token locally, then insert only its hash:
   ```sql
   insert into public.li_access_setup_tokens (token_hash, expires_at)
   values ('<sha256 hex of the token>', now() + interval '24 hours');
   ```
-  The link is `https://agent.growxera.com/access/setup?token=<token>`.
+  The link is `https://agent.growxera.com/access/setup#token=<token>`.
 
 The link is a secret. Deliver it to the owner privately, never in chat logs, issues, commits or docs.
 
