@@ -53,3 +53,6 @@ As of 11 Oct 2026. Severity: Critical / High / Medium / Low.
 | R12 | Vault secret comparison not constant-time | Low | Accepted | 64-hex secret | — |
 | R13 | Restore not supported yet: never run against a Supabase database; no restore script; production restore unsupported; media binaries not in the export | Medium | Open (stated in the runbook) | Round trip tested on an empty local store only; the export lists each media file's path and SHA-256 | A restore script + drill in a throwaway project (gated) |
 | R14 | Docs drift | Low | Mitigated | This doc set; IMPLEMENTATION_LOG.md | — |
+| R19 | Server actions accept bodies up to 4.4 MB (raised from 1 MB for studio uploads), site-wide | Low | Accepted | Vercel caps request bodies at 4.5 MB regardless; studio actions are owner-only | — |
+| R20 | `npm audit` lists 5 high advisories in lint tooling (`braces` via `eslint-config-next`) | Low | Accepted | Not shipped (`npm audit --omit=dev`: 0); npm's suggested fix is a wrong-major downgrade | Re-check on the next Next.js upgrade |
+| R21 | The product build (`claude/studio-m2-product`) isn't reviewed through a PR yet | Medium | Open | CI (unit + E2E) on every push; owner decides whether it joins batch A | Owner decision |

@@ -16,7 +16,7 @@ Verified on 11 Oct 2026 against the code, CI and read-only production checks. Ea
 | PR #18 | `f596a93` | All-publishing switch (P2), automatic switch, per-post confirmation (G1), submission window T−60 s…T−10 s (G2/P1) | [code], [test] |
 | PR #19 | `ee4ac16` | agent.growxera.com, password + authenticator sign-in, fragment setup links | [code], [test] |
 | PR #20 | `79939be` | Weekly export, CI, studio docs, deployment runbook | [code], [test]; CI ✅ |
-| `claude/studio-m2-product` (no PR) | `cf3c236` and later | **This round:** dashboard, posts, calendar, new post, activity, settings, E2E suite | [code], [test], [e2e] |
+| `claude/studio-m2-product` (no PR) | `cf3c236` (CI ✅ unit + E2E), `2070a06` and later | **This round:** dashboard, posts, calendar, new post, file uploads, activity, settings, E2E suite | [code], [test], [e2e] |
 
 **Previews:**
 - Vercel builds every branch, so each preview proves the build and the public site.
@@ -39,7 +39,7 @@ Verified on 11 Oct 2026 against the code, CI and read-only production checks. Ea
 | Owner sign-in (password + TOTP, lockout, sessions, sign out everywhere, setup-link recovery) | **Works** [test][e2e] | Production still uses the old website sign-in until batch A |
 | Dashboard | **Works** [e2e] | New this round. Shows controls, pipeline, what needs action and why, next 14 days, activity, backup, history |
 | Post list: search, status and problem filters | **Works** [e2e] | New filters: needs action, held, missed, not confirmed, confirmed |
-| Write a post (text, planned time, note) as a draft or for review | **Works** [e2e] | New. Media upload is **missing** (media only from the Buffer import) |
+| Write a post (text, planned time, note, one image or PDF up to 4 MB) as a draft or for review | **Works** [test][e2e] | New. Files are type-checked from their bytes, stored privately and verified by checksum. PDFs over 4 MB aren't supported (platform request limit) |
 | Review: approve exact version, request changes, reject, reopen | **Works** [test][e2e] | — |
 | Per-post publishing status (approved version, coverage, every blocker) | **Works** [test][e2e] | New |
 | Edit → new version → approval voided | **Works** [test][e2e] | — |
@@ -64,6 +64,7 @@ Verified on 11 Oct 2026 against the code, CI and read-only production checks. Ea
 | The review panel said that once approved, "the studio posts this at the planned time", which is false under G1/P2 | `queue/[id]` | Text corrected; [e2e] checks the blockers shown after approval |
 | After an edit, the status panel only said "Not approved" and lost which version was approved | `queue/[id]` | Shows the last approved version and whether it covers the current one [e2e] |
 | A new post could never reach review: no UI created posts, and drafts had no submit step | app | New post page, `submitForReview` [test][e2e] |
+| New posts couldn't carry media | app | Verified uploads (`uploadAsset`) [test][e2e] |
 | The setup token was in the URL query, in the error redirect, and printed by the script | access | Fragment flow, form-data transport, `--out` / `--hash-only` [test][e2e] |
 | A setup token appeared in Next's development log of server-function arguments | access | Sent as form data, shown as `{}` [e2e] |
 | Dashboard showed a stray "-" for posts without a time; the side column stretched; the phone nav wrapped | dashboard | Fixed (screenshots reviewed) |
@@ -75,7 +76,7 @@ Verified on 11 Oct 2026 against the code, CI and read-only production checks. Ea
 | Go-live on agent.growxera.com | Batch A approval (migrations, DNS, merge, setup link) | No |
 | Live LinkedIn posting | Batch B (connect, live test) | No |
 | Timed automatic publishing in production | B3a (15-second cron), B3b (live test) | Code done; production step needs approval |
-| Media upload for new posts | Storage design (private bucket on the Free plan) | Yes, next |
+| Files over 4 MB | Needs direct-to-storage signed uploads | Yes (later) |
 | Analytics upload (weekly CSV from LinkedIn) | — | Yes |
 | Restore script and drill | Drill needs a throwaway Supabase project (approval) | Script yes; drill no |
 | Engagement inbox, newsletter, daily report | Scope and priority from the owner | Partly |
