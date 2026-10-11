@@ -650,6 +650,22 @@ describe("media copies", () => {
   });
 });
 
+describe("all-publishing switch, before anyone touches it (owner decision P2)", () => {
+  it("is OFF by default: Publish now and the scheduler both refuse, before any LinkedIn call", async () => {
+    const { publishingSwitch } = await import("./switch");
+    const { publishAction, publishDue } = await import("./publish");
+    expect(await publishingSwitch()).toMatchObject({ enabled: false, ready: true });
+    const id = await approved();
+    const f = vi.fn(async () => new Response("unexpected", { status: 500 })) as unknown as typeof fetch;
+    await expect(publishAction(id, ME, f)).rejects.toThrow(/All publishing is switched off/);
+    await expect(publishAction(id, "scheduler", f, { mode: "auto", now: new Date("2099-10-20T13:00:00.000Z") })).rejects.toThrow(/All publishing is switched off/);
+    const r = await publishDue("scheduler", new Date("2099-10-20T13:00:00.000Z"), f);
+    expect(r).toMatchObject({ ran: false, reason: expect.stringMatching(/All publishing is switched off/) });
+    expect(f).not.toHaveBeenCalled();
+    expect((await getAction(id))!.action.status).toBe("approved");
+  });
+});
+
 describe("LinkedIn direct publishing", () => {
   const SECRET = "test-client-secret-0123456789";
   const inAnHour = () => new Date(Date.now() + 3_600_000).toISOString();
@@ -698,6 +714,9 @@ describe("LinkedIn direct publishing", () => {
     vi.stubEnv("LINKEDIN_CLIENT_ID", "client-id");
     vi.stubEnv("LINKEDIN_CLIENT_SECRET", SECRET);
     await connect();
+    // Every test here publishes, so the all-publishing switch (P2) is on; its own tests turn it off.
+    const { setPublishing } = await import("./autopublish");
+    await setPublishing(true, ME);
   });
   afterEach(() => {
     fake.mode = "ok";
@@ -809,6 +828,101 @@ describe("LinkedIn direct publishing", () => {
     await resolveUnknown(id, "not_published", ME);
     d = (await getAction(id))!;
     expect(d.action.status).toBe("failed");
+  });
+
+  describe("all-publishing switch (owner decision P2)", () => {
+    const off = async () => (await import("./autopublish")).setPublishing(false, ME);
+    const on = async () => (await import("./autopublish")).setPublishing(true, ME);
+    afterEach(on);
+    const posts = () => fake.calls.filter((c) => c.url.endsWith("/rest/posts") && c.method === "POST").length;
+
+    it("blocks Publish now while OFF: no LinkedIn call, the item stays approved; ON again, it posts", async () => {
+      const { publishAction } = await import("./publish");
+      const id = await approvedAt(inAnHour());
+      await off();
+      await expect(publishAction(id, ME, linkedinFetch)).rejects.toThrow(/All publishing is switched off/);
+      expect(fake.calls).toHaveLength(0);
+      expect((await getAction(id))!.action.status).toBe("approved");
+      await on();
+      await expect(publishAction(id, ME, linkedinFetch)).resolves.toMatchObject({ verified: false });
+      expect(posts()).toBe(1);
+    });
+
+    it("blocks automatic publishing while OFF even with the automatic switch on and the post authorized and due", async () => {
+      const { publishDue, publishAction } = await import("./publish");
+      const { authorizeAutoPublish, setAutoPublish } = await import("./autopublish");
+      const t = new Date(Date.now() + 6 * 60_000).toISOString();
+      const id = await approvedAt(t);
+      const d = (await getAction(id))!;
+      await authorizeAutoPublish(id, d.current.id, d.current.content_hash, ME);
+      vi.stubEnv("STUDIO_AUTO_PUBLISH_ALLOWED", "true");
+      await setAutoPublish(true, ME);
+      try {
+        await off();
+        const r = await publishDue("scheduler", new Date(t), linkedinFetch);
+        expect(r).toMatchObject({ ran: false, switchOn: true, reason: expect.stringMatching(/All publishing is switched off/) });
+        await expect(publishAction(id, "scheduler", linkedinFetch, { mode: "auto", now: new Date(t) })).rejects.toThrow(/All publishing is switched off/);
+        expect(posts()).toBe(0);
+        // Missed posts are still held while OFF, so nothing fires late when it comes back on.
+        const late = await publishDue("scheduler", new Date(new Date(t).getTime() + 1), linkedinFetch);
+        expect(late.held).toContain(id);
+        await on();
+        await publishDue("scheduler", new Date(new Date(t).getTime() + 2), linkedinFetch);
+        expect(posts()).toBe(0);
+      } finally {
+        await setAutoPublish(false, ME);
+        vi.stubEnv("STUDIO_AUTO_PUBLISH_ALLOWED", "");
+      }
+    });
+
+    it("a direct call to the LinkedIn client is refused while OFF, before any request", async () => {
+      const { postToLinkedIn } = await import("./linkedin");
+      await off();
+      await expect(postToLinkedIn({ token: "t", author: "urn:li:person:abc123", apiVersion: "202606", text: "Hello", media: null }, linkedinFetch)).rejects.toThrow(
+        /All publishing is switched off/,
+      );
+      expect(fake.calls).toHaveLength(0);
+    });
+
+    it("switching OFF while a post is being prepared stops it before the post request", async () => {
+      const { postToLinkedIn } = await import("./linkedin");
+      const flipping = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+        if (String(input).includes("/rest/images/")) await off(); // the owner switches OFF during the upload
+        return linkedinFetch(input, init);
+      }) as unknown as typeof fetch;
+      const media = { kind: "image" as const, bytes: new Uint8Array([137, 80, 78, 71]), title: "x" };
+      await expect(postToLinkedIn({ token: "t", author: "urn:li:person:abc123", apiVersion: "202606", text: "Hello", media }, flipping)).rejects.toThrow(
+        /All publishing is switched off/,
+      );
+      expect(fake.calls.some((c) => c.url.includes("/rest/images/"))).toBe(true);
+      expect(posts()).toBe(0);
+    });
+
+    it("reads anything but a stored true as OFF", async () => {
+      const { publishingSwitch, PUBLISHING_SETTING } = await import("./switch");
+      const { update, eq } = await import("@/lib/server/store");
+      for (const value of ["true", 1, null, "yes"]) {
+        await update("li_settings", [eq("key", PUBLISHING_SETTING)], { value });
+        expect((await publishingSwitch()).enabled, String(value)).toBe(false);
+      }
+    });
+
+    it("every publishing path goes through the switch (static check)", () => {
+      const read = (f: string) => fs.readFileSync(path.join(process.cwd(), "src", f), "utf8");
+      const pub = read("lib/studio/publish.ts");
+      const body = pub.slice(pub.indexOf("export async function publishAction("));
+      // Checked first, before credentials, the claim or anything sent.
+      expect(body.indexOf("await assertPublishingOn()")).toBeGreaterThan(-1);
+      expect(body.indexOf("await assertPublishingOn()")).toBeLessThan(body.indexOf("postingCredentials("));
+      expect(body.indexOf("await assertPublishingOn()")).toBeLessThan(body.indexOf('transition(d.action, "executed"'));
+      const li = read("lib/studio/linkedin.ts");
+      const post = li.slice(li.indexOf("export async function postToLinkedIn("));
+      expect(post.indexOf("await stopIfOff()")).toBeLessThan(post.indexOf("uploadMedia("));
+      expect(post.lastIndexOf("await stopIfOff()")).toBeLessThan(post.indexOf("/rest/posts"));
+      // The only callers of publishAction are the owner's Publish now action and the scheduler.
+      expect(read("app/studio/actions.ts").match(/publishAction\(/g)).toHaveLength(1);
+      expect(read("app/api/studio/publish-due/route.ts")).not.toMatch(/publishAction\(/);
+    });
   });
 
   describe("automatic publishing safeguards (owner decisions G1, G2)", () => {

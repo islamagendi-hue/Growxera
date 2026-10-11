@@ -1,6 +1,7 @@
 import "server-only";
 /**
- * Automatic publishing has three independent locks. All must be open for the scheduler to post:
+ * Automatic publishing has three independent locks, under the all-publishing switch (switch.ts,
+ * which also blocks manual "Publish now"). All must be open for the scheduler to post:
  *
  * 1. Global switch, OFF by default. It is on only when BOTH the deployment flag
  *    STUDIO_AUTO_PUBLISH_ALLOWED=true is set (an owner-approved deployment change) AND the owner
@@ -18,6 +19,7 @@ import "server-only";
  */
 import { eq, insert, select, selectOne, update } from "@/lib/server/store";
 import { audit, type ActionDetail, load, transition } from "./repo";
+import { PUBLISHING_SETTING } from "./switch";
 import { contentHash, WorkflowError } from "./workflow";
 
 /**
@@ -71,16 +73,26 @@ export async function autoPublishSwitch(): Promise<SwitchState> {
   }
 }
 
+async function saveSetting(key: string, enabled: boolean, actor: string): Promise<void> {
+  const existing = await selectOne<{ key: string }>("li_settings", [eq("key", key)]);
+  const patch = { value: enabled, updated_at: iso(), updated_by: actor };
+  if (existing) await update("li_settings", [eq("key", key)], patch);
+  else await insert("li_settings", { key, ...patch });
+}
+
 /** Turning it off always works. Turning it on needs the deployment flag. */
 export async function setAutoPublish(enabled: boolean, actor: string): Promise<void> {
   if (enabled && !deploymentAllowsAutoPublish()) {
     throw new WorkflowError("Automatic publishing isn't allowed for this deployment yet (it needs the owner-approved deployment setting).");
   }
-  const existing = await selectOne<{ key: string }>("li_settings", [eq("key", AUTO_SETTING)]);
-  const patch = { value: enabled, updated_at: iso(), updated_by: actor };
-  if (existing) await update("li_settings", [eq("key", AUTO_SETTING)], patch);
-  else await insert("li_settings", { key: AUTO_SETTING, ...patch });
+  await saveSetting(AUTO_SETTING, enabled, actor);
   await audit(actor, enabled ? "autopublish.switched_on" : "autopublish.switched_off", "li_settings", AUTO_SETTING);
+}
+
+/** The all-publishing switch (switch.ts). Turning it off always works and takes effect at once. */
+export async function setPublishing(enabled: boolean, actor: string): Promise<void> {
+  await saveSetting(PUBLISHING_SETTING, enabled, actor);
+  await audit(actor, enabled ? "publishing.switched_on" : "publishing.switched_off", "li_settings", PUBLISHING_SETTING);
 }
 
 // ── Lock 2: per-post authorization ──────────────────────────────────────────

@@ -3,7 +3,9 @@
 -- separate, per-post authorization; missed posts are held, never published late. See
 -- src/lib/studio/autopublish.ts. NOT applied to production: needs the owner's approval.
 
--- Studio settings. The app reads a missing table or row as "OFF".
+-- Studio settings. Keys: 'publishing_enabled' (the all-publishing switch, owner decision P2, blocks
+-- manual and automatic publishing) and 'auto_publish_enabled'. The app reads a missing table, row
+-- or any value other than JSON true as "OFF".
 create table if not exists public.li_settings (
   key         text primary key check (key ~ '^[a-z_]{3,64}$'),
   value       jsonb not null,
