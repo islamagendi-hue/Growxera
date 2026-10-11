@@ -12,10 +12,13 @@ import "server-only";
  *    this exact time". It binds to the version and its content hash (text, media, planned time),
  *    so any edit voids it. Approvals that predate this feature have no authorization, so they
  *    never publish automatically until the owner authorizes each one (decision G1).
- * 3. Timing: never before the planned time and never after it (decision G2, no late
- *    allowance: LATE_TOLERANCE_MS is 0). A scheduler run that starts after the planned time,
- *    even by a second, holds the post: back in review with the reason recorded, needing a new
- *    time and a new approval. A delayed scheduler therefore holds posts; it never publishes late.
+ * 3. Timing (decisions G2 and P1): a post is submitted to LinkedIn only between
+ *    T − SUBMIT_EARLY_MS and T − SUBMIT_MARGIN_MS, where T is its planned time (today: from 60 s
+ *    to 10 s before T). Never automatically after that. A run that misses the window holds the
+ *    post: back in review with the reason recorded, needing a new time and a new approval. The
+ *    deadline is checked again with the real clock right before the post request, and that
+ *    request is cut off at T. If LinkedIn's answer is unknown, the post is never retried.
+ *    We control when the request is sent, not the timestamp LinkedIn finally shows.
  */
 import { eq, insert, select, selectOne, update } from "@/lib/server/store";
 import { audit, type ActionDetail, load, transition } from "./repo";
@@ -23,10 +26,11 @@ import { PUBLISHING_SETTING } from "./switch";
 import { contentHash, WorkflowError } from "./workflow";
 
 /**
- * How late after its planned time a post may still go out automatically: not at all (owner
- * decision G2). Any other value is a policy change that needs the owner's explicit approval.
+ * The submission window, approved by the owner (P1, 11 Oct): from 60 s before the planned time to
+ * 10 s before it. Changing either value is a policy change that needs the owner's approval.
  */
-export const LATE_TOLERANCE_MS = 0;
+export const SUBMIT_EARLY_MS = 60_000;
+export const SUBMIT_MARGIN_MS = 10_000;
 /** Authorizing needs at least this much time before the planned time. */
 export const MIN_LEAD_MS = 5 * 60_000;
 export const AUTO_SETTING = "auto_publish_enabled";
@@ -174,20 +178,31 @@ export const leadTimeOk = (targetAt: string | null, now = new Date()) => !!targe
 
 export type Timing = "early" | "on_time" | "missed";
 
+/** Where `at` falls against the submission window [T − SUBMIT_EARLY_MS, T − SUBMIT_MARGIN_MS]. */
 export function timing(targetAt: string, at: Date): Timing {
   const due = new Date(targetAt).getTime();
-  if (at.getTime() < due) return "early";
-  return at.getTime() - due <= LATE_TOLERANCE_MS ? "on_time" : "missed";
+  const t = at.getTime();
+  if (t < due - SUBMIT_EARLY_MS) return "early";
+  return t <= due - SUBMIT_MARGIN_MS ? "on_time" : "missed";
 }
+
+/** The last moment a post may be sent to LinkedIn automatically. */
+export const submitDeadline = (targetAt: string) => new Date(targetAt).getTime() - SUBMIT_MARGIN_MS;
 
 /**
  * A post that wasn't published on time is never published late: it goes back to review with the
  * reason recorded, its authorization is revoked, and it needs a new time and a new approval.
  */
-export async function holdMissed(actionId: string, actor: string, at: Date): Promise<void> {
+export async function holdMissed(actionId: string, actor: string, at: Date, opts: { claimed?: boolean } = {}): Promise<void> {
   const d = await load(actionId);
-  const reason = `Held: its planned time (${d.current.target_at}) passed before it was published, and late posts are never published automatically. Set a new time and approve again.`;
-  await transition(d.action, "ready_for_review", reason);
+  const reason = `Held: it couldn't be sent in its window (60 to 10 seconds before ${d.current.target_at}), and posts are never published automatically after that. Set a new time and approve again.`;
+  if (opts.claimed) {
+    // Already claimed by this run (status executed) but nothing was sent: put it back in review.
+    const [moved] = await update<{ id: string }>("li_actions", [eq("id", actionId), eq("status", "executed")], { status: "ready_for_review", status_reason: reason, updated_at: iso(at) });
+    if (!moved) throw new WorkflowError("The item changed while it was being held.");
+  } else {
+    await transition(d.action, "ready_for_review", reason);
+  }
   await insert("li_publish_authorizations", {
     id: crypto.randomUUID(),
     created_at: iso(at),
@@ -196,7 +211,7 @@ export async function holdMissed(actionId: string, actor: string, at: Date): Pro
     content_hash: d.current.content_hash,
     target_at: d.current.target_at,
     decision: "revoked",
-    reason: "Missed its planned time",
+    reason: "Missed its submission window",
     decided_by: "system",
   });
   await audit(actor, "action.held_missed_schedule", "li_actions", actionId, { targetAt: d.current.target_at, at: iso(at) });

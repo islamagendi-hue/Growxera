@@ -239,6 +239,9 @@ export async function fetchMember(accessToken: string): Promise<{ urn: string; n
  * Not definite = the outcome is unknown (timeout, network error after the request was sent):
  * the post may exist, so the studio never retries on its own.
  */
+/** The submission deadline passed before the post request was sent. Nothing was sent. */
+export class WindowMissedError extends Error {}
+
 export class LinkedInError extends Error {
   constructor(
     message: string,
@@ -334,7 +337,15 @@ async function uploadMedia(f: Fetch, token: string, author: string, version: str
  * x-restli-id header. Errors before the post request are always `definite`.
  */
 export async function postToLinkedIn(
-  input: { token: string; author: string; apiVersion: string; text: string; media: PostMedia | null },
+  input: {
+    token: string;
+    author: string;
+    apiVersion: string;
+    text: string;
+    media: PostMedia | null;
+    /** Automatic publishing: never send after submitBy, and cut the request off at cutoffAt (epoch ms). */
+    deadline?: { submitBy: number; cutoffAt: number; now: () => number };
+  },
   f: Fetch = fetch,
 ): Promise<{ urn: string; sentCommentary: string }> {
   // Second check of the all-publishing switch (the first is in publishAction): before any upload,
@@ -356,6 +367,9 @@ export async function postToLinkedIn(
   if (mediaUrn) body.content = { media: input.media!.kind === "document" ? { id: mediaUrn, title: input.media!.title } : { id: mediaUrn } };
 
   await stopIfOff();
+  const dl = input.deadline;
+  if (dl && dl.now() > dl.submitBy) throw new WindowMissedError("The submission deadline passed before the post was sent.");
+  const timeoutMs = dl ? Math.max(1, Math.min(30_000, dl.cutoffAt - dl.now())) : 30_000;
   let res: Response;
   try {
     res = await f(`${API}/rest/posts`, {
@@ -363,7 +377,7 @@ export async function postToLinkedIn(
       headers: apiHeaders(input.token, input.apiVersion),
       body: JSON.stringify(body),
       cache: "no-store",
-      signal: AbortSignal.timeout(30_000),
+      signal: AbortSignal.timeout(timeoutMs),
     });
   } catch {
     throw new LinkedInError("No answer from LinkedIn after sending the post. It may or may not have been published.", null, false);
