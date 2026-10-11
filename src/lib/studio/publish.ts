@@ -18,8 +18,8 @@ import "server-only";
 import { eq, insert, select, selectOne, update } from "@/lib/server/store";
 import { type AssetRow, getObject } from "./assets";
 import { assertPublishingOn, PUBLISHING_OFF, publishingSwitch } from "./switch";
-import { authorizationsFor, autoPublishSwitch, holdMissed, isAutoAuthorized, timing } from "./autopublish";
-import { LinkedInError, postingCredentials, postToLinkedIn, postUrl, type PostMedia, readBackPost } from "./linkedin";
+import { authorizationsFor, autoPublishSwitch, holdMissed, isAutoAuthorized, submitDeadline, timing } from "./autopublish";
+import { LinkedInError, WindowMissedError, postingCredentials, postToLinkedIn, postUrl, type PostMedia, readBackPost } from "./linkedin";
 import {
   audit,
   describeMatch,
@@ -56,6 +56,9 @@ export interface PublishResult {
   verified: boolean;
 }
 
+/** The post was held for review instead of being sent (it missed its submission window). */
+export class HeldError extends WorkflowError {}
+
 /**
  * Publishes one approved post now. Throws WorkflowError with a message for the owner.
  * `f` is injectable for tests.
@@ -64,10 +67,14 @@ export async function publishAction(
   actionId: string,
   actor: string,
   f: typeof fetch = fetch,
-  opts: { mode?: "manual" | "auto"; now?: Date } = {},
+  opts: { mode?: "manual" | "auto"; now?: Date; clock?: () => Date } = {},
 ): Promise<PublishResult> {
   const mode = opts.mode ?? "manual";
-  const at = opts.now ?? new Date();
+  // The clock used for the timing checks. Tests and the scheduler pass their own; otherwise the
+  // real clock (a fixed `now` keeps running from the moment of this call).
+  const offset = opts.now ? opts.now.getTime() - Date.now() : 0;
+  const clock = opts.clock ?? (() => new Date(Date.now() + offset));
+  const at = clock();
   // All publishing (manual and automatic) is blocked while the all-publishing switch is OFF.
   await assertPublishingOn();
   const creds = await postingCredentials(at);
@@ -78,8 +85,12 @@ export async function publishAction(
   if (mode === "auto") {
     if (!(await autoPublishSwitch()).enabled) throw new WorkflowError("Automatic publishing is switched off.");
     if (!isAutoAuthorized(d, await authorizationsFor(actionId))) throw new WorkflowError("This post isn't authorized for automatic publishing.");
-    if (timing(d.current.target_at!, at) !== "on_time") throw new WorkflowError("Outside its publishing window: never published early or late automatically.");
+    if (timing(d.current.target_at!, at) !== "on_time") throw new WorkflowError("Outside its submission window (60 to 10 seconds before the planned time): never sent automatically outside it.");
   }
+  // Automatic runs: the deadline is checked again right before the post request, and the request
+  // is cut off at the planned time (see autopublish.ts, lock 3).
+  const deadline =
+    mode === "auto" ? { submitBy: submitDeadline(d.current.target_at!), cutoffAt: new Date(d.current.target_at!).getTime(), now: () => clock().getTime() } : undefined;
   if (d.action.kind !== "publish_post") throw new WorkflowError("Only posts can be published directly. Use the manual step.");
   if (!d.current.text.trim() || d.current.text.length > 3000) throw new WorkflowError("The text must be 1 to 3,000 characters.");
 
@@ -119,8 +130,14 @@ export async function publishAction(
   let urn: string;
   let sentCommentary: string;
   try {
-    ({ urn, sentCommentary } = await postToLinkedIn({ ...creds, text: d.current.text, media }, f));
+    ({ urn, sentCommentary } = await postToLinkedIn({ ...creds, text: d.current.text, media, deadline }, f));
   } catch (err) {
+    if (err instanceof WindowMissedError) {
+      // Nothing was sent: free the key and hold the post for review (G2); never sent late.
+      await update("li_executions", [eq("id", exec.id)], { result: "failed", error: err.message, idempotency_key: `${key}:failed:${exec.id}` });
+      await holdMissed(actionId, actor, clock(), { claimed: true });
+      throw new HeldError("It missed its submission window before anything was sent, so it is held for review. Nothing was posted.");
+    }
     const e = err instanceof LinkedInError ? err : new LinkedInError("Unexpected error while publishing.", null, false);
     if (e.definite) {
       // Nothing was created: free the key so the same content can be approved and tried again.
@@ -218,6 +235,9 @@ export interface DueReport {
  * come back.
  */
 export async function publishDue(actor: string, at = new Date(), f: typeof fetch = fetch): Promise<DueReport> {
+  // One clock for the whole run, running from `at`, so later posts in a long run see the real elapsed time.
+  const offset = at.getTime() - Date.now();
+  const clock = () => new Date(Date.now() + offset);
   const sw = await autoPublishSwitch();
   const report: DueReport = { ran: false, switchOn: sw.enabled, published: [], failed: [], held: [], waiting: 0, notAuthorized: 0 };
   const items = (await listActions(["approved"])).filter((i) => i.current?.target_at && i.action.kind === "publish_post");
@@ -230,11 +250,11 @@ export async function publishDue(actor: string, at = new Date(), f: typeof fetch
       report.notAuthorized++;
       continue;
     }
-    const t = timing(d.current.target_at!, at);
+    const t = timing(d.current.target_at!, clock());
     if (t === "early") report.waiting++;
     else if (t === "missed") {
       try {
-        await holdMissed(action.id, actor, at);
+        await holdMissed(action.id, actor, clock());
         report.held.push(action.id);
       } catch (err) {
         report.failed.push({ actionId: action.id, error: err instanceof Error ? err.message : "Unknown error" });
@@ -253,9 +273,13 @@ export async function publishDue(actor: string, at = new Date(), f: typeof fetch
   if (report.ran) {
     for (const id of due) {
       try {
-        const r = await publishAction(id, actor, f, { mode: "auto", now: at });
+        const r = await publishAction(id, actor, f, { mode: "auto", clock });
         report.published.push({ actionId: id, ...r });
       } catch (err) {
+        if (err instanceof HeldError) {
+          report.held.push(id);
+          continue;
+        }
         report.failed.push({ actionId: id, error: err instanceof Error ? err.message : "Unknown error" });
       }
     }

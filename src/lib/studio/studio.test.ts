@@ -52,6 +52,8 @@ const post = (text?: string) =>
     origin: "manual",
     author: ME,
   });
+/** A moment inside the automatic submission window [T − 60 s, T − 10 s] (default T − 30 s). */
+const inWindow = (t: string, beforeMs = 30_000) => new Date(new Date(t).getTime() - beforeMs);
 const url = () => `https://www.linkedin.com/feed/update/urn:li:share:${Math.floor(Math.random() * 1e15)}`;
 async function approved() {
   const { actionId } = await post();
@@ -859,9 +861,9 @@ describe("LinkedIn direct publishing", () => {
       await setAutoPublish(true, ME);
       try {
         await off();
-        const r = await publishDue("scheduler", new Date(t), linkedinFetch);
+        const r = await publishDue("scheduler", inWindow(t), linkedinFetch);
         expect(r).toMatchObject({ ran: false, switchOn: true, reason: expect.stringMatching(/All publishing is switched off/) });
-        await expect(publishAction(id, "scheduler", linkedinFetch, { mode: "auto", now: new Date(t) })).rejects.toThrow(/All publishing is switched off/);
+        await expect(publishAction(id, "scheduler", linkedinFetch, { mode: "auto", now: inWindow(t) })).rejects.toThrow(/All publishing is switched off/);
         expect(posts()).toBe(0);
         // Missed posts are still held while OFF, so nothing fires late when it comes back on.
         const late = await publishDue("scheduler", new Date(new Date(t).getTime() + 1), linkedinFetch);
@@ -964,7 +966,7 @@ describe("LinkedIn direct publishing", () => {
       const t = soon();
       const id = await approvedAt(t);
       await authorize(id);
-      const r = await publishDue("scheduler", new Date(t), linkedinFetch);
+      const r = await publishDue("scheduler", inWindow(t), linkedinFetch);
       expect(r).toMatchObject({ ran: false, switchOn: false });
       expect(r.published).toHaveLength(0);
       expect(posts()).toBe(0);
@@ -977,7 +979,7 @@ describe("LinkedIn direct publishing", () => {
       const legacy: string[] = [];
       for (let i = 0; i < 19; i++) legacy.push(await approvedAt(t, `Legacy approved post ${i} ${crypto.randomUUID()}`));
       await switchOn();
-      const at = new Date(t);
+      const at = inWindow(t);
       const r = await publishDue("scheduler", at, linkedinFetch);
       expect(r.ran).toBe(true);
       expect(r.published.filter((p) => legacy.includes(p.actionId))).toHaveLength(0);
@@ -1009,7 +1011,7 @@ describe("LinkedIn direct publishing", () => {
       expect(r.held).toContain(id);
       const d = (await getAction(id))!;
       expect(d.action.status).toBe("ready_for_review");
-      expect(d.action.status_reason).toMatch(/^Held: its planned time/);
+      expect(d.action.status_reason).toMatch(/^Held:/);
       await switchOn();
       await publishDue("scheduler", new Date(late.getTime() + MIN), linkedinFetch);
       expect(posts()).toBe(0);
@@ -1032,21 +1034,92 @@ describe("LinkedIn direct publishing", () => {
       expect(posts()).toBe(0);
     });
 
-    it("publishes only at the planned time: 1 ms early waits, 1 ms late is held (G2, no late allowance)", async () => {
+    it("submits only from 60 s to 10 s before the planned time: earlier waits, later is held (G2, P1)", async () => {
+      const { publishDue } = await import("./publish");
+      await switchOn();
+      const ids: Record<string, string> = {};
+      for (const [i, name] of ["early", "first", "last", "late", "atT"].entries()) {
+        ids[name] = await approvedAt(soon(6 + i), `Edge ${name} ${crypto.randomUUID()}`);
+        await authorize(ids[name]);
+      }
+      const target = async (id: string) => (await getAction(id))!.current.target_at!;
+      const before = async (id: string, ms: number) => new Date(new Date(await target(id)).getTime() - ms);
+      // Exact millisecond edges are in the timing() test below; a run's clock keeps running, so these use ±0.5 s.
+      // T − 61 s: too early, waits (stays approved, still authorized).
+      const r1 = await publishDue("scheduler", await before(ids.early, 61_000), linkedinFetch);
+      expect(r1.published.map((p) => p.actionId)).not.toContain(ids.early);
+      expect((await getAction(ids.early))!.action.status).toBe("approved");
+      // T − 59.5 s: the window is open.
+      const r2 = await publishDue("scheduler", await before(ids.first, 59_500), linkedinFetch);
+      expect(r2.published.map((p) => p.actionId)).toContain(ids.first);
+      // T − 10.5 s: near the last moment.
+      const r3 = await publishDue("scheduler", await before(ids.last, 10_500), linkedinFetch);
+      expect(r3.published.map((p) => p.actionId)).toContain(ids.last);
+      // T − 9.5 s: missed, held for review, nothing sent.
+      const r4 = await publishDue("scheduler", await before(ids.late, 9_500), linkedinFetch);
+      expect(r4.held).toContain(ids.late);
+      expect((await getAction(ids.late))!.action.status).toBe("ready_for_review");
+      // Exactly at T: held too.
+      const r5 = await publishDue("scheduler", new Date(await target(ids.atT)), linkedinFetch);
+      expect(r5.held).toContain(ids.atT);
+      const sent = fake.calls.filter((c) => c.url.endsWith("/rest/posts") && c.method === "POST").map((c) => c.body ?? "");
+      expect(sent.filter((b) => b.includes("Edge"))).toHaveLength(2);
+      expect(sent.some((b) => b.includes("Edge late") || b.includes("Edge atT") || b.includes("Edge early"))).toBe(false);
+    });
+
+    it("re-checks the deadline with the clock right before the post request: a run that ran late holds the post, nothing sent", async () => {
+      const { publishAction } = await import("./publish");
+      await switchOn();
+      const t = soon();
+      const id = await approvedAt(t);
+      await authorize(id);
+      // The run starts inside the window, but by the time it reaches the post request it is past T − 10 s.
+      let calls = 0;
+      const clock = () => inWindow(t, calls++ === 0 ? 30_000 : 5_000);
+      await expect(publishAction(id, "scheduler", linkedinFetch, { mode: "auto", clock })).rejects.toThrow(/held for review/);
+      expect(posts()).toBe(0);
+      const d = (await getAction(id))!;
+      expect(d.action.status).toBe("ready_for_review");
+      expect(d.action.status_reason).toMatch(/^Held:/);
+      // A new approval and authorization are needed; the old content isn't sent later.
+      const { publishDue } = await import("./publish");
+      await publishDue("scheduler", inWindow(t, 20_000), linkedinFetch);
+      expect(posts()).toBe(0);
+    });
+
+    it("an unknown LinkedIn outcome is never retried automatically", async () => {
       const { publishDue } = await import("./publish");
       await switchOn();
       const t = soon();
-      const [early, start, end] = [await approvedAt(t, `Edge A ${crypto.randomUUID()}`), await approvedAt(soon(7), `Edge B ${crypto.randomUUID()}`), await approvedAt(soon(8), `Edge C ${crypto.randomUUID()}`)];
-      for (const id of [early, start, end]) await authorize(id);
-      const at = (id: string, offset: number) => getAction(id).then((d) => new Date(new Date(d!.current.target_at!).getTime() + offset));
-      const r1 = await publishDue("scheduler", await at(early, -1), linkedinFetch);
-      expect(r1.published.map((p) => p.actionId)).not.toContain(early);
-      const r2 = await publishDue("scheduler", await at(start, 0), linkedinFetch);
-      expect(r2.published.map((p) => p.actionId)).toContain(start);
-      const r3 = await publishDue("scheduler", await at(end, 1), linkedinFetch);
-      expect(r3.published.map((p) => p.actionId)).not.toContain(end);
-      expect(r3.held).toContain(end);
-      expect((await getAction(end))!.action.status).toBe("ready_for_review");
+      const id = await approvedAt(t);
+      await authorize(id);
+      fake.mode = "silent";
+      const r = await publishDue("scheduler", inWindow(t, 50_000), linkedinFetch);
+      expect(r.failed.map((x) => x.actionId)).toContain(id);
+      fake.mode = "ok";
+      // Later runs inside the window don't send it again.
+      await publishDue("scheduler", inWindow(t, 35_000), linkedinFetch);
+      await publishDue("scheduler", inWindow(t, 20_000), linkedinFetch);
+      expect(fake.calls.filter((c) => c.url.endsWith("/rest/posts") && c.method === "POST")).toHaveLength(1);
+      const d = (await getAction(id))!;
+      expect(d.action.status).toBe("executed");
+      expect(d.action.status_reason).toMatch(/may or may not have been published/);
+    });
+
+    it("cuts the post request off at the planned time", async () => {
+      const { postToLinkedIn } = await import("./linkedin");
+      const seen: number[] = [];
+      const timed = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+        if (String(input).endsWith("/rest/posts")) seen.push(init?.signal ? 1 : 0);
+        return linkedinFetch(input, init);
+      }) as unknown as typeof fetch;
+      const T = Date.now() + 12_000;
+      await postToLinkedIn({ token: "t", author: "urn:li:person:abc123", apiVersion: "202606", text: "Hi", media: null, deadline: { submitBy: T - 10_000, cutoffAt: T, now: () => Date.now() } }, timed);
+      expect(seen).toEqual([1]);
+      await expect(
+        postToLinkedIn({ token: "t", author: "urn:li:person:abc123", apiVersion: "202606", text: "Hi", media: null, deadline: { submitBy: Date.now() - 1, cutoffAt: Date.now() + 9_999, now: () => Date.now() } }, timed),
+      ).rejects.toThrow(/deadline passed/);
+      expect(seen).toEqual([1]);
     });
 
     it("an edit voids the automatic-publishing authorization, and re-approval doesn't restore it", async () => {
@@ -1059,7 +1132,7 @@ describe("LinkedIn direct publishing", () => {
       await addVersion(id, { ...d.current, target_at: t2 }, ME);
       const d2 = (await getAction(id))!;
       await approve(id, d2.current.id, d2.current.content_hash, ME);
-      const r = await publishDue("scheduler", new Date(t2), linkedinFetch);
+      const r = await publishDue("scheduler", inWindow(t2), linkedinFetch);
       expect(r.published.map((p) => p.actionId)).not.toContain(id);
       expect(posts()).toBe(0);
     });
@@ -1068,12 +1141,12 @@ describe("LinkedIn direct publishing", () => {
       const { publishAction } = await import("./publish");
       const t = soon();
       const id = await approvedAt(t);
-      const due = new Date(t);
+      const due = inWindow(t);
       await expect(publishAction(id, "scheduler", linkedinFetch, { mode: "auto", now: due })).rejects.toThrow(/switched off/);
       await switchOn();
       await expect(publishAction(id, "scheduler", linkedinFetch, { mode: "auto", now: due })).rejects.toThrow(/isn't authorized/);
       await authorize(id);
-      await expect(publishAction(id, "scheduler", linkedinFetch, { mode: "auto", now: new Date(new Date(t).getTime() + 1) })).rejects.toThrow(/Outside its publishing window/);
+      await expect(publishAction(id, "scheduler", linkedinFetch, { mode: "auto", now: new Date(new Date(t).getTime() + 1) })).rejects.toThrow(/Outside its submission window/);
       expect(posts()).toBe(0);
       await expect(publishAction(id, "scheduler", linkedinFetch, { mode: "auto", now: due })).resolves.toMatchObject({ verified: false });
     });
@@ -1084,7 +1157,7 @@ describe("LinkedIn direct publishing", () => {
       const t = soon();
       const id = await approvedAt(t);
       await authorize(id);
-      const at = new Date(t);
+      const at = inWindow(t);
       const [a, b] = await Promise.all([publishDue("scheduler", at, linkedinFetch), publishDue("scheduler", at, linkedinFetch)]);
       expect([...a.published, ...b.published].filter((p) => p.actionId === id)).toHaveLength(1);
       expect(posts()).toBe(1);
@@ -1107,10 +1180,12 @@ describe("LinkedIn direct publishing", () => {
       const { timing } = await import("./autopublish");
       const target = fromRiyadhInput("2026-12-01T17:00");
       expect(target).toBe("2026-12-01T14:00:00.000Z");
-      expect(timing(target, new Date("2026-12-01T13:59:59.999Z"))).toBe("early");
-      expect(timing(target, new Date("2026-12-01T14:00:00.000Z"))).toBe("on_time");
+      expect(timing(target, new Date("2026-12-01T13:58:59.999Z"))).toBe("early");
+      expect(timing(target, new Date("2026-12-01T13:59:00.000Z"))).toBe("on_time"); // T − 60 s
+      expect(timing(target, new Date("2026-12-01T13:59:50.000Z"))).toBe("on_time"); // T − 10 s
+      expect(timing(target, new Date("2026-12-01T13:59:50.001Z"))).toBe("missed");
+      expect(timing(target, new Date("2026-12-01T14:00:00.000Z"))).toBe("missed"); // at T
       expect(timing(target, new Date("2026-12-01T14:00:00.001Z"))).toBe("missed");
-      expect(timing(target, new Date("2026-12-01T14:05:00.000Z"))).toBe("missed"); // the next 5-minute tick is too late
     });
   });
 
