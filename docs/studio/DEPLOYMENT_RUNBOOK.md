@@ -81,13 +81,45 @@ select
 - the 6 tables exist;
 - RLS is on for every `li_` table;
 - 0 grants to anon or authenticated;
-- the counts of existing tables equal step 0.
+- the counts of existing tables equal step 0;
+- **the owner opens `www.growxera.com/studio` and it still works** (the current code with the new tables present, which is the rollback target).
 
-**If it fails:** nothing else has changed. Fix and re-apply (idempotent), or drop only the new tables:
-```sql
-drop table public.li_publish_authorizations, public.li_settings, public.li_access_attempts,
-  public.li_access_setup_tokens, public.li_access_sessions, public.li_access_credentials;
-```
+**Baseline (read-only, 11 Oct 06:4x UTC):**
+- 6 rows in `supabase_migrations.schema_migrations` (latest `20261010213149 linkedin_app_keys`);
+- 12 `li_` tables;
+- 0 row-level policies on `li_` tables. That is the intended model: RLS on, no policies, so browsers get nothing and only the server's service role reads and writes.
+
+**Expected after:** 8 history rows (`studio_access`, `publishing_controls` added), 18 `li_` tables, still 0 policies, 0 browser grants.
+
+**If a call fails or a check doesn't match: stop. No automatic retry, no automatic drop.**
+1. **Inspect** (read-only) what actually happened:
+   ```sql
+   select version, name from supabase_migrations.schema_migrations order by version desc limit 3;
+   select t.tablename, t.rowsecurity,
+          (select count(*) from information_schema.role_table_grants g
+            where g.table_schema = 'public' and g.table_name = t.tablename
+              and g.grantee in ('anon','authenticated')) as browser_grants,
+          (select count(*) from pg_policies p where p.schemaname = 'public' and p.tablename = t.tablename) as policies
+   from pg_tables t
+   where t.schemaname = 'public' and t.tablename in
+     ('li_access_credentials','li_access_sessions','li_access_setup_tokens','li_access_attempts',
+      'li_settings','li_publish_authorizations')
+   order by 1;
+   select indexname from pg_indexes where schemaname = 'public'
+     and indexname in ('li_access_attempts_created_idx','li_publish_authorizations_action_idx');
+   ```
+   Row counts of any table found, and the existing-table counts against the baseline, are checked too.
+2. **Classify and report to the owner:**
+
+   | State found | Meaning | Proposed next step (owner approves) |
+   |---|---|---|
+   | None of the 6 tables, no new history row | Nothing applied | Re-apply the same file once |
+   | `studio_access` complete (4 tables, RLS on, 0 grants, history row), `publishing_controls` absent | File 1 done | Apply file 2 only |
+   | Some tables present but RLS off or browser grants > 0 | Partial apply; possible exposure (tables are empty) | Run only the missing `alter table … enable row level security` / `revoke …` lines from the file, then re-check |
+   | Tables present and correct, history row missing | Applied but not recorded | Leave as is; record it in the log; don't re-run blindly |
+   | Anything else, or existing-table counts changed | Unexpected | Stop; investigate before any change |
+
+3. **Dropping is never automatic.** Only if the owner asks: drop only the named new tables, and only when they are empty (row count 0). The current production code doesn't use them, so leaving them in place is always safe.
 
 ## Step 2 · A3: domain and DNS · 🌐 Externally visible · ⛔ partly irreversible
 
@@ -117,7 +149,7 @@ drop table public.li_publish_authorizations, public.li_settings, public.li_acces
 **Checks:**
 - Vercel shows the domain as **valid** with an issued certificate;
 - `https://agent.growxera.com` answers over HTTPS;
-- `https://www.growxera.com` is unchanged.
+- `https://www.growxera.com` is unchanged: **the owner opens www and www/studio, and both still work**.
 
 **Stop condition:** if the domain isn't verified with a certificate, **don't merge.** DNS can take minutes to hours; wait or roll back.
 
@@ -125,7 +157,11 @@ drop table public.li_publish_authorizations, public.li_settings, public.li_acces
 
 ## Step 3 · A1: merge #17 → #18 → #19 → #20 into `main` · 🌐 Externally visible · ⛔ partly irreversible
 
-**What:** merge the four PRs in order. Vercel deploys production automatically.
+**What:** collapse the stack first, then merge once into `main`, so production deploys **once**. Merging #17 → #18 → #19 → #20 into `main` one by one would produce four production deployments, and "the previous deployment" would then be a half-merged state.
+1. Note the current production deployment in Vercel (commit `8542b1e`, PR #16). This is the **rollback target**.
+2. Merge #20 into its base (`claude/studio-m1-agent-host-auth`), then #19 into `claude/studio-m1-publishing-safeguards`, then #18 into `claude/linkedin-brand-growth-agent-wu375g`. These bases aren't `main`, so they only produce previews.
+3. Check that #17's head now equals the reviewed stack (same tree as `770f727` or later) and that its CI and preview are green.
+4. Merge #17 into `main`. **This is the one production deployment.**
 
 **Externally visible:**
 - `www.growxera.com/studio` and `/access` return **404**;
@@ -157,7 +193,10 @@ drop table public.li_publish_authorizations, public.li_settings, public.li_acces
    insert into public.li_access_setup_tokens (token_hash, expires_at)
    values ('<sha256>', now() + interval '2 hours');
    ```
-3. The owner opens `setup-link.txt` in the Claude app and uses the link at once. Claude then deletes the file. Anyone with access to this session could open the file until then. The link is single use and short-lived.
+3. **How the owner opens it:** Claude's message gives only the file's path, never its contents. Tap or click the path in the Claude app; the app opens files in this session's scratchpad. Copy the link into your browser and complete the setup.
+4. **Privacy:** the file lives only in this session's cloud container: outside the repository (never committed), owner-only permissions (600), deleted when the session ends. Only someone signed in to your Claude account with access to this session could open it. Claude never prints, sends or attaches it, and never runs a command that shows it.
+5. **Deleted immediately after setup succeeds:** Claude deletes it and shows that it is gone (`ls` reports no such file). It is also deleted if setup is abandoned or the link is invalidated.
+6. **Residual exposure:** opening the link sends the token as a URL parameter to agent.growxera.com, so Vercel's request log for that single request may contain it. It is single use and expires in 2 hours, so once setup completes, the logged value can't be used.
 
 **Exposed? Invalidate immediately** (works whether the link was used or not):
 ```sql
@@ -212,6 +251,16 @@ The link is a secret. Deliver it to the owner privately, never in chat logs, iss
    - Every row the new code writes uses existing values. A held post is `ready_for_review` with a reason, and there are no new statuses.
    - Dropping the new tables is optional, and only after the code rollback (rehearsed: existing data unaffected).
 4. Optional: remove `agent.growxera.com` from Vercel and its DNS record (the CT log entry stays).
+
+**Verification status**
+
+| Claim | Status | Evidence / how it gets verified |
+|---|---|---|
+| Today's www studio login works | **Verified from the database, not over HTTP** | 3 live, unexpired website sessions; owner activity on 10 Oct. The owner confirms it in the browser in step 0 |
+| The old code keeps working with the 6 new tables present | **Unverified end-to-end; verified by analysis** | The old code never references them, and no new status values are written. The owner checks www/studio **after step 1** in production; that is the end-to-end check of the rollback target |
+| Adding agent.growxera.com doesn't affect www | **Unverified end-to-end** | Vercel domains are independent, and www's record and config aren't touched. The owner checks www and www/studio **after step 2** |
+| Promoting the previous deployment restores the www login | **Unverified end-to-end** (never exercised on this project) | The target is exactly today's production (`8542b1e`), with step 1 having shown it works with the new tables; one production deploy only (step 3), so "previous" is that target. If the Vercel plan allows only instant rollback to the immediately previous deployment, that is the one needed |
+| The rollback drop doesn't affect existing data | Verified in rehearsal only | Throwaway local PostgreSQL 16 |
 
 **After batch B1** (LinkedIn connected), **first:**
 - `select cron.unschedule('studio-publish-due');`
