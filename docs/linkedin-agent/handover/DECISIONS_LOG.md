@@ -35,7 +35,8 @@ All dated 10 Oct 2026 unless noted. "Final" means the owner stated it and nothin
 | D22 | Grok budget $0/month: no paid calls; mocks only | Final |
 | D23 | Buffer stays connected until the replacement is proven and disconnecting is approved | Final |
 | D24 | The global switch needs both the deployment flag `STUDIO_AUTO_PUBLISH_ALLOWED=true` and the owner's in-studio switch | Claude design within G1; final unless the owner objects |
-| D25 | The global switch governs **automatic** publishing only. Manual **Publish now** is a separate owner-attended action (signed-in owner, valid approval of the exact version, confirm box) and is not blocked by the switch | Claude design; open for owner confirmation (APPROVAL_GATES P2) |
+| D25 (P2) | An **all-publishing switch**, OFF by default, blocks both automatic publishing and manual Publish now. Per-post approval and explicit confirmation still required | Final (owner, 11 Oct); implemented in PR #18 |
+| D26 (P1) | Zero late tolerance stays, but a design that holds practically every post is not acceptable. Proposed: publish in a window ending before the deadline, `[T − 60 s, T − 10 s]`, with a 15-second pg_cron tick (`docs/studio/SCHEDULING_ARCHITECTURE.md`) | Owner rule final; design **awaiting owner review** (the early allowance) |
 
 ## Open
 

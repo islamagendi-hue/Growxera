@@ -20,7 +20,7 @@ Posting volume and vanity metrics are not goals.
 |---|---|
 | Private access: own host, email + password + authenticator code; every page, action and route checks the owner server-side | Owner, master directive |
 | Approval binds exact text, media and planned time; any edit voids it | Owner |
-| Automatic publishing: global switch (default OFF) **and** per-post authorization **and** the exact planned time (no late allowance). Content approval alone never publishes | Owner G1 |
+| An all-publishing switch (default OFF) blocks manual and automatic publishing. Automatic publishing also needs its own switch (default OFF) **and** per-post authorization **and** the timing rule (never after the planned time). Content approval alone never publishes | Owner G1, P2 |
 | No catch-up or late publishing: a scheduler run that starts after the planned time, even by a moment, holds the post for review; it needs a new time and approval. No late allowance unless the owner approves one | Owner G2 |
 | The 19 approvals of 10 Oct never publish automatically until each one is reconfirmed | Owner G1 |
 | Supabase Free; a weekly export the owner downloads; no plan upgrades | Owner G3 |

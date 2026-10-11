@@ -13,14 +13,17 @@ exact version (text, file, planned time). Any edit cancels the approval.
 3. A scheduler calls `/api/studio/publish-due` every 5 minutes. A scheduled post goes out once, only
    if a run starts exactly at its planned time. A run that starts after it, even by a moment, holds
    the post back in review; it is never posted late (owner decisions G1/G2, no late allowance:
-   `LATE_TOLERANCE_MS = 0` in `src/lib/studio/autopublish.ts`). See APPROVAL_GATES P1: with this
-   policy most scheduled posts will be held until the owner approves a timing policy.
+   `LATE_TOLERANCE_MS = 0` in `src/lib/studio/autopublish.ts`). With the 5-minute scheduler that
+   holds practically every post, so a replacement is proposed in
+   [docs/studio/SCHEDULING_ARCHITECTURE.md](../studio/SCHEDULING_ARCHITECTURE.md) (P1).
+   Above all of this, the **all-publishing switch** (default OFF) blocks every post, including
+   **Publish now** (P2).
 3. The studio records the post link. It marks the post **verified** only if LinkedIn returns the post
    with the same text. Otherwise the owner opens the link and confirms.
 4. If LinkedIn gives no clear answer, the post is never re-sent automatically. The owner checks the
    profile and records what they found.
 
-Approved posts with no planned time are only posted with **Publish now** on the item page.
+Approved posts with no planned time are only posted with **Publish now** on the item page, and only while all publishing is ON.
 
 ## Limits (from LinkedIn's terms for self-serve apps)
 
@@ -95,4 +98,4 @@ or click **Disconnect** on the Capabilities page.
 
 ### 6. First test (owner)
 
-Approve one post and use **Publish now**. Check it on LinkedIn, then confirm it in the studio.
+Switch **all publishing** ON on Capabilities, approve one post and use **Publish now**. Check it on LinkedIn, confirm it in the studio, then switch all publishing OFF again.

@@ -34,6 +34,13 @@
 - **Consequence:** with a 5-minute scheduler, nearly every scheduled post will be held (RISK_REGISTER R9). Safe, but automatic publishing is effectively unused until P1 is decided.
 - **Review findings documented:** manual Publish now is outside the switch (R15, P2); the go-live order A2 → A3 → A1 → A4 → A5 and the rollback order (code first, tables optional) (R16, runbook); restore tested only on the local store (runbook).
 
+## Owner decisions P1 and P2, 11 Oct
+
+- **P2 implemented (PR #18):** the all-publishing switch (`switch.ts`), OFF by default. It blocks Publish now and automatic publishing. It is checked first in `publishAction`, then inside the LinkedIn client before any upload and right before the post request. Owner-only, confirm box to switch ON, audited. 7 new tests.
+- **P1 proposed, not implemented:** [SCHEDULING_ARCHITECTURE.md](SCHEDULING_ARCHITECTURE.md). Facts checked read-only: pg_cron 1.6.4 (supports second schedules), pg_net 0.20.4, runs start 60–100 ms after the tick.
+- **Recovery test (PR #19):** a setup link during a global lockout.
+- **Docs:** go-live sequence with a check and a way back at each step; rollback precondition after LinkedIn is connected (R17); restore explicitly not supported yet; export download and retention.
+
 ## Next steps
 
 1. Owner decisions on batch A ([APPROVAL_GATES.md](APPROVAL_GATES.md)).

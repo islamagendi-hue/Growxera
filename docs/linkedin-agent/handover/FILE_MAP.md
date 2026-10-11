@@ -22,7 +22,8 @@ Paths are relative to the repository root, at commit `e430e71` unless marked WIP
 
 | File | Responsibility |
 |---|---|
-| `autopublish.ts` | Global switch, per-post authorization, exact-time rule (no late allowance), holding missed posts |
+| `switch.ts` | All-publishing switch (P2): blocks manual and automatic publishing |
+| `autopublish.ts` | Automatic switch, per-post authorization, exact-time rule (no late allowance), holding missed posts, switch setters |
 | `access.ts`, `access.test.ts` | Studio sign-in (password + TOTP), sessions, lockout, setup links |
 | `crypto.ts` | AES-GCM, scrypt, TOTP, base32 |
 | `host.ts`, `owner-email.ts` | Studio host rules; owner email |
