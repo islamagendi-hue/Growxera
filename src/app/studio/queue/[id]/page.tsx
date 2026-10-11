@@ -4,7 +4,7 @@ import { CopyButton } from "@/components/studio/CopyButton";
 import { first, Notice, StatusBadge } from "@/components/studio/StudioUi";
 import { buttonClass } from "@/components/ui/button";
 import { requireOwner } from "@/lib/studio/owner";
-import { assetsByUrl } from "@/lib/studio/assets";
+import { assetsByUrl, UPLOAD_PREFIX } from "@/lib/studio/assets";
 import { connectionState } from "@/lib/studio/linkedin";
 import { authorizationsFor, autoPublishSwitch, isAutoAuthorized, leadTimeOk } from "@/lib/studio/autopublish";
 import { getAction } from "@/lib/studio/repo";
@@ -93,10 +93,16 @@ export default async function QueueItem({ params, searchParams }: PageProps<"/st
                     ) : (
                       <span className="text-alert">not secured yet</span>
                     )}{" "}
-                    ·{" "}
-                    <a href={a.url} target="_blank" rel="noreferrer" className="underline underline-offset-4">
-                      original
-                    </a>
+                    {a.url.startsWith(UPLOAD_PREFIX) ? (
+                      <span className="text-ink-3">· uploaded in the studio</span>
+                    ) : (
+                      <>
+                        ·{" "}
+                        <a href={a.url} target="_blank" rel="noreferrer" className="underline underline-offset-4">
+                          original
+                        </a>
+                      </>
+                    )}
                   </li>
                 );
               })}
@@ -360,6 +366,26 @@ export default async function QueueItem({ params, searchParams }: PageProps<"/st
                 Planned time (Riyadh)
                 <input type="datetime-local" name="target_at" defaultValue={toRiyadhInput(current.target_at)} className={field} />
               </label>
+              <fieldset className="mt-3 grid gap-2 border border-line p-4">
+                <legend className="px-1 text-sm font-medium">Attachment</legend>
+                <p className="text-xs text-ink-3">
+                  {current.assets.length ? `Now: ${current.assets.length} file${current.assets.length === 1 ? "" : "s"} (listed above).` : "Now: none."} A new file replaces
+                  the current ones.
+                </p>
+                <label className="text-sm">
+                  Replace with one image or PDF, up to 4 MB
+                  <input name="file" type="file" accept="image/png,image/jpeg,image/gif,image/webp,application/pdf" className="mt-1 block w-full text-sm" />
+                </label>
+                <label className="text-sm">
+                  Document title (PDFs only)
+                  <input name="file_title" maxLength={200} className={field} />
+                </label>
+                {current.assets.length > 0 && (
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" name="remove_file" value="yes" /> Remove the attachment
+                  </label>
+                )}
+              </fieldset>
               <label className="mt-3 block text-sm font-medium">
                 What changed (optional)
                 <input name="note" className={field} />

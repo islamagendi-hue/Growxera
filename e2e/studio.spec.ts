@@ -159,6 +159,33 @@ test("drafts are saved, then submitted for review", async () => {
   await expect(page.getByRole("heading", { name: "Review" })).toBeVisible();
 });
 
+test("a post with an uploaded image: stored privately, served only to the owner", async () => {
+  const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52, 1, 2, 3, Date.now() % 255]);
+  await page.goto("/studio/new");
+  await page.getByLabel("Post text").fill(`Post with an image ${Date.now()}`);
+  await page.getByLabel(/One image \(PNG/).setInputFiles({ name: "chart.png", mimeType: "image/png", buffer: png });
+  await page.getByRole("button", { name: "Submit for review" }).click();
+  await expect(notice("Submitted for review.")).toBeVisible();
+  await expect(page.getByText("uploaded in the studio")).toBeVisible();
+  const href = await page.getByRole("link", { name: "secured copy" }).getAttribute("href");
+  const res = await page.request.get(href!);
+  expect(res.status()).toBe(200);
+  expect(Buffer.from(await res.body())).toEqual(png);
+  // Not for anyone else.
+  const anon = await page.context().browser()!.newContext();
+  expect((await anon.request.get(`http://localhost:3210${href}`, { maxRedirects: 0 })).status()).not.toBe(200);
+  await anon.close();
+});
+
+test("a disguised file is refused and nothing is saved", async () => {
+  await page.goto("/studio/new");
+  await page.getByLabel("Post text").fill("Disguised file");
+  await page.getByLabel(/One image \(PNG/).setInputFiles({ name: "photo.png", mimeType: "image/png", buffer: Buffer.from("<svg onload=alert(1)>") });
+  await page.getByRole("button", { name: "Submit for review" }).click();
+  await expect(page.locator("p[role=alert]").filter({ hasText: "Only PNG, JPEG, GIF, WebP images and PDF documents" })).toBeVisible();
+  await expect(page.getByLabel("Post text")).toHaveValue("Disguised file");
+});
+
 test("the all-publishing switch: ON needs confirmation, OFF works at once, both are logged", async () => {
   await page.goto("/studio/capabilities");
   await page.getByLabel(/Allow publishing to my LinkedIn/).check();
@@ -193,7 +220,7 @@ test("backup downloads a valid export without secrets", async () => {
   const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("link", { name: /Download export/ }).click()]);
   const file = JSON.parse(fs.readFileSync((await download.path())!, "utf8"));
   expect(file.format).toBeTruthy();
-  expect(file.tables.li_actions.count).toBeGreaterThanOrEqual(2);
+  expect(file.tables.li_actions.count).toBeGreaterThanOrEqual(3);
   // No exported row carries a secret field (their names are only listed under dropped_columns).
   const rowKeys = new Set(Object.values(file.tables as Record<string, { rows: Record<string, unknown>[] }>).flatMap((t) => t.rows.flatMap((r) => Object.keys(r))));
   for (const secret of ["password_hash", "totp_secret_enc", "token_hash", "access_token_enc", "client_secret_enc"]) expect(rowKeys.has(secret), secret).toBe(false);

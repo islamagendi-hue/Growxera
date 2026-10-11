@@ -6,7 +6,7 @@
  */
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { secureAssets } from "@/lib/studio/assets";
+import { secureAssets, uploadAsset, UploadError, type UploadedAsset } from "@/lib/studio/assets";
 import { verifyGrok } from "@/lib/studio/grok";
 import { importSnapshot, snapshotSchema } from "@/lib/studio/import";
 import { authorizeAutoPublish, revokeAutoPublish, setAutoPublish, setPublishing } from "@/lib/studio/autopublish";
@@ -151,6 +151,7 @@ export async function createPostAction(_prev: NewPostState, form: FormData): Pro
     if (text.length > 3000) throw new WorkflowError("LinkedIn posts are limited to 3,000 characters.");
     const target_at = target ? fromRiyadhInput(target) : null;
     if (target_at && isPast(target_at)) throw new WorkflowError("That planned time has already passed. Pick a future time or leave it empty.");
+    const file = await attachment(form, owner.email);
     ({ actionId } = await createDraft({
       kind: "post",
       actionKind: "publish_post",
@@ -159,15 +160,23 @@ export async function createPostAction(_prev: NewPostState, form: FormData): Pro
       author: owner.email,
       notes: note || null,
       status: str(form, "intent") === "draft" ? "draft" : "ready_for_review",
-      content: { text, assets: [], target_at },
+      content: { text, assets: file ? [file] : [], target_at },
     }));
   } catch (err) {
     if (err instanceof WorkflowError) return { error: err.message, ...keep };
+    if (err instanceof UploadError) return { error: `${err.message} Choose the file again.`, ...keep };
     console.error("[studio] create post failed", safeLog(err));
     return { error: "Saving failed. Nothing was saved; try again.", ...keep };
   }
   revalidatePath("/studio", "layout");
   redirect(`/studio/queue/${actionId}?notice=${encodeURIComponent(str(form, "intent") === "draft" ? "Saved as a draft." : "Submitted for review.")}`);
+}
+
+/** The uploaded file in a form ("file", optional "file_title"), stored and verified; null when none was chosen. */
+async function attachment(form: FormData, actor: string): Promise<UploadedAsset | null> {
+  const file = form.get("file");
+  if (!(file instanceof File) || file.size === 0) return null;
+  return uploadAsset(new Uint8Array(await file.arrayBuffer()), str(form, "file_title") || null, actor);
 }
 
 export async function submitForReviewAction(form: FormData) {
@@ -187,7 +196,16 @@ export async function editAction(form: FormData) {
       const d = await getAction(id);
       if (!d) throw new WorkflowError("Item not found.");
       const target_at = target ? fromRiyadhInput(target) : null;
-      const { changed } = await addVersion(id, { text, assets: d.current.assets, target_at }, actor, str(form, "note") || "Edited in studio");
+      let assets = d.current.assets;
+      try {
+        const file = await attachment(form, actor);
+        if (file) assets = [file];
+        else if (form.get("remove_file") === "yes") assets = [];
+      } catch (err) {
+        if (err instanceof UploadError) throw new WorkflowError(err.message);
+        throw err;
+      }
+      const { changed } = await addVersion(id, { text, assets, target_at }, actor, str(form, "note") || "Edited in studio");
       if (!changed) throw new WorkflowError("No changes to save.");
     },
     "Saved as a new version. Any earlier approval no longer applies.",

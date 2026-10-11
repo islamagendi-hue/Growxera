@@ -40,9 +40,19 @@ export function NewPostForm() {
         Note for yourself, optional
         <input name="note" maxLength={300} defaultValue={state.note} className={field} />
       </label>
-      <p className="text-xs text-ink-3">
-        Images and PDFs can&apos;t be uploaded here yet; posts with media come from the Buffer import. Nothing is published from this page.
-      </p>
+      <fieldset className="grid gap-3 border border-line p-4">
+        <legend className="px-1 text-sm font-medium">Attachment, optional</legend>
+        <label className="text-sm">
+          One image (PNG, JPEG, GIF, WebP) or one PDF, up to 4 MB
+          <input name="file" type="file" accept="image/png,image/jpeg,image/gif,image/webp,application/pdf" className="mt-1 block w-full text-sm" />
+        </label>
+        <label className="text-sm">
+          Document title (PDFs only; shown on LinkedIn)
+          <input name="file_title" maxLength={200} className={field} />
+        </label>
+        <span className="text-xs text-ink-3">Stored privately and checked by checksum. The approval covers the file exactly as uploaded.</span>
+      </fieldset>
+      <p className="text-xs text-ink-3">Nothing is published from this page.</p>
       <div className="flex flex-wrap gap-3">
         <button name="intent" value="review" className={buttonClass("primary")} disabled={pending}>
           Submit for review

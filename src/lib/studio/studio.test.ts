@@ -1189,6 +1189,27 @@ describe("LinkedIn direct publishing", () => {
     });
   });
 
+  it("publishes an image uploaded in the studio from its verified private copy", async () => {
+    const { publishAction } = await import("./publish");
+    const { uploadAsset } = await import("./assets");
+    const bytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 7, 7, 7, crypto.getRandomValues(new Uint8Array(1))[0]]);
+    const file = await uploadAsset(bytes, null, ME);
+    const { actionId } = await createDraft({
+      kind: "post", actionKind: "publish_post", channel: "manual", origin: "studio", author: ME,
+      content: { text: `Uploaded image post ${crypto.randomUUID()}`, assets: [file], target_at: inAnHour() },
+    });
+    const d = (await getAction(actionId))!;
+    await approve(actionId, d.current.id, d.current.content_hash, ME);
+    let sent: Uint8Array | null = null;
+    const capture = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      if (init?.method === "PUT") sent = new Uint8Array(init.body as Buffer);
+      return linkedinFetch(input, init);
+    }) as unknown as typeof fetch;
+    await publishAction(actionId, ME, capture);
+    expect(Buffer.from(sent!)).toEqual(Buffer.from(bytes));
+    expect(JSON.parse(fake.calls.find((c) => c.url.endsWith("/rest/posts"))!.body!).content).toEqual({ media: { id: "urn:li:image:C4E1" } });
+  });
+
   it("uploads an image from the verified copy before posting", async () => {
     const { publishAction } = await import("./publish");
     const { secureAssets } = await import("./assets");

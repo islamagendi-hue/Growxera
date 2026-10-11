@@ -285,6 +285,7 @@ const EVENTS: Record<string, { category: ActivityCategory; text: string; problem
   "linkedin.app_keys_saved": { category: "integrations", text: "LinkedIn app keys saved" },
   "import.buffer_snapshot": { category: "integrations", text: "Buffer snapshot imported" },
   "assets.secured": { category: "integrations", text: "Media copied to private storage" },
+  "assets.uploaded": { category: "content", text: "File uploaded to private storage" },
   "export.generated": { category: "backup", text: "Backup export downloaded" },
   "export.failed": { category: "backup", text: "Backup export failed", problem: true },
 };

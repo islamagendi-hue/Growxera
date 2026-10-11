@@ -152,6 +152,59 @@ export async function secureAssets(actor: string): Promise<SecureReport> {
   return report;
 }
 
+// ── Uploads from the studio ─────────────────────────────────────────────────
+
+/** Largest file the studio accepts from the browser (the hosting platform caps request bodies at 4.5 MB). */
+export const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
+/** Uploaded files are referenced as `studio-upload:<sha256>.<ext>`; the bytes live only in the private bucket. */
+export const UPLOAD_PREFIX = "studio-upload:";
+
+/** The real file type from its first bytes; the browser's declared type isn't trusted. */
+export function sniffType(b: Uint8Array): string | null {
+  const starts = (...xs: number[]) => xs.every((x, i) => b[i] === x);
+  if (starts(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)) return "image/png";
+  if (starts(0xff, 0xd8, 0xff)) return "image/jpeg";
+  if (starts(0x47, 0x49, 0x46, 0x38)) return "image/gif";
+  if (starts(0x52, 0x49, 0x46, 0x46) && b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50) return "image/webp";
+  if (starts(0x25, 0x50, 0x44, 0x46, 0x2d)) return "application/pdf";
+  return null;
+}
+
+export interface UploadedAsset {
+  url: string;
+  type: "image" | "document";
+  title: string | null;
+}
+
+/**
+ * Stores one image or PDF uploaded by the owner in the private bucket, verifies the stored copy
+ * by SHA-256, and records it in li_assets as already secured. Same bytes → same reference.
+ */
+export async function uploadAsset(bytes: Uint8Array, title: string | null, actor: string): Promise<UploadedAsset> {
+  if (!bytes.length) throw new UploadError("The file is empty.");
+  if (bytes.length > MAX_UPLOAD_BYTES) throw new UploadError(`The file is larger than ${MAX_UPLOAD_BYTES / 1024 / 1024} MB.`);
+  const type = sniffType(bytes);
+  if (!type) throw new UploadError("Only PNG, JPEG, GIF, WebP images and PDF documents can be attached.");
+  const hash = sha(bytes);
+  const url = `${UPLOAD_PREFIX}${hash}.${TYPES[type]}`;
+  const kind = type === "application/pdf" ? "document" : "image";
+  const cleanTitle = title?.trim().slice(0, 200) || (kind === "document" ? "Document" : null);
+  const existing = await selectOne<AssetRow>("li_assets", [eq("original_url", url)]);
+  if (existing?.verified_at) return { url, type: kind, title: cleanTitle };
+  const p = `media/${hash}.${TYPES[type]}`;
+  await putObject(p, bytes, type);
+  const back = await getObject(p);
+  if (!back || sha(back) !== hash) throw new UploadError("The stored copy couldn't be verified. Nothing was attached; try again.");
+  const at = new Date().toISOString();
+  const row = { storage_path: p, sha256: hash, bytes: bytes.length, content_type: type, copied_at: at, verified_at: at, last_error: null };
+  if (existing) await update("li_assets", [eq("id", existing.id)], row);
+  else await insert("li_assets", { id: crypto.randomUUID(), created_at: at, original_url: url, ...row });
+  await audit(actor, "assets.uploaded", "li_assets", null, { sha256: hash, bytes: bytes.length, type });
+  return { url, type: kind, title: cleanTitle };
+}
+
+export class UploadError extends Error {}
+
 export async function assetsByUrl(urls: string[]): Promise<Map<string, AssetRow>> {
   if (!urls.length) return new Map();
   const { inList } = await import("@/lib/server/store");
