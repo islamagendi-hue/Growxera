@@ -2,7 +2,9 @@
 /** Sign-in, first-time setup and sign-out for the studio (see src/lib/studio/access.ts). */
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { AccessError, completeSetup, sessionCookie, signIn, signOut, signOutEverywhere, studioOwner } from "@/lib/studio/access";
+import QRCode from "qrcode";
+import { AccessError, completeSetup, sessionCookie, signIn, signOut, signOutEverywhere, startSetup, studioOwner } from "@/lib/studio/access";
+import { otpauthUri } from "@/lib/studio/crypto";
 import { isStudioHost } from "@/lib/studio/host";
 import { studioStorageError } from "@/lib/studio/owner";
 
@@ -30,13 +32,32 @@ export async function signInAction(form: FormData) {
   redirect(error ? `/access?error=${encodeURIComponent(error)}` : "/studio");
 }
 
-export async function setupAction(form: FormData) {
+/** The setup page's state: an error message to show, or nothing. */
+export interface SetupState {
+  error: string | null;
+}
+
+export type SetupStart = { ok: true; email: string; qrSvg: string; secret: string; sealed: string } | { ok: false };
+
+/**
+ * Step 1 of setup. The token comes from the link's #fragment, which the browser never sends in
+ * the page request, and arrives here as form data in a POST body: not in any URL or request log,
+ * and not in Next's development log of server-function arguments (which prints plain arguments).
+ */
+export async function beginSetupAction(form: FormData): Promise<SetupStart> {
+  await guard();
+  const setup = await startSetup(str(form, "token"));
+  if (!setup) return { ok: false };
+  const qrSvg = await QRCode.toString(otpauthUri(setup.secret, setup.email, "Growx Era Studio"), { type: "svg", margin: 1, width: 220 });
+  return { ok: true, email: setup.email, qrSvg, secret: setup.secret, sealed: setup.sealed };
+}
+
+/** Step 2: save the password and authenticator. Errors come back as state, never in a URL. */
+export async function setupAction(_prev: SetupState, form: FormData): Promise<SetupState> {
   const { userAgent } = await guard();
-  const token = str(form, "token");
-  let error: string | null = null;
   try {
     const session = await completeSetup({
-      token,
+      token: str(form, "token"),
       sealed: str(form, "sealed"),
       password: str(form, "password"),
       confirm: str(form, "confirm"),
@@ -45,10 +66,10 @@ export async function setupAction(form: FormData) {
     });
     (await cookies()).set(sessionCookie(session));
   } catch (err) {
-    error = err instanceof AccessError ? err.message : "Setup failed. Nothing was saved.";
     if (!(err instanceof AccessError)) console.error("[studio] setup failed", err instanceof Error ? err.name : "unknown");
+    return { error: err instanceof AccessError ? err.message : "Setup failed. Nothing was saved." };
   }
-  redirect(error ? `/access/setup?token=${encodeURIComponent(token)}&error=${encodeURIComponent(error)}` : "/studio");
+  redirect("/studio");
 }
 
 export async function signOutAction() {
