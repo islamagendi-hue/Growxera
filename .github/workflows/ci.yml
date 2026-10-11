@@ -1,12 +1,13 @@
 name: CI
 
-# Typecheck, lint, unit tests and production build on every pull request and push to main.
+# Typecheck, lint, unit tests and production build on every pull request, every push to main,
+# and every push to a studio development branch (so unreviewed work also gets CI without a PR).
 # No secrets are used: tests run against the local file store and fake external APIs
 # (no Supabase, LinkedIn, Buffer or xAI credentials, no network calls to them).
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, "claude/studio-*"]
 
 permissions:
   contents: read

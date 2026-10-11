@@ -18,15 +18,17 @@ import {
   addVersion,
   approve,
   audit,
+  createDraft,
   getAction,
   markFailed,
   recordManualExecution,
   reject,
   reopen,
   requestRevision,
+  submitForReview,
   verifyExecution,
 } from "@/lib/studio/repo";
-import { fromRiyadhInput } from "@/lib/studio/time";
+import { fromRiyadhInput, isPast } from "@/lib/studio/time";
 import { WorkflowError } from "@/lib/studio/workflow";
 
 /** Log line without the database's response body, which can contain post text or emails. */
@@ -125,6 +127,52 @@ export async function reviseAction(form: FormData) {
 export async function reopenAction(form: FormData) {
   const id = str(form, "actionId");
   await run(id, (actor) => reopen(id, actor), "Back in the review queue.");
+}
+
+// ── Writing ─────────────────────────────────────────────────────────────────
+
+export interface NewPostState {
+  error: string | null;
+  text: string;
+  target: string;
+  note: string;
+}
+
+/** Creates a post written in the studio, as a draft or straight into review. Never publishes. */
+export async function createPostAction(_prev: NewPostState, form: FormData): Promise<NewPostState> {
+  const owner = await ownerOrThrow();
+  const text = String(form.get("text") ?? "").replace(/\r\n/g, "\n").trim();
+  const target = str(form, "target_at");
+  const note = str(form, "note").slice(0, 300);
+  const keep = { text, target, note };
+  let actionId: string;
+  try {
+    if (!text) throw new WorkflowError("Write the post first.");
+    if (text.length > 3000) throw new WorkflowError("LinkedIn posts are limited to 3,000 characters.");
+    const target_at = target ? fromRiyadhInput(target) : null;
+    if (target_at && isPast(target_at)) throw new WorkflowError("That planned time has already passed. Pick a future time or leave it empty.");
+    ({ actionId } = await createDraft({
+      kind: "post",
+      actionKind: "publish_post",
+      channel: "manual",
+      origin: "studio",
+      author: owner.email,
+      notes: note || null,
+      status: str(form, "intent") === "draft" ? "draft" : "ready_for_review",
+      content: { text, assets: [], target_at },
+    }));
+  } catch (err) {
+    if (err instanceof WorkflowError) return { error: err.message, ...keep };
+    console.error("[studio] create post failed", safeLog(err));
+    return { error: "Saving failed. Nothing was saved; try again.", ...keep };
+  }
+  revalidatePath("/studio", "layout");
+  redirect(`/studio/queue/${actionId}?notice=${encodeURIComponent(str(form, "intent") === "draft" ? "Saved as a draft." : "Submitted for review.")}`);
+}
+
+export async function submitForReviewAction(form: FormData) {
+  const id = str(form, "actionId");
+  await run(id, (actor) => submitForReview(id, actor), "Submitted for review.");
 }
 
 export async function editAction(form: FormData) {

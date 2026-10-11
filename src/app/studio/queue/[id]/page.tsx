@@ -22,8 +22,10 @@ import {
   resolveUnknownAction,
   reviseAction,
   revokeAutoPublishAction,
+  submitForReviewAction,
   verifyAction,
 } from "../../actions";
+import { classify, loadControls, publishBlockers } from "@/lib/studio/insights";
 
 export const dynamic = "force-dynamic";
 
@@ -46,7 +48,10 @@ export default async function QueueItem({ params, searchParams }: PageProps<"/st
   const unknown = action.status === "executed" ? executions.find((e) => e.result === "unknown") : undefined;
   const sw = await autoPublishSwitch();
   const all = await publishingSwitch();
-  const autoAuthorized = isAutoAuthorized(d, await authorizationsFor(action.id));
+  const auths = await authorizationsFor(action.id);
+  const autoAuthorized = isAutoAuthorized(d, auths);
+  const blockers = publishBlockers(classify(action, draft, current, approvals, executions, auths, new Date()), await loadControls());
+  const latestApproval = approvals[0];
   const canAuthorize =
     action.status === "approved" && approvalValid && action.kind === "publish_post" && !autoAuthorized && leadTimeOk(current.target_at);
 
@@ -100,16 +105,47 @@ export default async function QueueItem({ params, searchParams }: PageProps<"/st
           </div>
         )}
 
+        <section aria-labelledby="status-h" className="mt-6 border border-line bg-card p-5 text-sm">
+          <h2 id="status-h" className="eyebrow">Publishing status</h2>
+          <dl className="mt-3 grid gap-x-6 gap-y-2 sm:grid-cols-[12rem_1fr]">
+            <dt className="text-ink-3">Current version</dt>
+            <dd>
+              Version {current.version} · hash <span className="font-mono">{current.content_hash.slice(0, 12)}</span>
+            </dd>
+            <dt className="text-ink-3">Approval</dt>
+            <dd>
+              {latestApproval?.decision === "approved"
+                ? `Version ${versions.find((v) => v.id === latestApproval.version_id)?.version ?? "?"} approved ${formatRiyadh(latestApproval.created_at)}${approvalValid ? ", covers the current version" : ". It doesn't cover the current version"}.`
+                : "Not approved."}
+            </dd>
+            <dt className="text-ink-3">Automatic publishing</dt>
+            <dd>{autoAuthorized ? `Confirmed for ${formatRiyadh(current.target_at)} (Riyadh).` : "Not confirmed."}</dd>
+            <dt className="text-ink-3">Publish now</dt>
+            <dd>{blockers.manual.length ? <BlockerList items={blockers.manual} /> : "Nothing in the studio blocks it."}</dd>
+            <dt className="text-ink-3">Publish automatically</dt>
+            <dd>{blockers.automatic.length ? <BlockerList items={blockers.automatic} /> : "Nothing in the studio blocks it."}</dd>
+          </dl>
+        </section>
+
+        {action.status === "draft" && (
+          <section className="mt-8 border border-ink p-6">
+            <h2 className="text-h3 font-semibold">Draft</h2>
+            <p className="mt-1 text-sm text-ink-2">Finish it below, then submit it for review. Nothing is published from here.</p>
+            <form action={submitForReviewAction} className="mt-4">
+              <input type="hidden" name="actionId" value={action.id} />
+              <button className={buttonClass("primary")}>Submit for review</button>
+            </form>
+          </section>
+        )}
+
         {action.status === "ready_for_review" && (
           <section className="mt-8 border border-ink p-6">
             <h2 className="text-h3 font-semibold">Review</h2>
             <p className="mt-1 text-sm text-ink-2">Approving applies to version {current.version} exactly as shown, including the planned time.</p>
-            {direct && current.target_at && (
-              <p className="mt-2 text-sm font-medium">
-                LinkedIn is connected: once approved, the studio posts this on your profile at {formatRiyadh(current.target_at)} (Riyadh). Any
-                later edit cancels the approval.
-              </p>
-            )}
+            <p className="mt-2 text-sm text-ink-2">
+              Approving doesn&apos;t publish anything. Afterwards you either publish it yourself, or confirm it separately for automatic publishing
+              at its planned time. Any later edit cancels the approval.
+            </p>
             <form action={approveAction} className="mt-4">
               <input type="hidden" name="actionId" value={action.id} />
               <input type="hidden" name="versionId" value={current.id} />
@@ -405,5 +441,15 @@ export default async function QueueItem({ params, searchParams }: PageProps<"/st
         </div>
       </aside>
     </div>
+  );
+}
+
+function BlockerList({ items }: { items: string[] }) {
+  return (
+    <ul className="list-disc space-y-0.5 pl-5 text-ink-2">
+      {items.map((b) => (
+        <li key={b}>{b}</li>
+      ))}
+    </ul>
   );
 }
