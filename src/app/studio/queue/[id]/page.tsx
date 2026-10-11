@@ -51,7 +51,7 @@ export default async function QueueItem({ params, searchParams }: PageProps<"/st
   const auths = await authorizationsFor(action.id);
   const autoAuthorized = isAutoAuthorized(d, auths);
   const blockers = publishBlockers(classify(action, draft, current, approvals, executions, auths, new Date()), await loadControls());
-  const latestApproval = approvals[0];
+  const lastApproved = approvals.find((a) => a.decision === "approved");
   const canAuthorize =
     action.status === "approved" && approvalValid && action.kind === "publish_post" && !autoAuthorized && leadTimeOk(current.target_at);
 
@@ -114,9 +114,9 @@ export default async function QueueItem({ params, searchParams }: PageProps<"/st
             </dd>
             <dt className="text-ink-3">Approval</dt>
             <dd>
-              {latestApproval?.decision === "approved"
-                ? `Version ${versions.find((v) => v.id === latestApproval.version_id)?.version ?? "?"} approved ${formatRiyadh(latestApproval.created_at)}${approvalValid ? ", covers the current version" : ". It doesn't cover the current version"}.`
-                : "Not approved."}
+              {lastApproved
+                ? `Version ${versions.find((v) => v.id === lastApproved.version_id)?.version ?? "?"} approved ${formatRiyadh(lastApproved.created_at)}${approvalValid ? ", covers the current version." : ". It doesn't cover the current version: approve again after review."}`
+                : "Never approved."}
             </dd>
             <dt className="text-ink-3">Automatic publishing</dt>
             <dd>{autoAuthorized ? `Confirmed for ${formatRiyadh(current.target_at)} (Riyadh).` : "Not confirmed."}</dd>

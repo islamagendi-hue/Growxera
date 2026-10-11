@@ -119,7 +119,7 @@ export default async function Dashboard() {
                   <Link href={`/studio/queue/${post.action.id}`} className="block p-4 hover:bg-paper-2">
                     <div className="flex flex-wrap items-center gap-3">
                       <span className={`font-mono text-xs uppercase tracking-wide ${ATTENTION[kind].rank <= 4 ? "text-alert" : "text-ink-2"}`}>{ATTENTION[kind].label}</span>
-                      <span className="font-mono text-xs text-ink-3">{formatRiyadh(post.current.target_at)}</span>
+                      {post.current.target_at && <span className="font-mono text-xs text-ink-3">{formatRiyadh(post.current.target_at)}</span>}
                     </div>
                     <p className="mt-1 text-sm font-medium">{post.title}</p>
                     <p className="mt-1 text-xs text-ink-2">{ATTENTION[kind].next}</p>
@@ -196,7 +196,7 @@ export default async function Dashboard() {
           )}
         </section>
 
-        <section aria-labelledby="health-h" className="space-y-px border border-line bg-line">
+        <section aria-labelledby="health-h" className="space-y-px self-start border border-line bg-line">
           <h2 id="health-h" className="sr-only">Backup, writing engine and history</h2>
           <div className="bg-card p-4">
             <p className="eyebrow">Backup</p>

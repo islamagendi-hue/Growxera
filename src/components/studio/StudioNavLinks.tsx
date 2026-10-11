@@ -21,7 +21,7 @@ export function StudioNavLinks() {
   return (
     <ul className="-mx-1 flex gap-1 overflow-x-auto whitespace-nowrap pb-1 text-sm">
       {STUDIO_NAV.map((n) => (
-        <li key={n.href}>
+        <li key={n.href} className="shrink-0">
           <Link
             href={n.href}
             aria-current={active(n.href) ? "page" : undefined}
