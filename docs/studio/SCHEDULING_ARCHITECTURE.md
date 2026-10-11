@@ -1,6 +1,14 @@
 # Scheduling architecture for exact-deadline publishing (proposal, P1)
 
-Status: **proposal for the owner's review. Not implemented.** The code in PR #18 enforces zero late tolerance, so with the current 5-minute scheduler practically every scheduled post is held. That is safe, but the owner rejected it as the final design (11 Oct). This page proposes a replacement and states the timing limits that no design can remove.
+Status: **approved by the owner (11 Oct 2026) and implemented in code (PR #18).** The production scheduler change waits for batch B3. Automatic publishing stays disabled until then, and until a manually approved live test validates it.
+
+**Owner's conditions:**
+- Submit only between T − 60 s and T − 10 s.
+- Never submit automatically after the deadline.
+- A missed window holds the post: a new schedule and a new approval are required.
+- Never retry automatically when LinkedIn's outcome is unknown.
+- **We control when the request is sent, not the timestamp LinkedIn finally shows.**
+- Automatic publishing stays disabled until the implementation is complete and a manually approved live test validates it.
 
 ## The rule (owner decision G2 / P1)
 
@@ -68,7 +76,11 @@ Publishing happens in a short window that ends before T:
 6. **Media posts need more lead time.** A PDF still processing at T − M is held.
 7. **Live latency hasn't been measured yet.** E and M are proposals until the first live test (B2) measures the real delays. They may need adjusting, with the owner's approval.
 
-## What implementing it changes (after approval)
+## Implementation (PR #18)
+
+`SUBMIT_EARLY_MS = 60_000`, `SUBMIT_MARGIN_MS = 10_000` in `src/lib/studio/autopublish.ts`; the pre-send deadline check and the request cut-off are in the LinkedIn client; a run that misses the deadline after claiming the post releases the claim and holds it. Tests cover the exact window edges, a run that reaches the post request too late, an unknown outcome not being retried, and the cut-off.
+
+## What it changes
 
 - **Code (a PR, no production effect until merged):**
   - `timing()` uses the window `[T − E, T − M]`;

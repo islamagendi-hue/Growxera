@@ -57,49 +57,7 @@ Restore never overwrites live data. `restoreExport()` refuses a store that alrea
 
 ## Go-live sequence (batch A)
 
-Each step is owner-approved as part of batch A. Stop at any failed check: every step up to A1 leaves the current studio on www working as today.
-
-**0. Before starting (read-only)**
-- Confirm 0 LinkedIn connections, 0 executions, and the cron runs answering `ran:false`.
-- Record table counts.
-- Confirm Vercel still has `STUDIO_OWNER_EMAIL` and `SUPABASE_SERVICE_ROLE_KEY` for Production; names only, values never read.
-- Nothing publishes during the whole sequence: LinkedIn isn't connected, and after A1 both publishing switches are OFF.
-
-**1. A2: migrations** (`20261014000000`, then `20261015000000`)
-- Check: the 6 new tables exist, RLS is on, there are 0 grants to anon or authenticated, and existing tables are untouched (counts equal).
-- The current production code doesn't use these tables, so the live studio is unaffected.
-- If it fails: nothing else is touched. Fix and re-run (both files are idempotent), or drop only the new tables.
-
-**2. A3: domain and DNS**
-- Add `agent.growxera.com` to Vercel project `growx-era`. Add the record Vercel asks for at Unstoppable Domains (CNAME `agent`; growxera.com's DNS is there).
-- Check: Vercel shows the domain as valid with an issued certificate. `https://agent.growxera.com` answers over HTTPS. `https://www.growxera.com` is unchanged.
-- Until A1, the new host serves the current site and the current studio gate. That is harmless.
-- If the domain doesn't verify: **don't merge.** The studio stays on www. Remove the record and the domain, or wait for DNS.
-
-**3. A1: merge #17 → #18 → #19 → #20** (production deploys)
-- Check, within minutes of the deployment going Ready:
-  - `www.growxera.com/studio` → 404;
-  - `agent.growxera.com/studio` → the sign-in page;
-  - public pages and website sign-in work;
-  - the scheduler endpoint (`/api/studio/publish-due`, on www) still answers 200 with `ran:false`;
-  - Capabilities later shows "All publishing: OFF" and "Automatic publishing: OFF".
-- From here until step 4 is finished, the studio can only be reached through a setup link. The public site is unaffected.
-- If any check fails: **promote the previous production deployment in Vercel** (instant; the studio is back on www with today's sign-in), then investigate. Or revert the merges.
-
-**4. A4: setup link**
-- Create it immediately after A1 is Ready: `scripts/studio-setup-link.mjs --confirm` with the production URL and service key in a local shell. Alternatively, insert only the link's SHA-256 with the same fields through the Supabase SQL editor.
-- The link is valid for 24 hours and works once. Deliver it privately, never in chat logs, issues or commits.
-- The owner opens it, sets a password of 12+ characters, scans the QR code, enters the code, and is signed in.
-- Check: the owner reaches `/studio` on agent.growxera.com and sees both switches OFF.
-- **If the link expires, is used, or is lost:** create a new one. Old links stop at their expiry. Nothing else changes.
-- **If setup fails repeatedly:** promote the previous deployment (step 3) and investigate.
-
-**5. A5: LinkedIn redirect URL**
-- **Add** the agent.growxera.com callback in the LinkedIn app. Keep the www one, which rollback needs.
-
-**After go-live**
-- Download the first weekly export (below).
-- Lost authenticator, forgotten password or a lockout: a new setup link (gated). It skips the lockout, replaces the password and authenticator, and signs out every other session (tested).
+The final, step-by-step runbook, with checks, recovery, and each externally visible or irreversible step marked, is [DEPLOYMENT_RUNBOOK.md](DEPLOYMENT_RUNBOOK.md).
 
 ## Rollback
 

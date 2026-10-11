@@ -41,6 +41,15 @@
 - **Recovery test (PR #19):** a setup link during a global lockout.
 - **Docs:** go-live sequence with a check and a way back at each step; rollback precondition after LinkedIn is connected (R17); restore explicitly not supported yet; export download and retention.
 
+## P1 approved and implemented; final deployment runbook, 11 Oct
+
+- **P1 (PR #18):** submission window T − 60 s to T − 10 s, a pre-send deadline check, the request cut off at T, held on a miss, no retry when the outcome is unknown. 4 new tests; edge tests rewritten.
+- **[DEPLOYMENT_RUNBOOK.md](DEPLOYMENT_RUNBOOK.md):** final batch A runbook, with each externally visible and irreversible step marked.
+- **Read-only checks:**
+  - Vercel: domains and variable names; agent.growxera.com not added, no DNS record.
+  - Supabase: the current studio access evidence; the new tables are absent.
+- **Migration rehearsal:** throwaway local PostgreSQL 16 (apply, re-apply, checks, rollback drop, re-apply).
+
 ## Next steps
 
 1. Owner decisions on batch A ([APPROVAL_GATES.md](APPROVAL_GATES.md)).

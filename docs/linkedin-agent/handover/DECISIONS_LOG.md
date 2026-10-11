@@ -30,13 +30,13 @@ All dated 10 Oct 2026 unless noted. "Final" means the owner stated it and nothin
 |---|---|---|
 | D18 | Canonical address **agent.growxera.com** (supersedes `linkedin-agent` in D16) with email + password + authenticator sign-in | Final; implemented in PR #19, not deployed |
 | D19 (G1) | Historical approvals never auto-publish; each post is confirmed individually for automatic publishing; history preserved | Final; PR #18 |
-| D20 (G2) | Never publish after the planned time; hold for review; new time + new approval; no catch-up. **Supersedes D13 (3-hour rule).** No late allowance: a run that starts after the planned time, even by 1 ms, holds the post (`LATE_TOLERANCE_MS = 0`) | Final; PR #18. The earlier 10-min window was removed on the owner's correction (11 Oct). Any tolerance needs explicit owner approval (APPROVAL_GATES P1) |
+| D20 (G2) | Never publish after the planned time; hold for review; new time + new approval; no catch-up. **Supersedes D13 (3-hour rule).** Never submitted after the deadline; refined by D26 (submit only in T − 60 s … T − 10 s) | Final; PR #18. The earlier 10-min late window was removed on the owner's correction (11 Oct) |
 | D21 (G3) | Stay on Supabase Free; weekly export downloaded by the owner | Final; PR #20 |
 | D22 | Grok budget $0/month: no paid calls; mocks only | Final |
 | D23 | Buffer stays connected until the replacement is proven and disconnecting is approved | Final |
 | D24 | The global switch needs both the deployment flag `STUDIO_AUTO_PUBLISH_ALLOWED=true` and the owner's in-studio switch | Claude design within G1; final unless the owner objects |
 | D25 (P2) | An **all-publishing switch**, OFF by default, blocks both automatic publishing and manual Publish now. Per-post approval and explicit confirmation still required | Final (owner, 11 Oct); implemented in PR #18 |
-| D26 (P1) | Zero late tolerance stays, but a design that holds practically every post is not acceptable. Proposed: publish in a window ending before the deadline, `[T − 60 s, T − 10 s]`, with a 15-second pg_cron tick (`docs/studio/SCHEDULING_ARCHITECTURE.md`) | Owner rule final; design **awaiting owner review** (the early allowance) |
+| D26 (P1) | Submission window **T − 60 s to T − 10 s**; never automatically after the deadline; a missed window holds the post (new time + new approval); an unknown outcome is never retried; we control request timing, not LinkedIn's displayed timestamp; automatic publishing stays disabled until the implementation is complete and a manually approved live test validates it | Final (owner, 11 Oct); code in PR #18; scheduler change in B3 |
 
 ## Open
 

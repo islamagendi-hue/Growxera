@@ -15,18 +15,18 @@ Nothing on this list happens without the owner's explicit approval of that speci
 
 | # | Decision | State |
 |---|---|---|
-| P1 | Zero late tolerance stays. The final design must not hold practically every post | Interim code: zero tolerance, holds everything (safe). Replacement proposed in [SCHEDULING_ARCHITECTURE.md](SCHEDULING_ARCHITECTURE.md), **awaiting the owner's review** (early allowance E) |
+| P1 | Submission window T − 60 s to T − 10 s; never automatically after the deadline; a missed window holds the post (new time + new approval); an unknown outcome is never retried; we control when the request is sent, not LinkedIn's displayed timestamp; automatic publishing stays disabled until the implementation is complete **and** a manually approved live test validates it | Approved by the owner. Code implemented in PR #18 ([SCHEDULING_ARCHITECTURE.md](SCHEDULING_ARCHITECTURE.md)); the scheduler change is part of B3 |
 | P2 | An all-publishing switch, OFF by default, blocks both automatic publishing and Publish now | Implemented in PR #18 (`src/lib/studio/switch.ts`), tested |
 
 ## Pending: batch A, "go live on agent.growxera.com"
 
-Approve as one batch. Execute in the order below; each step has a check and a way back. The step-by-step runbook is in [OPERATIONS_RUNBOOK.md § Go-live sequence](OPERATIONS_RUNBOOK.md#go-live-sequence-batch-a).
+Approve as one batch. Execute in the order below; each step has a check and a way back. **Final runbook: [DEPLOYMENT_RUNBOOK.md](DEPLOYMENT_RUNBOOK.md)**, which marks every externally visible (🌐) and irreversible (⛔) step.
 
 | Order | # | Exact action | Changes | Way back | Cost |
 |---|---|---|---|---|---|
 | 1 | A2 | Apply migrations `20261014000000_studio_access.sql` and `20261015000000_publishing_controls.sql` to project growxera | 6 new tables; nothing existing changes. Production code ignores them | Leave them (harmless), or drop only these 6 tables | 0 |
-| 2 | A3 | Add `agent.growxera.com` to Vercel project `growx-era`; add the DNS record Vercel shows (CNAME `agent`) at Unstoppable Domains; wait until Vercel shows the domain valid with a certificate | New subdomain only | Remove the record and the domain | 0 |
-| 3 | A1 | Merge PR #17 → #18 → #19 → #20 into `main` (production deploys) | Studio leaves www (404 there); sign-in moves to agent.growxera.com; publishing switches OFF | Promote the previous production deployment in Vercel (instant), or revert the merges | 0 |
+| 2 | A3 🌐⛔ | Add `agent.growxera.com` to Vercel project `growx-era`; add the DNS record Vercel shows (CNAME `agent`) at Unstoppable Domains; wait until Vercel shows the domain valid with a certificate | New public subdomain. The hostname is recorded permanently in Certificate Transparency logs when the certificate is issued | Remove the record and the domain (the log entry stays) | 0 |
+| 3 | A1 🌐⛔ | Merge PR #17 → #18 → #19 → #20 into `main` (production deploys) | Studio leaves www (404 there); sign-in moves to agent.growxera.com; publishing switches OFF. Merge commits stay in the public history | Promote the previous production deployment in Vercel (instant), or revert the merges | 0 |
 | 4 | A4 | Create the one-time setup link (24 h, single use) right after A1 is live; the owner sets the password and pairs the authenticator | 1 setup-token row | A new link if it expires or is lost | 0 |
 | 5 | A5 | LinkedIn app → Auth: **add** `https://agent.growxera.com/studio/linkedin/callback`. Keep the www callback (needed for rollback) | LinkedIn app setting | Remove the added URL | 0 |
 
@@ -40,7 +40,9 @@ Batch A doesn't connect LinkedIn, publish, change Buffer, switch anything ON, or
 |---|---|---|
 | B1 | Owner enters the LinkedIn keys on Capabilities and clicks Connect, then Allow | Connects the account. Nothing is published |
 | B2 | One live test: the owner switches **all publishing ON**, picks a post and clicks **Publish now**, then switches all publishing OFF again | The proposed post, expected result and recovery plan are presented before; the owner checks LinkedIn and confirms. Measures the real latency for P1 |
-| B3 | Activate automatic publishing: the P1 scheduler (code PR + replacing the cron job), `STUDIO_AUTO_PUBLISH_ALLOWED=true` in Vercel (Production), all publishing ON and automatic publishing ON in the studio | Only after B2 succeeded and P1 is approved. Then each post is scheduled individually |
+| B3a | Replace the cron job with the 15-second job (SQL in DEPLOYMENT_RUNBOOK.md, rehearsed first) | Only after B2 succeeded |
+| B3b | One **manually approved live test of the timed submission**: the owner authorizes one post; `STUDIO_AUTO_PUBLISH_ALLOWED=true` and both switches ON for the test; the owner checks it went out inside its window | Validates P1 live. Switch OFF again afterwards |
+| B3c | Keep automatic publishing on for posts authorized one by one | Only after B3b is confirmed |
 
 ## Pending: other
 

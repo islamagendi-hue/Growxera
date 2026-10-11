@@ -23,7 +23,7 @@ Paths are relative to the repository root, at commit `e430e71` unless marked WIP
 | File | Responsibility |
 |---|---|
 | `switch.ts` | All-publishing switch (P2): blocks manual and automatic publishing |
-| `autopublish.ts` | Automatic switch, per-post authorization, exact-time rule (no late allowance), holding missed posts, switch setters |
+| `autopublish.ts` | Automatic switch, per-post authorization, submission window T − 60 s … T − 10 s, holding missed posts, switch setters |
 | `access.ts`, `access.test.ts` | Studio sign-in (password + TOTP), sessions, lockout, setup links |
 | `crypto.ts` | AES-GCM, scrypt, TOTP, base32 |
 | `host.ts`, `owner-email.ts` | Studio host rules; owner email |
@@ -34,7 +34,7 @@ Paths are relative to the repository root, at commit `e430e71` unless marked WIP
 | `scripts/studio-setup-link.mjs` | One-time setup link (gated on production) |
 | `supabase/migrations/20261014000000_studio_access.sql`, `20261015000000_publishing_controls.sql` | New tables (not applied) |
 | `.github/workflows/ci.yml` | CI |
-| `docs/studio/*` | Plan, risks, roadmap, tests, runbook, gates, log |
+| `docs/studio/*` | Plan, risks, roadmap, tests, operations and deployment runbooks, scheduling architecture, gates, log |
 
 ## Pages and routes (`src/app/`)
 

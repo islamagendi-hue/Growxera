@@ -6,7 +6,7 @@ Each milestone ships as reviewable PRs. Nothing merges or deploys without owner 
 
 - [x] Read-only audit (11 Oct): repository, live database (read-only), Buffer (read-only), Vercel domain config.
 - [x] Preserve the WIP: branch `claude/studio-wip-agent-host` @ `3ca1de7`, stash kept.
-- [x] Publishing locks: global switch, per-post authorization, exact planned time with no late allowance (G2), missed posts held. **PR #18**.
+- [x] Publishing locks: all-publishing switch (P2), automatic switch, per-post authorization, submission window T − 60 s … T − 10 s (G2, P1), missed posts held. **PR #18**.
 - [x] Agent-host sign-in hardened and tested. **PR #19**.
 - [x] Weekly export (download, validate, isolated restore) and CI. **PR #20**.
 - [x] Plan docs (this set).
