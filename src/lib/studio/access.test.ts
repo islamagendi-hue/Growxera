@@ -12,6 +12,12 @@ vi.mock("next/headers", () => ({
   headers: async () => new Headers({ host: "agent.growxera.com" }),
 }));
 
+import { execFile } from "node:child_process";
+import { createHash } from "node:crypto";
+import fs from "node:fs";
+import { createServer } from "node:http";
+import os from "node:os";
+import path from "node:path";
 import { NextRequest } from "next/server";
 import { proxy } from "@/proxy";
 import { insert, select, update } from "@/lib/server/store";
@@ -30,6 +36,7 @@ import {
 } from "./access";
 import { base32Decode, base32Encode, hashPassword, totpAt, verifyPassword, verifyTotp } from "./crypto";
 import { isStudioHost, isStudioPath, STUDIO_HOST } from "./host";
+import { setupLink, tokenFromHash } from "./setup-link";
 
 const OWNER = "owner@example.com";
 const PASSWORD = "correct horse battery staple";
@@ -257,5 +264,88 @@ describe("own address only", () => {
     expect(isStudioHost("agent.growxera.com.evil.test", "production")).toBe(false);
     expect(isStudioPath("/studio-old")).toBe(false);
     expect(isStudioPath("/accessibility")).toBe(false);
+  });
+});
+
+describe("setup links keep the token out of URLs sent to the server", () => {
+  const SCRIPT = path.join(process.cwd(), "scripts/studio-setup-link.mjs");
+  const run = (args: string[], env: Record<string, string> = {}) =>
+    new Promise<{ code: number; stdout: string; stderr: string }>((resolve) => {
+      execFile(process.execPath, [SCRIPT, ...args], { env: { PATH: process.env.PATH ?? "", ...env } as unknown as NodeJS.ProcessEnv, encoding: "utf8" }, (err, stdout, stderr) =>
+        resolve({ code: err ? ((err as { code?: number }).code ?? 1) : 0, stdout, stderr }),
+      );
+    });
+  const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), "gx-setup-link-"));
+
+  it("reads the token only from the #fragment", () => {
+    const t = "A".repeat(43);
+    expect(tokenFromHash(`#token=${t}`)).toBe(t);
+    expect(tokenFromHash(`#x=1&token=${t}`)).toBe(t);
+    expect(tokenFromHash("")).toBeNull();
+    expect(tokenFromHash("#token=short")).toBeNull();
+    expect(tokenFromHash(`#token=${t}<script>`)).toBeNull();
+    expect(setupLink("https://agent.growxera.com", t)).toBe(`https://agent.growxera.com/access/setup#token=${t}`);
+  });
+
+  it("no code puts a setup token in a query string, and the server render never sees it", () => {
+    const read = (f: string) => fs.readFileSync(path.join(process.cwd(), f), "utf8");
+    for (const f of ["src/app/access/actions.ts", "src/app/access/setup/page.tsx", "src/app/access/setup/SetupFlow.tsx", "scripts/studio-setup-link.mjs"]) {
+      expect(read(f), f).not.toMatch(/[?&]token=\$\{/);
+    }
+    expect(read("scripts/studio-setup-link.mjs")).toMatch(/\/access\/setup#token=\$\{token\}/);
+    expect(read("src/app/access/setup/page.tsx")).not.toMatch(/startSetup/);
+    // Setup errors are returned as state; the only redirect is to the studio on success.
+    const action = read("src/app/access/actions.ts");
+    const setup = action.slice(action.indexOf("export async function setupAction"), action.indexOf("export async function signOutAction"));
+    expect(setup.match(/redirect\(/g)).toEqual(["redirect("]);
+    expect(setup).toMatch(/redirect\("\/studio"\)/);
+  });
+
+  it("--hash-only writes the link to an owner-only file and prints only the hash", async () => {
+    const dir = tmp();
+    const out = path.join(dir, "setup-link.txt");
+    const r = await run(["--hash-only", "--out", out, "--hours", "2"]);
+    expect(r.code).toBe(0);
+    const link = fs.readFileSync(out, "utf8").trim();
+    const token = /#token=([A-Za-z0-9_-]{43})$/.exec(link)![1];
+    expect(link.startsWith("https://agent.growxera.com/access/setup#token=")).toBe(true);
+    expect(fs.statSync(out).mode & 0o777).toBe(0o600);
+    expect(r.stdout).not.toContain(token);
+    expect(r.stdout).toContain(createHash("sha256").update(token).digest("hex"));
+    expect(r.stdout).toMatch(/now\(\) \+ 2 h/);
+    // Never overwrites an existing file.
+    expect((await run(["--hash-only", "--out", out])).code).toBe(2);
+    expect((await run(["--hash-only"])).code).toBe(2);
+    fs.rmSync(dir, { recursive: true });
+  });
+
+  it("stores only the hash with the chosen expiry, and with --out never prints the link", async () => {
+    const seen: { auth?: string; body?: { token_hash: string; expires_at: string } } = {};
+    const server = createServer((req, res) => {
+      let data = "";
+      req.on("data", (c) => (data += c));
+      req.on("end", () => {
+        seen.auth = req.headers.authorization;
+        seen.body = JSON.parse(data);
+        res.writeHead(201).end();
+      });
+    });
+    await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
+    const port = (server.address() as { port: number }).port;
+    const dir = tmp();
+    const out = path.join(dir, "link.txt");
+    const before = Date.now();
+    const r = await run(["--confirm", "--out", out, "--hours", "2"], { SUPABASE_URL: `http://127.0.0.1:${port}`, SUPABASE_SERVICE_ROLE_KEY: "test-key" });
+    server.close();
+    expect(r.code).toBe(0);
+    const token = /#token=(.+)$/.exec(fs.readFileSync(out, "utf8").trim())![1];
+    expect(seen.body!.token_hash).toBe(createHash("sha256").update(token).digest("hex"));
+    expect(JSON.stringify(seen.body)).not.toContain(token);
+    const expires = new Date(seen.body!.expires_at).getTime();
+    expect(expires - before).toBeGreaterThan(2 * 3_600_000 - 60_000);
+    expect(expires - before).toBeLessThan(2 * 3_600_000 + 60_000);
+    expect(seen.auth).toBe("Bearer test-key");
+    expect(r.stdout + r.stderr).not.toContain(token);
+    fs.rmSync(dir, { recursive: true });
   });
 });
