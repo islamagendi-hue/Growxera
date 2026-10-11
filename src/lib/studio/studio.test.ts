@@ -850,7 +850,7 @@ describe("LinkedIn direct publishing", () => {
       const t = soon();
       const id = await approvedAt(t);
       await authorize(id);
-      const r = await publishDue("scheduler", new Date(new Date(t).getTime() + MIN), linkedinFetch);
+      const r = await publishDue("scheduler", new Date(t), linkedinFetch);
       expect(r).toMatchObject({ ran: false, switchOn: false });
       expect(r.published).toHaveLength(0);
       expect(posts()).toBe(0);
@@ -863,7 +863,7 @@ describe("LinkedIn direct publishing", () => {
       const legacy: string[] = [];
       for (let i = 0; i < 19; i++) legacy.push(await approvedAt(t, `Legacy approved post ${i} ${crypto.randomUUID()}`));
       await switchOn();
-      const at = new Date(new Date(t).getTime() + MIN);
+      const at = new Date(t);
       const r = await publishDue("scheduler", at, linkedinFetch);
       expect(r.ran).toBe(true);
       expect(r.published.filter((p) => legacy.includes(p.actionId))).toHaveLength(0);
@@ -889,7 +889,7 @@ describe("LinkedIn direct publishing", () => {
       const t = soon();
       const id = await approvedAt(t);
       await authorize(id);
-      const late = new Date(new Date(t).getTime() + 10 * MIN + 1);
+      const late = new Date(new Date(t).getTime() + 1);
       // Switch off when the time passes: still held, so it can't fire later.
       const r = await publishDue("scheduler", late, linkedinFetch);
       expect(r.held).toContain(id);
@@ -918,7 +918,7 @@ describe("LinkedIn direct publishing", () => {
       expect(posts()).toBe(0);
     });
 
-    it("publishes only from the planned time to 10 minutes after it", async () => {
+    it("publishes only at the planned time: 1 ms early waits, 1 ms late is held (G2, no late allowance)", async () => {
       const { publishDue } = await import("./publish");
       await switchOn();
       const t = soon();
@@ -929,8 +929,10 @@ describe("LinkedIn direct publishing", () => {
       expect(r1.published.map((p) => p.actionId)).not.toContain(early);
       const r2 = await publishDue("scheduler", await at(start, 0), linkedinFetch);
       expect(r2.published.map((p) => p.actionId)).toContain(start);
-      const r3 = await publishDue("scheduler", await at(end, 10 * MIN), linkedinFetch);
-      expect(r3.published.map((p) => p.actionId)).toContain(end);
+      const r3 = await publishDue("scheduler", await at(end, 1), linkedinFetch);
+      expect(r3.published.map((p) => p.actionId)).not.toContain(end);
+      expect(r3.held).toContain(end);
+      expect((await getAction(end))!.action.status).toBe("ready_for_review");
     });
 
     it("an edit voids the automatic-publishing authorization, and re-approval doesn't restore it", async () => {
@@ -943,7 +945,7 @@ describe("LinkedIn direct publishing", () => {
       await addVersion(id, { ...d.current, target_at: t2 }, ME);
       const d2 = (await getAction(id))!;
       await approve(id, d2.current.id, d2.current.content_hash, ME);
-      const r = await publishDue("scheduler", new Date(new Date(t2).getTime() + MIN), linkedinFetch);
+      const r = await publishDue("scheduler", new Date(t2), linkedinFetch);
       expect(r.published.map((p) => p.actionId)).not.toContain(id);
       expect(posts()).toBe(0);
     });
@@ -952,12 +954,12 @@ describe("LinkedIn direct publishing", () => {
       const { publishAction } = await import("./publish");
       const t = soon();
       const id = await approvedAt(t);
-      const due = new Date(new Date(t).getTime() + MIN);
+      const due = new Date(t);
       await expect(publishAction(id, "scheduler", linkedinFetch, { mode: "auto", now: due })).rejects.toThrow(/switched off/);
       await switchOn();
       await expect(publishAction(id, "scheduler", linkedinFetch, { mode: "auto", now: due })).rejects.toThrow(/isn't authorized/);
       await authorize(id);
-      await expect(publishAction(id, "scheduler", linkedinFetch, { mode: "auto", now: new Date(new Date(t).getTime() + 11 * MIN) })).rejects.toThrow(/Outside its publishing window/);
+      await expect(publishAction(id, "scheduler", linkedinFetch, { mode: "auto", now: new Date(new Date(t).getTime() + 1) })).rejects.toThrow(/Outside its publishing window/);
       expect(posts()).toBe(0);
       await expect(publishAction(id, "scheduler", linkedinFetch, { mode: "auto", now: due })).resolves.toMatchObject({ verified: false });
     });
@@ -968,7 +970,7 @@ describe("LinkedIn direct publishing", () => {
       const t = soon();
       const id = await approvedAt(t);
       await authorize(id);
-      const at = new Date(new Date(t).getTime() + MIN);
+      const at = new Date(t);
       const [a, b] = await Promise.all([publishDue("scheduler", at, linkedinFetch), publishDue("scheduler", at, linkedinFetch)]);
       expect([...a.published, ...b.published].filter((p) => p.actionId === id)).toHaveLength(1);
       expect(posts()).toBe(1);
@@ -993,8 +995,8 @@ describe("LinkedIn direct publishing", () => {
       expect(target).toBe("2026-12-01T14:00:00.000Z");
       expect(timing(target, new Date("2026-12-01T13:59:59.999Z"))).toBe("early");
       expect(timing(target, new Date("2026-12-01T14:00:00.000Z"))).toBe("on_time");
-      expect(timing(target, new Date("2026-12-01T14:10:00.000Z"))).toBe("on_time");
-      expect(timing(target, new Date("2026-12-01T14:10:00.001Z"))).toBe("missed");
+      expect(timing(target, new Date("2026-12-01T14:00:00.001Z"))).toBe("missed");
+      expect(timing(target, new Date("2026-12-01T14:05:00.000Z"))).toBe("missed"); // the next 5-minute tick is too late
     });
   });
 

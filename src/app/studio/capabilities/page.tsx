@@ -81,9 +81,8 @@ export default async function CapabilitiesPage({ searchParams }: PageProps<"/stu
       <section id="autopublish" className="mt-10 border border-ink bg-card p-6">
         <h2 className="text-h3 font-semibold">Automatic publishing: {auto.enabled ? "ON" : "OFF"}</h2>
         <p className="mt-2 max-w-[70ch] text-sm text-ink-2">
-          When ON, the scheduler publishes only posts you scheduled for automatic publishing one by one, and only on time (up to 10
-          minutes after their planned time). Approving content never publishes it by itself. A missed post is held for review, never
-          posted late. Switching OFF stops all automatic publishing immediately.
+          When ON, the scheduler publishes only posts you scheduled for automatic publishing one by one, and only at their planned time, never late. Approving content never publishes it by itself. If the scheduler runs
+          after a post&apos;s planned time, even by a moment, the post is held for review, never posted late. Switching OFF stops all automatic publishing immediately.
         </p>
         {!auto.ready && <p className="mt-2 text-sm text-alert">The publishing-controls database update isn&apos;t applied yet, so automatic publishing stays OFF.</p>}
         {!auto.deploymentAllowed && (
