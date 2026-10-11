@@ -143,8 +143,9 @@ export default async function QueueItem({ params, searchParams }: PageProps<"/st
             <p className="mt-1 text-sm text-ink-2">
               Approving the content does not publish it. Automatic publishing needs your separate confirmation for this exact version and
               time, and both automatic publishing ({sw.enabled ? "ON" : "OFF"}) and all publishing ({all.enabled ? "ON" : "OFF"})
-              switched on. It goes out only at its planned time, never early and never late. If the scheduler doesn&apos;t
-              run at that moment, the post is held for review with the reason, and needs a new time and a new approval.
+              switched on. It is sent to LinkedIn between 60 and 10 seconds before its planned time, never after. If that
+              window is missed, the post is held for review with the reason, and needs a new time and a new approval. LinkedIn sets the
+              time it finally shows.
             </p>
             {autoAuthorized ? (
               <>
