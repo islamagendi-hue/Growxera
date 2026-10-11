@@ -27,6 +27,13 @@
 - **Buffer:** 0 scheduled, sending or error posts; 37 drafts; LinkedIn channel connected; an X channel exists (locked); last sent 10 Oct 18:30 UTC.
 - **Vercel:** `agent.growxera.com` is not configured. growxera.com's DNS is at Unstoppable Domains. Deployment listing is forbidden (403).
 
+## Owner correction, 11 Oct: G2 has no late allowance
+
+- **Change (PR #18, merged up into #19 and #20):** the 10-minute on-time window is removed. `LATE_TOLERANCE_MS = 0`: a scheduler run that starts after the planned time, even by 1 ms, holds the post for review. Changing this needs the owner's approval (APPROVAL_GATES P1).
+- **Tests:** 1 ms early waits; exactly on time publishes; 1 ms late and the next 5-minute tick are held; the direct automatic call refuses 1 ms late.
+- **Consequence:** with a 5-minute scheduler, nearly every scheduled post will be held (RISK_REGISTER R9). Safe, but automatic publishing is effectively unused until P1 is decided.
+- **Review findings documented:** manual Publish now is outside the switch (R15, P2); the go-live order A2 → A3 → A1 → A4 → A5 and the rollback order (code first, tables optional) (R16, runbook); restore tested only on the local store (runbook).
+
 ## Next steps
 
 1. Owner decisions on batch A ([APPROVAL_GATES.md](APPROVAL_GATES.md)).

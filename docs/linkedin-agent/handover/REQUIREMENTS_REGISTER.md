@@ -61,7 +61,7 @@ Evidence labels as in [CURRENT_STATE.md](CURRENT_STATE.md).
 | P1 | Build around LinkedIn's officially supported capabilities; don't claim direct publishing until verified | Later (Buffer retirement message) | Met | The capability register stays "Not verified" until a live post |
 | P2 | The system itself publishes (not the owner by hand) | Later ("I want the system to publish") | Partial | Built; LinkedIn not connected; unverified |
 | P3 | Manual copy-and-open fallback | D3; PLAN | Met (local tests) | — |
-| P4 | Scheduled time management | Brief | Met (local tests) | 3-hour late limit (Claude's design choice, not owner-specified) |
+| P4 | Scheduled time management | Brief | Met (local tests), PR #18 | G2: no late publishing and no late allowance; the 3-hour limit on `main` is replaced in PR #18 |
 
 ## Buffer
 

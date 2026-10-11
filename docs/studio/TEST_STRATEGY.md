@@ -25,7 +25,7 @@
 | Workflow, approvals, versions, duplicates, races | `src/lib/studio/studio.test.ts` | "approval enforcement", "execution, verification and duplicate prevention", "races and verification" |
 | Import and media | `studio.test.ts` | "import safety", "media copies" |
 | LinkedIn client and publisher | `studio.test.ts` | "LinkedIn direct publishing" (fake API) |
-| Automatic publishing locks (G1, G2) | `studio.test.ts` | "automatic publishing safeguards", which covers:<br>• switch OFF;<br>• 19 legacy approvals;<br>• held missed posts;<br>• new time required;<br>• window edges;<br>• edits;<br>• direct calls;<br>• parallel runs;<br>• refusals;<br>• Riyadh time |
+| Automatic publishing locks (G1, G2) | `studio.test.ts` | "automatic publishing safeguards", which covers:<br>• switch OFF;<br>• 19 legacy approvals;<br>• held missed posts;<br>• new time required;<br>• timing edges (1 ms early waits, on time publishes, 1 ms late and the next 5-minute tick are held);<br>• edits;<br>• direct calls;<br>• parallel runs;<br>• refusals;<br>• Riyadh time |
 | Sign-in and host | `src/lib/studio/access.test.ts` | RFC 6238; passwords; setup link; code reuse; lockouts; sessions; forged cookies; proxy 404 |
 | Backup export | `src/lib/studio/export.test.ts` | Contents; secrets excluded; tamper and truncation; restore round trip; refusal to overwrite |
 | Repository hygiene | `studio.test.ts` | "public repository hygiene", "no publishing path without approval", "checks the owner on every studio page…" |

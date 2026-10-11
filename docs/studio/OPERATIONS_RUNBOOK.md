@@ -41,7 +41,7 @@ Restore never overwrites live data. `restoreExport()` refuses a store that alrea
 
 1. Create an empty Supabase project. This is an approval gate; the Free plan allows two projects.
 2. Apply all migrations in `supabase/migrations/` in filename order.
-3. With that project's URL and service key in a local shell and `STUDIO_RESTORE_TARGET=isolated`, run a restore script from a checkout. The script is not shipped yet; `restoreExport` is tested on the local store.
+3. With that project's URL and service key in a local shell and `STUDIO_RESTORE_TARGET=isolated`, run a restore script from a checkout. **Limitation:** the script is not shipped yet, and `restoreExport` has been tested only against the local file store in an empty temporary directory, never against a Supabase database. A production restore is not supported: restore refuses any store with studio data.
 4. Verify the counts against the file's manifest.
 5. Reconnect LinkedIn; issue a new setup link.
 6. Media: re-copy from the sources, or from a bucket copy.
@@ -50,8 +50,8 @@ Restore never overwrites live data. `restoreExport()` refuses a store that alrea
 
 | What | How |
 |---|---|
-| Code | Revert the merge commit on GitHub, or promote the previous deployment in Vercel |
-| Migrations `20261014`/`20261015` | `drop table public.li_publish_authorizations, public.li_settings, public.li_access_attempts, public.li_access_setup_tokens, public.li_access_sessions, public.li_access_credentials;` Removes the sign-in and publishing controls. The app then reads automatic publishing as OFF |
+| Code (first) | Revert the merge commits on GitHub, or promote the previous deployment in Vercel. The studio returns to www with its current sign-in |
+| Migrations `20261014`/`20261015` | `drop table public.li_publish_authorizations, public.li_settings, public.li_access_attempts, public.li_access_setup_tokens, public.li_access_sessions, public.li_access_credentials;` Only **after** the code rollback, and only if wanted: leaving the tables is harmless. Dropping them while PR #19's code is live makes sign-in impossible (recover with a code rollback). Take an export first: dropping deletes the publishing authorizations |
 | Scheduler | `select cron.unschedule('studio-publish-due');` |
 | Earlier objects | See [ACTIVATION.md](../linkedin-agent/ACTIVATION.md) and handover §6 |
 
@@ -61,7 +61,8 @@ Restore never overwrites live data. `restoreExport()` refuses a store that alrea
 |---|---|
 | Something posted that shouldn't have | 1. Capabilities → **Switch automatic publishing OFF**.<br>2. Delete the post on LinkedIn by hand.<br>3. Mark the item failed with a reason.<br>4. Check `li_audit_log` |
 | Suspected account compromise | 1. **Sign out everywhere**.<br>2. Disconnect LinkedIn in the studio and remove the app's access in LinkedIn settings.<br>3. Issue a new setup link (gated) to reset the password and authenticator.<br>4. Rotate the LinkedIn client secret (stored tokens become unreadable, so reconnect) |
-| Locked out (lockout) | Wait 15 minutes from another network, or 1 hour for the global lock. Otherwise use a new setup link |
+| Locked out (lockout) | Wait 15 minutes, or 1 hour for the global lock. Or use a new setup link: it skips the lockout, resets the password and authenticator, signs out other sessions and signs you in (tested in `access.test.ts`) |
+| Studio unreachable after go-live (domain, DNS or setup problem) | The public site is unaffected. Promote the previous Vercel deployment or revert the merge (owner-approved); the studio is back on www with the current sign-in |
 | Lost authenticator | New setup link (gated) |
 | Unknown publishing outcome | Open the item, check your LinkedIn activity, record the link or "not on LinkedIn". Never re-sent automatically |
 | Post held (missed time) | Edit to a new time, approve, schedule it again |

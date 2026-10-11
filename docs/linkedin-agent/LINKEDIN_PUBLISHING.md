@@ -10,9 +10,11 @@ exact version (text, file, planned time). Any edit cancels the approval.
 2. The owner separately schedules that exact version for automatic publishing. Automatic
    publishing must also be switched ON: the deployment flag `STUDIO_AUTO_PUBLISH_ALLOWED=true`
    plus the owner's switch on Capabilities. Default: OFF.
-3. A scheduler calls `/api/studio/publish-due` every 5 minutes. A scheduled post goes out once,
-   between its planned time and 10 minutes after it. If that is missed, it is held back in review,
-   never posted late (owner decisions G1/G2, `src/lib/studio/autopublish.ts`).
+3. A scheduler calls `/api/studio/publish-due` every 5 minutes. A scheduled post goes out once, only
+   if a run starts exactly at its planned time. A run that starts after it, even by a moment, holds
+   the post back in review; it is never posted late (owner decisions G1/G2, no late allowance:
+   `LATE_TOLERANCE_MS = 0` in `src/lib/studio/autopublish.ts`). See APPROVAL_GATES P1: with this
+   policy most scheduled posts will be held until the owner approves a timing policy.
 3. The studio records the post link. It marks the post **verified** only if LinkedIn returns the post
    with the same text. Otherwise the owner opens the link and confirms.
 4. If LinkedIn gives no clear answer, the post is never re-sent automatically. The owner checks the

@@ -30,11 +30,12 @@ All dated 10 Oct 2026 unless noted. "Final" means the owner stated it and nothin
 |---|---|---|
 | D18 | Canonical address **agent.growxera.com** (supersedes `linkedin-agent` in D16) with email + password + authenticator sign-in | Final; implemented in PR #19, not deployed |
 | D19 (G1) | Historical approvals never auto-publish; each post is confirmed individually for automatic publishing; history preserved | Final; PR #18 |
-| D20 (G2) | Never publish after the planned time; hold for review; new time + new approval; no catch-up. **Supersedes D13 (3-hour rule).** On-time window implemented as planned time to +10 min (the scheduler runs every 5 min) | Final; PR #18. The 10-min window is Claude's implementation of "on time" |
+| D20 (G2) | Never publish after the planned time; hold for review; new time + new approval; no catch-up. **Supersedes D13 (3-hour rule).** No late allowance: a run that starts after the planned time, even by 1 ms, holds the post (`LATE_TOLERANCE_MS = 0`) | Final; PR #18. The earlier 10-min window was removed on the owner's correction (11 Oct). Any tolerance needs explicit owner approval (APPROVAL_GATES P1) |
 | D21 (G3) | Stay on Supabase Free; weekly export downloaded by the owner | Final; PR #20 |
 | D22 | Grok budget $0/month: no paid calls; mocks only | Final |
 | D23 | Buffer stays connected until the replacement is proven and disconnecting is approved | Final |
 | D24 | The global switch needs both the deployment flag `STUDIO_AUTO_PUBLISH_ALLOWED=true` and the owner's in-studio switch | Claude design within G1; final unless the owner objects |
+| D25 | The global switch governs **automatic** publishing only. Manual **Publish now** is a separate owner-attended action (signed-in owner, valid approval of the exact version, confirm box) and is not blocked by the switch | Claude design; open for owner confirmation (APPROVAL_GATES P2) |
 
 ## Open
 
