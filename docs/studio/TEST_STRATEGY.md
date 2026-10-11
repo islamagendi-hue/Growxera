@@ -65,6 +65,11 @@ Covered:
 - dashboard, calendar, search and activity;
 - a backup export without secret fields;
 - phone-size layout without horizontal scroll;
+- signed-out access to every studio page (redirect) and route (404);
+- a recoverable error state without internal details;
+- calendar month navigation and a bad month value;
+- activity filters;
+- phone width on every screen;
 - no browser console errors;
 - sign out.
 

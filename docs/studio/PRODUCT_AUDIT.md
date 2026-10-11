@@ -16,12 +16,15 @@ Verified on 11 Oct 2026 against the code, CI and read-only production checks. Ea
 | PR #18 | `f596a93` | All-publishing switch (P2), automatic switch, per-post confirmation (G1), submission window T−60 s…T−10 s (G2/P1) | [code], [test] |
 | PR #19 | `ee4ac16` | agent.growxera.com, password + authenticator sign-in, fragment setup links | [code], [test] |
 | PR #20 | `79939be` | Weekly export, CI, studio docs, deployment runbook | [code], [test]; CI ✅ |
-| `claude/studio-m2-product` (no PR) | `cf3c236` (CI ✅ unit + E2E), `2070a06` and later | **This round:** dashboard, posts, calendar, new post, file uploads, activity, settings, E2E suite | [code], [test], [e2e] |
+| `claude/studio-m2-product`, draft PR #21 (base #20) | see IMPLEMENTATION_STATUS | **This round:** dashboard, posts, calendar, new post, file uploads, activity, settings, error/loading states, E2E suite | [code], [test], [e2e] |
 
 **Previews:**
 - Vercel builds every branch, so each preview proves the build and the public site.
-- They **can't show studio pages**, because the studio answers only on `agent.growxera.com` and every other host gets a 404 (by design).
-- Studio screens are therefore verified with the local E2E suite, not on previews.
+- They **can't show studio pages**, because the studio answers only on `agent.growxera.com` and every other host gets a 404 (by design). Previews also share the production database, so studio testing on a preview would touch production data.
+- From this environment, preview URLs can't be fetched at all: the network policy blocks `*.vercel.app`, and the Vercel connector's fetch is refused (403).
+- Studio screens are therefore verified with:
+  - the local E2E suite (`next dev`, local store, Chromium);
+  - a production-build smoke test (`next start` with website, preview and studio host headers): the studio, sign-in and setup paths are 404 on the website and preview hosts; on the studio host, signed-out visitors are sent to sign-in; the scheduler is 404 without its secret.
 
 **Production data** [prod-read, 11 Oct 06:40 UTC]:
 - posts: 19 approved, 17 ready for review, 1 draft, 1 rejected;
@@ -37,6 +40,7 @@ Verified on 11 Oct 2026 against the code, CI and read-only production checks. Ea
 | Area | State | Notes |
 |---|---|---|
 | Owner sign-in (password + TOTP, lockout, sessions, sign out everywhere, setup-link recovery) | **Works** [test][e2e] | Production still uses the old website sign-in until batch A |
+| Error and loading states | **Works** [e2e] | Generic error with a reference and Try again; no internal details |
 | Dashboard | **Works** [e2e] | New this round. Shows controls, pipeline, what needs action and why, next 14 days, activity, backup, history |
 | Post list: search, status and problem filters | **Works** [e2e] | New filters: needs action, held, missed, not confirmed, confirmed |
 | Write a post (text, planned time, note, one image or PDF up to 4 MB) as a draft or for review | **Works** [test][e2e] | New. Files are type-checked from their bytes, stored privately and verified by checksum. PDFs over 4 MB aren't supported (platform request limit) |
@@ -68,6 +72,11 @@ Verified on 11 Oct 2026 against the code, CI and read-only production checks. Ea
 | The setup token was in the URL query, in the error redirect, and printed by the script | access | Fragment flow, form-data transport, `--out` / `--hash-only` [test][e2e] |
 | A setup token appeared in Next's development log of server-function arguments | access | Sent as form data, shown as `{}` [e2e] |
 | Dashboard showed a stray "-" for posts without a time; the side column stretched; the phone nav wrapped | dashboard | Fixed (screenshots reviewed) |
+| The capability register on Integrations said approved posts publish at their planned time once LinkedIn is connected. It also described the engagement inbox, reply drafting, analytics upload, newsletter preparation and LinkedIn data-export import as existing | Integrations | Corrected; unbuilt items say "Not built yet" [test] |
+| A confirmed post said it wouldn't go out only while automatic publishing is OFF, ignoring the all-publishing switch. The manual step blamed "direct publishing isn't verified" and showed "Planned time: -" | post page | Real reasons shown |
+| No error or loading state: a database failure showed Next's default error | studio | `error.tsx` (generic message, reference, Try again), `loading.tsx` [e2e] |
+| Local development store read a damaged file as empty, so the next write would overwrite it | `store.ts` (dev/test only) | Fails loudly; only a missing file is empty [test][e2e] |
+| Backup page didn't say restore is unsupported | Backup | Recovery limits stated |
 
 ## 4. Remaining gaps and blockers
 
