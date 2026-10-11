@@ -11,16 +11,20 @@ import "server-only";
  *    this exact time". It binds to the version and its content hash (text, media, planned time),
  *    so any edit voids it. Approvals that predate this feature have no authorization, so they
  *    never publish automatically until the owner authorizes each one (decision G1).
- * 3. Timing: only from the planned time to ON_TIME_WINDOW_MS after it (the scheduler runs every
- *    5 minutes). Later than that, the post is never published automatically: it is held, back in
- *    review with the reason recorded, and needs a new time and a new approval (decision G2).
+ * 3. Timing: never before the planned time and never after it (decision G2, no late
+ *    allowance: LATE_TOLERANCE_MS is 0). A scheduler run that starts after the planned time,
+ *    even by a second, holds the post: back in review with the reason recorded, needing a new
+ *    time and a new approval. A delayed scheduler therefore holds posts; it never publishes late.
  */
 import { eq, insert, select, selectOne, update } from "@/lib/server/store";
 import { audit, type ActionDetail, load, transition } from "./repo";
 import { contentHash, WorkflowError } from "./workflow";
 
-/** How late after its planned time a post may still go out automatically. */
-export const ON_TIME_WINDOW_MS = 10 * 60_000;
+/**
+ * How late after its planned time a post may still go out automatically: not at all (owner
+ * decision G2). Any other value is a policy change that needs the owner's explicit approval.
+ */
+export const LATE_TOLERANCE_MS = 0;
 /** Authorizing needs at least this much time before the planned time. */
 export const MIN_LEAD_MS = 5 * 60_000;
 export const AUTO_SETTING = "auto_publish_enabled";
@@ -161,7 +165,7 @@ export type Timing = "early" | "on_time" | "missed";
 export function timing(targetAt: string, at: Date): Timing {
   const due = new Date(targetAt).getTime();
   if (at.getTime() < due) return "early";
-  return at.getTime() - due <= ON_TIME_WINDOW_MS ? "on_time" : "missed";
+  return at.getTime() - due <= LATE_TOLERANCE_MS ? "on_time" : "missed";
 }
 
 /**
