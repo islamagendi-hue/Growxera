@@ -10,6 +10,7 @@ import { secureAssets, uploadAsset, UploadError, type UploadedAsset } from "@/li
 import { designText, isDesignFormat, renderDesign } from "@/lib/studio/design";
 import { GrokUnavailableError, verifyGrok } from "@/lib/studio/grok";
 import { addTopic, removeTopic, writeDraft, writeTopic, type WriteFormat } from "@/lib/studio/writer";
+import { approveWeek } from "@/lib/studio/weekly";
 import { importSnapshot, snapshotSchema } from "@/lib/studio/import";
 import { authorizeAutoPublish, revokeAutoPublish, setAutoPublish, setPublishing } from "@/lib/studio/autopublish";
 import { validateExport } from "@/lib/studio/export";
@@ -233,6 +234,25 @@ export async function attachDesignAction(form: FormData) {
     },
     "Design attached as a new version. Approve it again before it can be published.",
   );
+}
+
+/** The owner's weekly one click: approves exactly the listed posts and schedules them. */
+export async function approveWeekAction(form: FormData) {
+  const owner = await ownerOrThrow();
+  let q: string;
+  try {
+    if (form.get("confirm") !== "yes") throw new WorkflowError("Tick the box to confirm approving and scheduling the whole week.");
+    const ids = form.getAll("ids").map(String).filter(isUuid);
+    const r = await approveWeek(ids, owner.email);
+    q = `notice=${encodeURIComponent(
+      `Approved ${r.scheduled} for the week. Posts go out automatically at their times; the newsletter waits for you to post it.${r.skipped.length ? ` Not scheduled: ${r.skipped.join("; ")}` : ""}`,
+    )}`;
+  } catch (err) {
+    q = `error=${encodeURIComponent(err instanceof WorkflowError ? err.message : "Approving the week failed. Nothing more was changed.")}`;
+    if (!(err instanceof WorkflowError)) console.error("[studio] approve week failed", safeLog(err));
+  }
+  revalidatePath("/studio", "layout");
+  redirect(`/studio?${q}#week-h`);
 }
 
 // ── Topics and Grok writing ─────────────────────────────────────────────────
