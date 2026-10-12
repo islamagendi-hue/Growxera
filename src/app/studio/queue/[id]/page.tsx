@@ -5,6 +5,7 @@ import { first, Notice, StatusBadge } from "@/components/studio/StudioUi";
 import { buttonClass } from "@/components/ui/button";
 import { requireOwner } from "@/lib/studio/owner";
 import { assetsByUrl, UPLOAD_PREFIX } from "@/lib/studio/assets";
+import { DESIGN_FORMATS, designText } from "@/lib/studio/design";
 import { connectionState } from "@/lib/studio/linkedin";
 import { authorizationsFor, autoPublishSwitch, isAutoAuthorized, leadTimeOk } from "@/lib/studio/autopublish";
 import { getAction } from "@/lib/studio/repo";
@@ -13,6 +14,7 @@ import { formatRiyadh, isPast, toRiyadhInput } from "@/lib/studio/time";
 import {
   approveAction,
   authorizeAutoPublishAction,
+  attachDesignAction,
   editAction,
   failedAction,
   publishNowAction,
@@ -356,6 +358,53 @@ export default async function QueueItem({ params, searchParams }: PageProps<"/st
             <input type="hidden" name="actionId" value={action.id} />
             <button className={buttonClass("secondary")}>Return to review without changes</button>
           </form>
+        )}
+
+        {editable && (
+          <section aria-labelledby="design-h" className="mt-10">
+            <h2 id="design-h" className="text-h3 font-semibold">Design</h2>
+            <p className="mt-1 text-sm text-ink-2">
+              An image in the house style, made from the post&apos;s opening. Change any line, preview it, then attach it. Attaching replaces the
+              post&apos;s file and creates a new version, so the post needs approving again.
+            </p>
+            {/* eslint-disable-next-line @next/next/no-img-element -- owner-only generated preview, not a static asset */}
+            <img src={`/studio/design/${action.id}`} alt="Design preview" width={300} height={300} className="mt-4 border border-line" />
+            <form action={attachDesignAction} className="mt-4 grid gap-3 sm:grid-cols-2">
+              <input type="hidden" name="actionId" value={action.id} />
+              <label className="text-sm font-medium">
+                Small heading
+                <input name="eyebrow" defaultValue={designText(current.text).eyebrow} maxLength={60} className={field} />
+              </label>
+              <label className="text-sm font-medium">
+                Format
+                <select name="format" defaultValue="square" className={field}>
+                  {Object.entries(DESIGN_FORMATS).map(([k, f]) => (
+                    <option key={k} value={k}>
+                      {f.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="text-sm font-medium sm:col-span-2">
+                White line
+                <input name="a" required defaultValue={designText(current.text).lineA} maxLength={140} className={field} />
+              </label>
+              <label className="text-sm font-medium sm:col-span-2">
+                Orange line
+                <input name="b" defaultValue={designText(current.text).lineB} maxLength={140} className={field} />
+              </label>
+              <label className="text-sm font-medium sm:col-span-2">
+                Bottom line
+                <input name="footer" defaultValue={designText(current.text).footer} maxLength={80} className={field} />
+              </label>
+              <div className="flex flex-wrap gap-3 sm:col-span-2">
+                <button formAction={`/studio/design/${action.id}`} formMethod="get" formTarget="_blank" className={buttonClass("secondary")}>
+                  Preview in a new tab
+                </button>
+                <button className={buttonClass("primary")}>Attach to post</button>
+              </div>
+            </form>
+          </section>
         )}
 
         {editable && (

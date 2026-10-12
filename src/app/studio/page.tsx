@@ -5,6 +5,7 @@ import { EXPORT_REMINDER_DAYS, lastExportAt } from "@/lib/studio/export";
 import { grokStatus } from "@/lib/studio/grok";
 import { ATTENTION, attention, loadControls, loadPosts, PIPELINE, recentActivity } from "@/lib/studio/insights";
 import { requireOwner } from "@/lib/studio/owner";
+import { accountPerformance } from "@/lib/studio/performance";
 import { historyStats } from "@/lib/studio/stats";
 import { formatRiyadh } from "@/lib/studio/time";
 
@@ -16,7 +17,14 @@ const DAY = 86_400_000;
 export default async function Dashboard() {
   await requireOwner();
   const now = new Date();
-  const [posts, controls, activity, lastExport, history] = await Promise.all([loadPosts(now), loadControls(), recentActivity(8), lastExportAt(), historyStats()]);
+  const [posts, controls, activity, lastExport, history, perf] = await Promise.all([
+    loadPosts(now),
+    loadControls(),
+    recentActivity(8),
+    lastExportAt(),
+    historyStats(),
+    accountPerformance(),
+  ]);
   const grok = grokStatus();
 
   const todo = attention(posts);
@@ -100,6 +108,47 @@ export default async function Dashboard() {
           ))}
         </ol>
         <SourceLabel>Studio database, live</SourceLabel>
+      </section>
+
+      <section aria-labelledby="works-h" className="mt-10">
+        <h2 id="works-h" className="eyebrow">What works on your account</h2>
+        {perf.posts === 0 ? (
+          <p className="mt-3 text-sm text-ink-2">No published posts with metrics yet.</p>
+        ) : (
+          <div className="mt-3 grid gap-px border border-line bg-line md:grid-cols-3">
+            <div className="bg-card p-4 text-sm">
+              <p className="font-medium">Best days</p>
+              <ol className="mt-2 space-y-1">
+                {perf.byDay.slice(0, 3).map((b) => (
+                  <li key={b.key} className="tabular">
+                    {b.label}: {b.avgEngagement.toFixed(1)} reactions + comments, {Math.round(b.avgImpressions)} impressions ({b.posts} posts)
+                  </li>
+                ))}
+              </ol>
+            </div>
+            <div className="bg-card p-4 text-sm">
+              <p className="font-medium">Best hours (Riyadh)</p>
+              <ol className="mt-2 space-y-1">
+                {perf.byHour.slice(0, 3).map((b) => (
+                  <li key={b.key} className="tabular">
+                    {b.label}: {b.avgEngagement.toFixed(1)} reactions + comments, {Math.round(b.avgImpressions)} impressions ({b.posts} posts)
+                  </li>
+                ))}
+              </ol>
+            </div>
+            <div className="bg-card p-4 text-sm">
+              <p className="font-medium">Top posts</p>
+              <ol className="mt-2 space-y-1">
+                {perf.top.map((t) => (
+                  <li key={t.id}>
+                    {t.opening} <span className="tabular text-ink-3">({t.engagement} reactions + comments)</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          </div>
+        )}
+        <SourceLabel>{`Imported history, ${perf.posts} posts with metrics · small samples, not a forecast · Grok uses the top posts as style examples`}</SourceLabel>
       </section>
 
       <div className="mt-10 grid gap-10 lg:grid-cols-[3fr_2fr]">
@@ -210,7 +259,7 @@ export default async function Dashboard() {
           <div className="bg-card p-4">
             <p className="eyebrow">Writing engine: Grok</p>
             <p className="mt-2 text-sm text-ink-2">
-              {grok.enabled ? `Enabled, model ${grok.model}, budget $${grok.budgetUsd.toFixed(2)}/month.` : "Off: budget is $0, so no model calls are made. Posts are written by you."}
+              {grok.enabled ? `Enabled, model ${grok.model}, budget $${grok.budgetUsd.toFixed(2)}/month.` : "Off: its settings aren't set, so no model calls are made. Topics can't be written by Grok yet."}
             </p>
           </div>
           <div className="bg-card p-4">

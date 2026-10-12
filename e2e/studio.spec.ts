@@ -87,6 +87,7 @@ test("every screen opens from the navigation", async () => {
     ["Posts", "Posts"],
     ["Calendar", "Calendar"],
     ["New post", "New post"],
+    ["Topics", "Topics"],
     ["Activity", "Activity"],
     ["Integrations", "Integrations and capabilities"],
     ["Import", "Import"],
@@ -157,6 +158,54 @@ test("confirming a post for automatic publishing says it won't go out while the 
   await expect(page.locator("#auto")).toContainText("It won't go out while all publishing and automatic publishing are OFF.");
   await page.getByRole("button", { name: "Cancel automatic publishing" }).click();
   await expect(notice("Automatic publishing cancelled.")).toBeVisible();
+});
+
+test("a post gets a house-style design: preview, then attach as a new version", async () => {
+  await page.goto(postUrl);
+  const preview = page.getByRole("img", { name: "Design preview" });
+  await expect(preview).toBeVisible();
+  const res = await page.request.get((await preview.getAttribute("src"))!);
+  expect(res.status()).toBe(200);
+  expect(res.headers()["content-type"]).toBe("image/png");
+  const design = page.getByRole("region", { name: "Design" });
+  await design.getByLabel("Small heading").fill("Behind the Number · Issue 2");
+  await design.getByLabel("Format").selectOption("portrait");
+  await design.getByRole("button", { name: "Attach to post" }).click();
+  await expect(notice("Design attached as a new version.")).toBeVisible();
+  await expect(page.getByText("uploaded in the studio")).toBeVisible();
+  const status = page.getByRole("region", { name: "Publishing status" });
+  await expect(status).toContainText("doesn't cover the current version");
+  await page.getByRole("button", { name: "Approve version 3" }).click();
+  await expect(status).toContainText("Version 3 approved");
+  // Not for anyone else.
+  const anon = await page.context().browser()!.newContext();
+  expect((await anon.request.get(`http://localhost:3210${await preview.getAttribute("src")}`, { maxRedirects: 0 })).status()).not.toBe(200);
+  await anon.close();
+});
+
+test("topics: add, refuse a duplicate, remove; Grok off says why and can't be used", async () => {
+  await page.goto("/studio/topics");
+  await expect(page.getByRole("region", { name: "Grok" })).toContainText("Off: drafts can't be written yet. Missing settings: XAI_API_KEY");
+  await expect(page.getByRole("button", { name: "Write it now with Grok" })).toBeDisabled();
+  const topic = `Why CAC payback beats ROAS ${Date.now()}`;
+  await page.getByLabel("Topic", { exact: true }).fill(topic);
+  await page.getByLabel("Format").selectOption("newsletter");
+  await page.getByRole("button", { name: "Add to list" }).click();
+  await expect(notice("Topic added.")).toBeVisible();
+  const item = page.getByRole("listitem").filter({ hasText: topic });
+  await expect(item).toContainText("Newsletter");
+  await expect(item.getByRole("button", { name: "Write" })).toBeDisabled();
+  await page.getByLabel("Topic", { exact: true }).fill(topic.toLowerCase());
+  await page.getByRole("button", { name: "Add to list" }).click();
+  await expect(page.locator("p[role=alert]").filter({ hasText: "already on the list" })).toBeVisible();
+  await page.getByRole("listitem").filter({ hasText: topic }).getByRole("button", { name: "Remove" }).click();
+  await expect(notice("Topic removed.")).toBeVisible();
+  await expect(page.getByRole("listitem").filter({ hasText: topic })).toHaveCount(0);
+});
+
+test("the dashboard shows what works on the account", async () => {
+  await page.goto("/studio");
+  await expect(page.getByRole("region", { name: "What works on your account" })).toBeVisible();
 });
 
 test("drafts are saved, then submitted for review", async () => {

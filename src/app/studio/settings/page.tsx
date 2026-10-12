@@ -19,7 +19,7 @@ const RULES = [
   "A scheduled post is sent only between 60 and 10 seconds before its planned time. Missed: it is held for review and needs a new time and approval; it is never published late.",
   "If LinkedIn's answer is unclear, the post is never re-sent automatically. You check your profile and record the result.",
   "The studio controls when a request is sent, not the time LinkedIn finally displays.",
-  "Grok budget is $0/month: no paid model calls. Buffer stays connected until you approve disconnecting it.",
+  "Grok writes drafts only when its settings are present, and stops at a hard monthly cap (owner decision: $10). Drafts are never published without your approval. Buffer stays connected until you approve disconnecting it.",
 ];
 
 export default async function Settings() {
