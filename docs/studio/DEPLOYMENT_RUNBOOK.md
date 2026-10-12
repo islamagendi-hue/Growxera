@@ -4,10 +4,12 @@ Status: **step 1 done (12 Oct 2026, owner-approved); every other step not execut
 
 | Step | State |
 |---|---|
-| 0 (read-only checks) | Done 12 Oct 11:20 UTC: 19/17/1/1 posts, 0 executions, 0 LinkedIn connections, scheduler `ran:false`, 3 live website sessions. The owner's browser check of www/studio is still owed |
-| 0b (Vercel V1–V3) | **Owner, open.** The Vercel connector can't see the project, so Claude can't do it |
+| 0 (read-only checks) | Done 12 Oct 11:20 UTC: 19/17/1/1 posts, 0 executions, 0 LinkedIn connections, scheduler `ran:false`, 3 live website sessions. Owner's browser (12 Oct, after step 1): www and www/studio load; studio shows 17/19/1/1 |
+| 0b (Vercel V1–V3) | **Done 12 Oct by the owner** (browser extension; Claude couldn't verify, the Vercel connector can't see the project). V1 Vercel Authentication on, Standard Protection. V2 Preview-only `SUPABASE_SERVICE_ROLE_KEY` deleted, Production entry unchanged; no redeploy (applies to previews built afterwards; V1 covers existing ones). V3 was already on. **Open:** preview link in a private window should ask for a Vercel login (owner) |
 | 1 (migrations) | **Done 12 Oct 11:20–11:21 UTC.** `studio_access` (history `20261012112056`) and `publishing_controls` (`20261012112108`). Checks: 6 new tables, all empty; 18 `li_` tables, all with RLS (not forced); ACL `postgres` + `service_role` only; 0 table or column grants to anon/authenticated; 0 policies; both named indexes present; existing counts unchanged; 8 history rows. Supabase security advisor: only the intended "RLS enabled, no policy" notices plus the pre-existing `pg_net` in `public` warning |
-| 2–5 | Not started; each needs its own approval |
+| 2 (domain) | **Done 12 Oct by the owner** (browser extension). Vercel: agent.growxera.com added to Production, no redirect; it asked for CNAME `agent` → a project-specific `*.vercel-dns-017.com` value, no TXT. Unstoppable Domains: that CNAME added (TTL 1 h), other records unchanged. Vercel: Valid Configuration, certificate issued; https://agent.growxera.com serves the current website over HTTPS. www unchanged. Vercel also shows "DNS Change Recommended" for growxera.com and www (left as is) |
+| 5 (LinkedIn redirect URL) | **Paused:** the only LinkedIn developer app is named "App" (page "Lean App"); its only redirect URL is the www studio callback. Waiting for the owner to confirm it's the right app |
+| 3, 4 | Not started; each needs its own approval |
 
 Batch A **does not** connect LinkedIn, publish anything, change Buffer, switch any publishing on, or cost anything.
 
