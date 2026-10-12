@@ -30,7 +30,7 @@ Verified on 11 Oct 2026 against the code, CI and read-only production checks. Ea
 - posts: 19 approved, 17 ready for review, 1 draft, 1 rejected;
 - 0 executions;
 - 0 LinkedIn connections and 0 app keys;
-- the 6 tables from migrations 20261014/20261015 are **absent**;
+- the 6 tables from migrations 20261014/20261015 were absent on 11 Oct; **applied 12 Oct** with owner approval (DEPLOYMENT_RUNBOOK step 1);
 - the scheduler runs every 5 minutes and answers `ran:false`;
 - website sign-in: 1 verified account, 3 live sessions.
 - **Buffer:** LinkedIn channel connected; 0 scheduled, sending, pending or error posts.

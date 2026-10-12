@@ -1,6 +1,13 @@
 # Batch A deployment runbook: go live on agent.growxera.com
 
-Status: **ready for the owner's approval. Nothing here has been executed.** Every step is owner-approved as part of batch A and is run in this order. Stop at any failed check.
+Status: **step 1 done (12 Oct 2026, owner-approved); every other step not executed.** Every step is owner-approved separately and is run in this order. Stop at any failed check.
+
+| Step | State |
+|---|---|
+| 0 (read-only checks) | Done 12 Oct 11:20 UTC: 19/17/1/1 posts, 0 executions, 0 LinkedIn connections, scheduler `ran:false`, 3 live website sessions. The owner's browser check of www/studio is still owed |
+| 0b (Vercel V1–V3) | **Owner, open.** The Vercel connector can't see the project, so Claude can't do it |
+| 1 (migrations) | **Done 12 Oct 11:20–11:21 UTC.** `studio_access` (history `20261012112056`) and `publishing_controls` (`20261012112108`). Checks: 6 new tables, all empty; 18 `li_` tables, all with RLS (not forced); ACL `postgres` + `service_role` only; 0 table or column grants to anon/authenticated; 0 policies; both named indexes present; existing counts unchanged; 8 history rows. Supabase security advisor: only the intended "RLS enabled, no policy" notices plus the pre-existing `pg_net` in `public` warning |
+| 2–5 | Not started; each needs its own approval |
 
 Batch A **does not** connect LinkedIn, publish anything, change Buffer, switch any publishing on, or cost anything.
 
