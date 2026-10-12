@@ -9,7 +9,9 @@ Status: **step 1 done (12 Oct 2026, owner-approved); every other step not execut
 | 1 (migrations) | **Done 12 Oct 11:20–11:21 UTC.** `studio_access` (history `20261012112056`) and `publishing_controls` (`20261012112108`). Checks: 6 new tables, all empty; 18 `li_` tables, all with RLS (not forced); ACL `postgres` + `service_role` only; 0 table or column grants to anon/authenticated; 0 policies; both named indexes present; existing counts unchanged; 8 history rows. Supabase security advisor: only the intended "RLS enabled, no policy" notices plus the pre-existing `pg_net` in `public` warning |
 | 2 (domain) | **Done 12 Oct by the owner** (browser extension). Vercel: agent.growxera.com added to Production, no redirect; it asked for CNAME `agent` → a project-specific `*.vercel-dns-017.com` value, no TXT. Unstoppable Domains: that CNAME added (TTL 1 h), other records unchanged. Vercel: Valid Configuration, certificate issued; https://agent.growxera.com serves the current website over HTTPS. www unchanged. Vercel also shows "DNS Change Recommended" for growxera.com and www (left as is) |
 | 5 (LinkedIn redirect URL) | **Paused:** the only LinkedIn developer app is named "App" (page "Lean App"); its only redirect URL is the www studio callback. Waiting for the owner to confirm it's the right app |
-| 3, 4 | Not started; each needs its own approval |
+| 3 (merge, one deployment) | **Done 12 Oct** (owner, via browser extension): #20 → #17 merged, production `54376fc` Ready; www/studio and /access 404, agent.growxera.com → sign-in, headers `DENY` + `noindex`; scheduler answers with the new code |
+| 4 (setup link) | **Done 12 Oct**: link used, 1 credential, link file deleted; owner signed in. Owner then connected LinkedIn (B1) and saved app keys |
+| Follow-up | PR #22 (designs, topics + Grok drafts, account performance) merged, production `8498202` Ready, checked live |
 
 Batch A **does not** connect LinkedIn, publish anything, change Buffer, switch any publishing on, or cost anything.
 
@@ -394,4 +396,15 @@ select cron.schedule('studio-publish-due', '15 seconds', $$
   );
 $$);
 ```
-Rollback: `select cron.unschedule('studio-publish-due');`, then re-create the 5-minute job (LINKEDIN_PUBLISHING.md). This SQL is to be rehearsed in a throwaway database before B3.
+Rollback: `select cron.unschedule('studio-publish-due');`, then re-create the 5-minute job (LINKEDIN_PUBLISHING.md).
+
+**Rehearsed 12 Oct 2026** in a throwaway local PostgreSQL 16 with all studio migrations (pg_cron itself isn't available locally; production runs pg_cron 1.6.4, which accepts the `'15 seconds'` schedule). The job's `where exists (…)` condition, run against test rows:
+
+| Case | Calls the app? |
+|---|---|
+| No authorization | No |
+| Authorized, due in 10 minutes | No |
+| Authorized, due in 70 seconds | Yes |
+| Authorized, overdue (the app then holds it) | Yes |
+| Latest decision is "revoked" | No |
+| Action no longer approved | No |
