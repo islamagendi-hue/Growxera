@@ -1,11 +1,13 @@
 import Link from "next/link";
-import { OnOff, SourceLabel, StatusBadge } from "@/components/studio/StudioUi";
+import { first, Notice, OnOff, SourceLabel, StatusBadge } from "@/components/studio/StudioUi";
 import { buttonClass } from "@/components/ui/button";
 import { EXPORT_REMINDER_DAYS, lastExportAt } from "@/lib/studio/export";
 import { grokStatus } from "@/lib/studio/grok";
 import { ATTENTION, attention, loadControls, loadPosts, PIPELINE, recentActivity } from "@/lib/studio/insights";
 import { requireOwner } from "@/lib/studio/owner";
 import { accountPerformance } from "@/lib/studio/performance";
+import { weekBatch } from "@/lib/studio/weekly";
+import { approveWeekAction } from "./actions";
 import { historyStats } from "@/lib/studio/stats";
 import { formatRiyadh } from "@/lib/studio/time";
 
@@ -14,7 +16,8 @@ export const dynamic = "force-dynamic";
 const fmt = (n: number | null) => (n === null ? "No data" : new Intl.NumberFormat("en-US").format(n));
 const DAY = 86_400_000;
 
-export default async function Dashboard() {
+export default async function Dashboard({ searchParams }: PageProps<"/studio">) {
+  const sp = await searchParams;
   await requireOwner();
   const now = new Date();
   const [posts, controls, activity, lastExport, history, perf] = await Promise.all([
@@ -25,6 +28,7 @@ export default async function Dashboard() {
     historyStats(),
     accountPerformance(),
   ]);
+  const week = await weekBatch(now);
   const grok = grokStatus();
 
   const todo = attention(posts);
@@ -56,6 +60,7 @@ export default async function Dashboard() {
           New post
         </Link>
       </div>
+      <Notice notice={first(sp.notice)} error={first(sp.error)} />
 
       {/* Publishing controls: the first thing to know is whether anything can go out. */}
       <section aria-labelledby="controls-h" className="mt-8">
@@ -108,6 +113,40 @@ export default async function Dashboard() {
           ))}
         </ol>
         <SourceLabel>Studio database, live</SourceLabel>
+      </section>
+
+      <section aria-labelledby="week-h" className="mt-10 border border-ink p-6">
+        <h2 id="week-h" className="text-h3 font-semibold">This week&apos;s plan</h2>
+        <p className="mt-1 text-sm text-ink-2">
+          Prepared by the studio: one post a day at your strongest hours, written by Grok with its design, plus the weekly newsletter.
+          One click approves exactly these and schedules the posts; the newsletter is posted by hand (LinkedIn has no API for it).
+        </p>
+        {week.length === 0 ? (
+          <p className="mt-3 text-sm">Nothing waiting. The studio prepares the next week by itself when Grok is on.</p>
+        ) : (
+          <form action={approveWeekAction} className="mt-4">
+            <ol className="divide-y divide-line border border-line bg-card text-sm">
+              {week.map((w) => (
+                <li key={w.actionId} className="flex flex-wrap items-baseline justify-between gap-2 p-3">
+                  <input type="hidden" name="ids" value={w.actionId} />
+                  <Link href={`/studio/queue/${w.actionId}`} className="min-w-0 flex-1 underline-offset-4 hover:underline">
+                    {w.newsletter ? "Newsletter: " : ""}
+                    {w.opening}
+                  </Link>
+                  <span className="tabular text-ink-3">
+                    {formatRiyadh(w.targetAt)}
+                    {w.hasImage ? " · design" : ""}
+                  </span>
+                </li>
+              ))}
+            </ol>
+            <label className="mt-4 flex items-start gap-2 text-sm">
+              <input type="checkbox" name="confirm" value="yes" required className="mt-1" />
+              Approve these {week.length} exactly as written and schedule the posts for automatic publishing at their times.
+            </label>
+            <button className={buttonClass("primary", "mt-3")}>Approve and schedule the week</button>
+          </form>
+        )}
       </section>
 
       <section aria-labelledby="works-h" className="mt-10">
