@@ -12,12 +12,13 @@ import "server-only";
  *
  * App keys: env LINKEDIN_CLIENT_ID + LINKEDIN_CLIENT_SECRET, or entered on the Capabilities
  * page (stored encrypted, see saveAppKeys).
- * Optional env: LINKEDIN_REDIRECT_URI (default <site>/studio/linkedin/callback),
+ * Optional env: LINKEDIN_REDIRECT_URI (default <studio origin>/studio/linkedin/callback),
  *           LINKEDIN_API_VERSION (YYYYMM, sent as the LinkedIn-Version header).
  */
-import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from "node:crypto";
-import { SITE } from "@/config/site";
-import { eq, insert, selectAll, storageMode, update } from "@/lib/server/store";
+import { eq, insert, selectAll, update } from "@/lib/server/store";
+import { open, seal, serverSecret } from "./crypto";
+import { STUDIO_ORIGIN } from "./host";
+import { PUBLISHING_OFF, publishingSwitch } from "./switch";
 
 const clean = (v?: string) => v?.trim().replace(/^["']|["']$/g, "").trim() || undefined;
 
@@ -36,30 +37,7 @@ export interface LinkedInConfig {
 }
 
 export function redirectUri(): string {
-  return clean(process.env.LINKEDIN_REDIRECT_URI) ?? `${SITE.url}/studio/linkedin/callback`;
-}
-
-// ── Encryption (AES-256-GCM, HKDF-derived keys) ─────────────────────────────
-
-const keyFrom = (secret: string, info: string) => Buffer.from(hkdfSync("sha256", secret, "growxera-li-studio", info, 32));
-
-function seal(value: string, secret: string, info: string): string {
-  const iv = randomBytes(12);
-  const cipher = createCipheriv("aes-256-gcm", keyFrom(secret, info), iv);
-  const body = Buffer.concat([cipher.update(value, "utf8"), cipher.final()]);
-  return ["v1", iv.toString("base64url"), cipher.getAuthTag().toString("base64url"), body.toString("base64url")].join(".");
-}
-
-function open(sealed: string, secret: string, info: string): string | null {
-  try {
-    const [v, iv, tag, body] = sealed.split(".");
-    if (v !== "v1") return null;
-    const decipher = createDecipheriv("aes-256-gcm", keyFrom(secret, info), Buffer.from(iv, "base64url"));
-    decipher.setAuthTag(Buffer.from(tag, "base64url"));
-    return Buffer.concat([decipher.update(Buffer.from(body, "base64url")), decipher.final()]).toString("utf8");
-  } catch {
-    return null;
-  }
+  return clean(process.env.LINKEDIN_REDIRECT_URI) ?? `${STUDIO_ORIGIN}/studio/linkedin/callback`;
 }
 
 export const encryptToken = (token: string, clientSecret: string) => seal(token, clientSecret, "linkedin-access-token");
@@ -78,12 +56,7 @@ interface AppKeysRow {
   client_secret_enc: string;
 }
 
-function appKeysSecret(): string | null {
-  const k = clean(process.env.SUPABASE_SERVICE_ROLE_KEY);
-  if (k) return k;
-  // Local development and tests only (no Supabase): a fixed key is fine, nothing real is stored.
-  return storageMode === "local" ? "local-development-only" : null;
-}
+const appKeysSecret = serverSecret;
 
 export const isValidClientId = (v: string) => /^[A-Za-z0-9]{8,64}$/.test(v);
 export const isValidClientSecret = (v: string) => /^[\x21-\x7e]{8,256}$/.test(v);
@@ -177,7 +150,7 @@ export async function postingCredentials(now = new Date()): Promise<{ token: str
     const why: Record<ConnectionState["state"], string> = {
       not_configured: "LinkedIn isn't set up for this deployment.",
       not_connected: "LinkedIn isn't connected.",
-      expired: "The LinkedIn connection expired. Reconnect it on the Capabilities page.",
+      expired: "The LinkedIn connection expired. Reconnect it on the Integrations page.",
       unreadable: "The saved LinkedIn connection can't be read (the client secret changed?). Reconnect it.",
       connected: "",
     };
@@ -266,6 +239,9 @@ export async function fetchMember(accessToken: string): Promise<{ urn: string; n
  * Not definite = the outcome is unknown (timeout, network error after the request was sent):
  * the post may exist, so the studio never retries on its own.
  */
+/** The submission deadline passed before the post request was sent. Nothing was sent. */
+export class WindowMissedError extends Error {}
+
 export class LinkedInError extends Error {
   constructor(
     message: string,
@@ -361,9 +337,23 @@ async function uploadMedia(f: Fetch, token: string, author: string, version: str
  * x-restli-id header. Errors before the post request are always `definite`.
  */
 export async function postToLinkedIn(
-  input: { token: string; author: string; apiVersion: string; text: string; media: PostMedia | null },
+  input: {
+    token: string;
+    author: string;
+    apiVersion: string;
+    text: string;
+    media: PostMedia | null;
+    /** Automatic publishing: never send after submitBy, and cut the request off at cutoffAt (epoch ms). */
+    deadline?: { submitBy: number; cutoffAt: number; now: () => number };
+  },
   f: Fetch = fetch,
 ): Promise<{ urn: string; sentCommentary: string }> {
+  // Second check of the all-publishing switch (the first is in publishAction): before any upload,
+  // and again right before the post request, so switching OFF stops even a run already under way.
+  const stopIfOff = async () => {
+    if (!(await publishingSwitch()).enabled) throw new LinkedInError(PUBLISHING_OFF, null, true);
+  };
+  await stopIfOff();
   const mediaUrn = input.media ? await uploadMedia(f, input.token, input.author, input.apiVersion, input.media) : null;
   const commentary = toLittleText(input.text);
   const body: Record<string, unknown> = {
@@ -376,6 +366,10 @@ export async function postToLinkedIn(
   };
   if (mediaUrn) body.content = { media: input.media!.kind === "document" ? { id: mediaUrn, title: input.media!.title } : { id: mediaUrn } };
 
+  await stopIfOff();
+  const dl = input.deadline;
+  if (dl && dl.now() > dl.submitBy) throw new WindowMissedError("The submission deadline passed before the post was sent.");
+  const timeoutMs = dl ? Math.max(1, Math.min(30_000, dl.cutoffAt - dl.now())) : 30_000;
   let res: Response;
   try {
     res = await f(`${API}/rest/posts`, {
@@ -383,7 +377,7 @@ export async function postToLinkedIn(
       headers: apiHeaders(input.token, input.apiVersion),
       body: JSON.stringify(body),
       cache: "no-store",
-      signal: AbortSignal.timeout(30_000),
+      signal: AbortSignal.timeout(timeoutMs),
     });
   } catch {
     throw new LinkedInError("No answer from LinkedIn after sending the post. It may or may not have been published.", null, false);

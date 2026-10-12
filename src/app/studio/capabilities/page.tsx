@@ -6,7 +6,9 @@ import { connectionState, linkedInConfig, redirectUri } from "@/lib/studio/linke
 import { requireOwner } from "@/lib/studio/owner";
 import { formatRiyadh } from "@/lib/studio/time";
 import { eq, select } from "@/lib/server/store";
-import { checkGrokAction, disconnectLinkedInAction, saveLinkedInKeysAction } from "../actions";
+import { autoPublishSwitch } from "@/lib/studio/autopublish";
+import { publishingSwitch } from "@/lib/studio/switch";
+import { checkGrokAction, disconnectLinkedInAction, saveLinkedInKeysAction, setAutoPublishAction, setPublishingAction } from "../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +23,8 @@ export default async function CapabilitiesPage({ searchParams }: PageProps<"/stu
   const sp = await searchParams;
   const grok = grokStatus();
   const li = await connectionState();
+  const auto = await autoPublishSwitch();
+  const all = await publishingSwitch();
   const keysSource = (await linkedInConfig()).source;
   const redirect = redirectUri();
   // Evidence, not a setting: direct posting counts as verified only after a real API post.
@@ -37,7 +41,7 @@ export default async function CapabilitiesPage({ searchParams }: PageProps<"/stu
   );
   return (
     <div className="mt-8">
-      <h1 className="text-h2 font-semibold">Capabilities</h1>
+      <h1 className="text-h2 font-semibold">Integrations and capabilities</h1>
       <p className="mt-2 max-w-[70ch] text-ink-2">
         What the studio can do on LinkedIn through official, authorized access, and the manual step you take where it can&apos;t. Last
         reviewed {CHECKED_ON}. Nothing is marked available until it has been tested with this app.
@@ -75,6 +79,75 @@ export default async function CapabilitiesPage({ searchParams }: PageProps<"/stu
           </tbody>
         </table>
       </div>
+
+      <section id="publishing" className="mt-10 border border-ink bg-card p-6">
+        <h2 className="text-h3 font-semibold">All publishing: {all.enabled ? "ON" : "OFF"}</h2>
+        <p className="mt-2 max-w-[70ch] text-sm text-ink-2">
+          The master switch. While it is OFF nothing can be posted to LinkedIn: not &quot;Publish now&quot; and not automatic publishing.
+          When ON, every post still needs its own approval and your explicit confirmation. Switching OFF takes effect immediately, even
+          for a post that is being prepared.
+        </p>
+        {!all.ready && <p className="mt-2 text-sm text-alert">The publishing-controls database update isn&apos;t applied yet, so all publishing stays OFF.</p>}
+        {all.changedAt && (
+          <p className="mt-2 text-xs text-ink-3">
+            Last changed {formatRiyadh(all.changedAt)} by {all.changedBy}.
+          </p>
+        )}
+        {all.enabled ? (
+          <form action={setPublishingAction} className="mt-4">
+            <input type="hidden" name="enabled" value="false" />
+            <button className={buttonClass("primary")}>Switch all publishing OFF</button>
+          </form>
+        ) : (
+          all.ready && (
+            <form action={setPublishingAction} className="mt-4">
+              <input type="hidden" name="enabled" value="true" />
+              <label className="flex items-start gap-2 text-sm">
+                <input type="checkbox" name="confirm" value="yes" required className="mt-1" />
+                Allow publishing to my LinkedIn. Each post still needs its approval and my confirmation.
+              </label>
+              <button className={buttonClass("secondary", "mt-3")}>Switch ON</button>
+            </form>
+          )
+        )}
+      </section>
+
+      <section id="autopublish" className="mt-10 border border-ink bg-card p-6">
+        <h2 className="text-h3 font-semibold">Automatic publishing: {auto.enabled ? "ON" : "OFF"}</h2>
+        <p className="mt-2 max-w-[70ch] text-sm text-ink-2">
+          When ON (and all publishing is ON), the scheduler publishes only posts you scheduled for automatic publishing one by one, and
+          only between 60 and 10 seconds before their planned time, never after. Approving content never publishes it by itself. A
+          post that misses that window is held for review, never posted late or retried. Switching OFF stops all automatic
+          publishing immediately.
+        </p>
+        {!auto.ready && <p className="mt-2 text-sm text-alert">The publishing-controls database update isn&apos;t applied yet, so automatic publishing stays OFF.</p>}
+        {!auto.deploymentAllowed && (
+          <p className="mt-2 text-sm text-ink-2">This deployment doesn&apos;t allow switching it on (owner-approved deployment setting needed).</p>
+        )}
+        {auto.changedAt && (
+          <p className="mt-2 text-xs text-ink-3">
+            Last changed {formatRiyadh(auto.changedAt)} by {auto.changedBy}.
+          </p>
+        )}
+        {auto.ownerEnabled ? (
+          <form action={setAutoPublishAction} className="mt-4">
+            <input type="hidden" name="enabled" value="false" />
+            <button className={buttonClass("primary")}>Switch automatic publishing OFF</button>
+          </form>
+        ) : (
+          auto.deploymentAllowed &&
+          auto.ready && (
+            <form action={setAutoPublishAction} className="mt-4">
+              <input type="hidden" name="enabled" value="true" />
+              <label className="flex items-start gap-2 text-sm">
+                <input type="checkbox" name="confirm" value="yes" required className="mt-1" />
+                Switch automatic publishing on for posts I schedule individually.
+              </label>
+              <button className={buttonClass("secondary", "mt-3")}>Switch ON</button>
+            </form>
+          )
+        )}
+      </section>
 
       <section id="linkedin" className="mt-10 border border-line bg-card p-6">
         <h2 className="text-h3 font-semibold">LinkedIn connection</h2>

@@ -24,7 +24,7 @@ vi.mock("@/lib/server/store", async (orig) => {
 import { select } from "@/lib/server/store";
 import { generate, grokStatus, GrokUnavailableError } from "./grok";
 import { importSnapshot, snapshotSchema } from "./import";
-import { isOwner, studioStorageError } from "./owner";
+import { studioStorageError } from "./owner";
 import {
   addVersion,
   approve,
@@ -52,6 +52,8 @@ const post = (text?: string) =>
     origin: "manual",
     author: ME,
   });
+/** A moment inside the automatic submission window [T − 60 s, T − 10 s] (default T − 30 s). */
+const inWindow = (t: string, beforeMs = 30_000) => new Date(new Date(t).getTime() - beforeMs);
 const url = () => `https://www.linkedin.com/feed/update/urn:li:share:${Math.floor(Math.random() * 1e15)}`;
 async function approved() {
   const { actionId } = await post();
@@ -324,15 +326,10 @@ describe("owner gate", () => {
     expect(fs.readFileSync(path.join(process.cwd(), "src/app/studio/layout.tsx"), "utf8")).toMatch(/studioStorageError\(\)/);
   });
 
-  it("admits only the configured owner, and nobody when unset", () => {
-    const v = "2026-10-10T00:00:00Z";
-    expect(isOwner({ email: "islam@example.com", verified_at: v })).toBe(false);
-    process.env.STUDIO_OWNER_EMAIL = " Islam@Example.com ";
-    expect(isOwner({ email: "islam@example.com", verified_at: v })).toBe(true);
-    expect(isOwner({ email: "someone@example.com", verified_at: v })).toBe(false);
-    // An unverified account with the owner's address is not the owner.
-    expect(isOwner({ email: "islam@example.com", verified_at: null })).toBe(false);
-    expect(isOwner(null)).toBe(false);
+  it("no longer accepts the website's accounts: only the studio's own sign-in (access.test.ts)", () => {
+    const owner = fs.readFileSync(path.join(process.cwd(), "src/lib/studio/owner.ts"), "utf8");
+    expect(owner).not.toMatch(/currentAccount/);
+    expect(owner).toMatch(/studioOwner\(\)/);
   });
 });
 
@@ -585,7 +582,7 @@ describe("no publishing path without approval", () => {
       expect(fs.readFileSync(f, "utf8"), f).toMatch(/await requireOwner\(/);
     }
     for (const f of studio.filter((f) => f.endsWith("route.ts"))) {
-      expect(fs.readFileSync(f, "utf8"), f).toMatch(/isOwner\(await currentAccount\(\)\)|const account = await currentAccount\(\);\s*if \(!isOwner\(account\)\) return/);
+      expect(fs.readFileSync(f, "utf8"), f).toMatch(/if \(!\(await studioOwner\(\)\)\) return|const account = await studioOwner\(\);\s*if \(!account\) return/);
     }
     const actions = fs.readFileSync(path.join(src, "app/studio/actions.ts"), "utf8");
     const exported = [...actions.matchAll(/export async function (\w+)\([^)]*\)\s*\{([\s\S]*?)\n\}/g)];
@@ -594,6 +591,20 @@ describe("no publishing path without approval", () => {
       expect(/await ownerOrThrow\(\)|await run\(/.test(body), `${name} must check the owner`).toBe(true);
     }
     expect(actions).toMatch(/async function run\([\s\S]*?const owner = await ownerOrThrow\(\);/);
+  });
+});
+
+describe("capability register is honest", () => {
+  it("claims nothing available before live verification, and marks unbuilt features as not built", async () => {
+    const { CAPABILITIES } = await import("./capabilities");
+    expect(CAPABILITIES.filter((c) => c.status === "available")).toEqual([]);
+    for (const id of ["newsletter", "read_comments", "write_comments", "post_analytics", "account_metrics"]) {
+      expect(CAPABILITIES.find((c) => c.id === id)!.implementation, id).toMatch(/^Not built yet\./);
+    }
+    // Approval alone never publishes (G1, P2): the description names the switches.
+    const text = CAPABILITIES.find((c) => c.id === "publish_text")!.implementation;
+    expect(text).toMatch(/All publishing ON/);
+    expect(text).not.toMatch(/approved posts are published at their planned time/);
   });
 });
 
@@ -655,6 +666,22 @@ describe("media copies", () => {
   });
 });
 
+describe("all-publishing switch, before anyone touches it (owner decision P2)", () => {
+  it("is OFF by default: Publish now and the scheduler both refuse, before any LinkedIn call", async () => {
+    const { publishingSwitch } = await import("./switch");
+    const { publishAction, publishDue } = await import("./publish");
+    expect(await publishingSwitch()).toMatchObject({ enabled: false, ready: true });
+    const id = await approved();
+    const f = vi.fn(async () => new Response("unexpected", { status: 500 })) as unknown as typeof fetch;
+    await expect(publishAction(id, ME, f)).rejects.toThrow(/All publishing is switched off/);
+    await expect(publishAction(id, "scheduler", f, { mode: "auto", now: new Date("2099-10-20T13:00:00.000Z") })).rejects.toThrow(/All publishing is switched off/);
+    const r = await publishDue("scheduler", new Date("2099-10-20T13:00:00.000Z"), f);
+    expect(r).toMatchObject({ ran: false, reason: expect.stringMatching(/All publishing is switched off/) });
+    expect(f).not.toHaveBeenCalled();
+    expect((await getAction(id))!.action.status).toBe("approved");
+  });
+});
+
 describe("LinkedIn direct publishing", () => {
   const SECRET = "test-client-secret-0123456789";
   const inAnHour = () => new Date(Date.now() + 3_600_000).toISOString();
@@ -703,6 +730,9 @@ describe("LinkedIn direct publishing", () => {
     vi.stubEnv("LINKEDIN_CLIENT_ID", "client-id");
     vi.stubEnv("LINKEDIN_CLIENT_SECRET", SECRET);
     await connect();
+    // Every test here publishes, so the all-publishing switch (P2) is on; its own tests turn it off.
+    const { setPublishing } = await import("./autopublish");
+    await setPublishing(true, ME);
   });
   afterEach(() => {
     fake.mode = "ok";
@@ -816,23 +846,382 @@ describe("LinkedIn direct publishing", () => {
     expect(d.action.status).toBe("failed");
   });
 
-  it("the scheduler posts due items, waits for future ones, and holds back late ones", async () => {
-    const { publishDue } = await import("./publish");
-    const due = await approvedAt(new Date(Date.now() + 60_000).toISOString());
-    const later = await approvedAt(new Date(Date.now() + 10 * 3_600_000).toISOString());
-    const late = await approvedAt(new Date(Date.now() + 120_000).toISOString());
-    const noTime = await approvedAt(null);
-    // Five hours after `late` was due (limit is three), but two minutes after `due` would also be late:
-    // run once just after `due`, then once well after `late`.
-    const first = await publishDue("scheduler", new Date(Date.now() + 90_000), linkedinFetch);
-    expect(first.published.map((p) => p.actionId)).toContain(due);
-    expect(first.published.map((p) => p.actionId)).not.toContain(later);
-    expect(first.published.map((p) => p.actionId)).not.toContain(noTime);
-    const second = await publishDue("scheduler", new Date(Date.now() + 5 * 3_600_000), linkedinFetch);
-    expect(second.blockedLate).toContain(late);
-    expect((await getAction(late))!.action.status).toBe("blocked");
-    expect((await getAction(later))!.action.status).toBe("approved");
-    expect((await getAction(noTime))!.action.status).toBe("approved");
+  describe("all-publishing switch (owner decision P2)", () => {
+    const off = async () => (await import("./autopublish")).setPublishing(false, ME);
+    const on = async () => (await import("./autopublish")).setPublishing(true, ME);
+    afterEach(on);
+    const posts = () => fake.calls.filter((c) => c.url.endsWith("/rest/posts") && c.method === "POST").length;
+
+    it("blocks Publish now while OFF: no LinkedIn call, the item stays approved; ON again, it posts", async () => {
+      const { publishAction } = await import("./publish");
+      const id = await approvedAt(inAnHour());
+      await off();
+      await expect(publishAction(id, ME, linkedinFetch)).rejects.toThrow(/All publishing is switched off/);
+      expect(fake.calls).toHaveLength(0);
+      expect((await getAction(id))!.action.status).toBe("approved");
+      await on();
+      await expect(publishAction(id, ME, linkedinFetch)).resolves.toMatchObject({ verified: false });
+      expect(posts()).toBe(1);
+    });
+
+    it("blocks automatic publishing while OFF even with the automatic switch on and the post authorized and due", async () => {
+      const { publishDue, publishAction } = await import("./publish");
+      const { authorizeAutoPublish, setAutoPublish } = await import("./autopublish");
+      const t = new Date(Date.now() + 6 * 60_000).toISOString();
+      const id = await approvedAt(t);
+      const d = (await getAction(id))!;
+      await authorizeAutoPublish(id, d.current.id, d.current.content_hash, ME);
+      vi.stubEnv("STUDIO_AUTO_PUBLISH_ALLOWED", "true");
+      await setAutoPublish(true, ME);
+      try {
+        await off();
+        const r = await publishDue("scheduler", inWindow(t), linkedinFetch);
+        expect(r).toMatchObject({ ran: false, switchOn: true, reason: expect.stringMatching(/All publishing is switched off/) });
+        await expect(publishAction(id, "scheduler", linkedinFetch, { mode: "auto", now: inWindow(t) })).rejects.toThrow(/All publishing is switched off/);
+        expect(posts()).toBe(0);
+        // Missed posts are still held while OFF, so nothing fires late when it comes back on.
+        const late = await publishDue("scheduler", new Date(new Date(t).getTime() + 1), linkedinFetch);
+        expect(late.held).toContain(id);
+        await on();
+        await publishDue("scheduler", new Date(new Date(t).getTime() + 2), linkedinFetch);
+        expect(posts()).toBe(0);
+      } finally {
+        await setAutoPublish(false, ME);
+        vi.stubEnv("STUDIO_AUTO_PUBLISH_ALLOWED", "");
+      }
+    });
+
+    it("a direct call to the LinkedIn client is refused while OFF, before any request", async () => {
+      const { postToLinkedIn } = await import("./linkedin");
+      await off();
+      await expect(postToLinkedIn({ token: "t", author: "urn:li:person:abc123", apiVersion: "202606", text: "Hello", media: null }, linkedinFetch)).rejects.toThrow(
+        /All publishing is switched off/,
+      );
+      expect(fake.calls).toHaveLength(0);
+    });
+
+    it("switching OFF while a post is being prepared stops it before the post request", async () => {
+      const { postToLinkedIn } = await import("./linkedin");
+      const flipping = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+        if (String(input).includes("/rest/images/")) await off(); // the owner switches OFF during the upload
+        return linkedinFetch(input, init);
+      }) as unknown as typeof fetch;
+      const media = { kind: "image" as const, bytes: new Uint8Array([137, 80, 78, 71]), title: "x" };
+      await expect(postToLinkedIn({ token: "t", author: "urn:li:person:abc123", apiVersion: "202606", text: "Hello", media }, flipping)).rejects.toThrow(
+        /All publishing is switched off/,
+      );
+      expect(fake.calls.some((c) => c.url.includes("/rest/images/"))).toBe(true);
+      expect(posts()).toBe(0);
+    });
+
+    it("reads anything but a stored true as OFF", async () => {
+      const { publishingSwitch, PUBLISHING_SETTING } = await import("./switch");
+      const { update, eq } = await import("@/lib/server/store");
+      for (const value of ["true", 1, null, "yes"]) {
+        await update("li_settings", [eq("key", PUBLISHING_SETTING)], { value });
+        expect((await publishingSwitch()).enabled, String(value)).toBe(false);
+      }
+    });
+
+    it("every publishing path goes through the switch (static check)", () => {
+      const read = (f: string) => fs.readFileSync(path.join(process.cwd(), "src", f), "utf8");
+      const pub = read("lib/studio/publish.ts");
+      const body = pub.slice(pub.indexOf("export async function publishAction("));
+      // Checked first, before credentials, the claim or anything sent.
+      expect(body.indexOf("await assertPublishingOn()")).toBeGreaterThan(-1);
+      expect(body.indexOf("await assertPublishingOn()")).toBeLessThan(body.indexOf("postingCredentials("));
+      expect(body.indexOf("await assertPublishingOn()")).toBeLessThan(body.indexOf('transition(d.action, "executed"'));
+      const li = read("lib/studio/linkedin.ts");
+      const post = li.slice(li.indexOf("export async function postToLinkedIn("));
+      expect(post.indexOf("await stopIfOff()")).toBeLessThan(post.indexOf("uploadMedia("));
+      expect(post.lastIndexOf("await stopIfOff()")).toBeLessThan(post.indexOf("/rest/posts"));
+      // The only callers of publishAction are the owner's Publish now action and the scheduler.
+      expect(read("app/studio/actions.ts").match(/publishAction\(/g)).toHaveLength(1);
+      expect(read("app/api/studio/publish-due/route.ts")).not.toMatch(/publishAction\(/);
+    });
+  });
+
+  describe("automatic publishing safeguards (owner decisions G1, G2)", () => {
+    const MIN = 60_000;
+    /** Planned time far enough ahead to be authorized (lead time is 5 minutes). */
+    const soon = (minutes = 6) => new Date(Date.now() + minutes * MIN).toISOString();
+    const posts = () => fake.calls.filter((c) => c.url.endsWith("/rest/posts") && c.method === "POST").length;
+
+    async function switchOn() {
+      const { setAutoPublish } = await import("./autopublish");
+      vi.stubEnv("STUDIO_AUTO_PUBLISH_ALLOWED", "true");
+      await setAutoPublish(true, ME);
+    }
+    async function authorize(id: string) {
+      const { authorizeAutoPublish } = await import("./autopublish");
+      const d = (await getAction(id))!;
+      await authorizeAutoPublish(id, d.current.id, d.current.content_hash, ME);
+    }
+    afterEach(async () => {
+      const { setAutoPublish } = await import("./autopublish");
+      await setAutoPublish(false, ME);
+      vi.stubEnv("STUDIO_AUTO_PUBLISH_ALLOWED", "");
+    });
+
+    it("the switch is OFF by default and turning it on needs the deployment flag", async () => {
+      const { autoPublishSwitch, setAutoPublish } = await import("./autopublish");
+      expect((await autoPublishSwitch()).enabled).toBe(false);
+      await expect(setAutoPublish(true, ME)).rejects.toThrow(/isn't allowed for this deployment/);
+      vi.stubEnv("STUDIO_AUTO_PUBLISH_ALLOWED", "true");
+      expect((await autoPublishSwitch()).enabled).toBe(false); // flag alone isn't enough
+      await setAutoPublish(true, ME);
+      expect((await autoPublishSwitch()).enabled).toBe(true);
+      vi.stubEnv("STUDIO_AUTO_PUBLISH_ALLOWED", "");
+      expect((await autoPublishSwitch()).enabled).toBe(false); // removing the flag closes it again
+    });
+
+    it("never publishes while the switch is off, even an authorized post that is due", async () => {
+      const { publishDue } = await import("./publish");
+      const t = soon();
+      const id = await approvedAt(t);
+      await authorize(id);
+      const r = await publishDue("scheduler", inWindow(t), linkedinFetch);
+      expect(r).toMatchObject({ ran: false, switchOn: false });
+      expect(r.published).toHaveLength(0);
+      expect(posts()).toBe(0);
+      expect((await getAction(id))!.action.status).toBe("approved");
+    });
+
+    it("19 legacy approvals never publish automatically until each one is authorized individually", async () => {
+      const { publishDue } = await import("./publish");
+      const t = soon();
+      const legacy: string[] = [];
+      for (let i = 0; i < 19; i++) legacy.push(await approvedAt(t, `Legacy approved post ${i} ${crypto.randomUUID()}`));
+      await switchOn();
+      const at = inWindow(t);
+      const r = await publishDue("scheduler", at, linkedinFetch);
+      expect(r.ran).toBe(true);
+      expect(r.published.filter((p) => legacy.includes(p.actionId))).toHaveLength(0);
+      expect(r.held.filter((h) => legacy.includes(h))).toHaveLength(0);
+      expect(r.notAuthorized).toBeGreaterThanOrEqual(19);
+      for (const id of legacy) {
+        const d = (await getAction(id))!;
+        expect(d.action.status).toBe("approved");
+        expect(d.approvals.filter((a) => a.decision === "approved")).toHaveLength(1); // history preserved
+      }
+      const legacyPosts = () => fake.calls.filter((c) => c.url.endsWith("/rest/posts") && c.method === "POST" && c.body?.includes("Legacy approved post")).length;
+      expect(legacyPosts()).toBe(0);
+      // Confirm exactly one of them: only that one goes out.
+      await authorize(legacy[7]);
+      const r2 = await publishDue("scheduler", at, linkedinFetch);
+      expect(r2.published.map((p) => p.actionId).filter((x) => legacy.includes(x))).toEqual([legacy[7]]);
+      expect(legacyPosts()).toBe(1);
+      for (const id of legacy.filter((x) => x !== legacy[7])) expect((await getAction(id))!.action.status).toBe("approved");
+    });
+
+    it("a missed post is held for review with the reason, never published late, even after the switch comes on", async () => {
+      const { publishDue } = await import("./publish");
+      const t = soon();
+      const id = await approvedAt(t);
+      await authorize(id);
+      const late = new Date(new Date(t).getTime() + 1);
+      // Switch off when the time passes: still held, so it can't fire later.
+      const r = await publishDue("scheduler", late, linkedinFetch);
+      expect(r.held).toContain(id);
+      const d = (await getAction(id))!;
+      expect(d.action.status).toBe("ready_for_review");
+      expect(d.action.status_reason).toMatch(/^Held:/);
+      await switchOn();
+      await publishDue("scheduler", new Date(late.getTime() + MIN), linkedinFetch);
+      expect(posts()).toBe(0);
+    });
+
+    it("a missed post needs a new time and a new approval", async () => {
+      const { publishDue } = await import("./publish");
+      const t = soon();
+      const id = await approvedAt(t);
+      await authorize(id);
+      await switchOn();
+      await publishDue("scheduler", new Date(new Date(t).getTime() + 11 * MIN), linkedinFetch);
+      vi.useFakeTimers({ now: new Date(new Date(t).getTime() + 11 * MIN), toFake: ["Date"] });
+      try {
+        const d = (await getAction(id))!;
+        await expect(approve(id, d.current.id, d.current.content_hash, ME)).rejects.toThrow(/planned time has passed/);
+      } finally {
+        vi.useRealTimers();
+      }
+      expect(posts()).toBe(0);
+    });
+
+    it("submits only from 60 s to 10 s before the planned time: earlier waits, later is held (G2, P1)", async () => {
+      const { publishDue } = await import("./publish");
+      await switchOn();
+      const ids: Record<string, string> = {};
+      for (const [i, name] of ["early", "first", "last", "late", "atT"].entries()) {
+        ids[name] = await approvedAt(soon(6 + i), `Edge ${name} ${crypto.randomUUID()}`);
+        await authorize(ids[name]);
+      }
+      const target = async (id: string) => (await getAction(id))!.current.target_at!;
+      const before = async (id: string, ms: number) => new Date(new Date(await target(id)).getTime() - ms);
+      // Exact millisecond edges are in the timing() test below; a run's clock keeps running, so these use ±0.5 s.
+      // T − 61 s: too early, waits (stays approved, still authorized).
+      const r1 = await publishDue("scheduler", await before(ids.early, 61_000), linkedinFetch);
+      expect(r1.published.map((p) => p.actionId)).not.toContain(ids.early);
+      expect((await getAction(ids.early))!.action.status).toBe("approved");
+      // T − 59.5 s: the window is open.
+      const r2 = await publishDue("scheduler", await before(ids.first, 59_500), linkedinFetch);
+      expect(r2.published.map((p) => p.actionId)).toContain(ids.first);
+      // T − 10.5 s: near the last moment.
+      const r3 = await publishDue("scheduler", await before(ids.last, 10_500), linkedinFetch);
+      expect(r3.published.map((p) => p.actionId)).toContain(ids.last);
+      // T − 9.5 s: missed, held for review, nothing sent.
+      const r4 = await publishDue("scheduler", await before(ids.late, 9_500), linkedinFetch);
+      expect(r4.held).toContain(ids.late);
+      expect((await getAction(ids.late))!.action.status).toBe("ready_for_review");
+      // Exactly at T: held too.
+      const r5 = await publishDue("scheduler", new Date(await target(ids.atT)), linkedinFetch);
+      expect(r5.held).toContain(ids.atT);
+      const sent = fake.calls.filter((c) => c.url.endsWith("/rest/posts") && c.method === "POST").map((c) => c.body ?? "");
+      expect(sent.filter((b) => b.includes("Edge"))).toHaveLength(2);
+      expect(sent.some((b) => b.includes("Edge late") || b.includes("Edge atT") || b.includes("Edge early"))).toBe(false);
+    });
+
+    it("re-checks the deadline with the clock right before the post request: a run that ran late holds the post, nothing sent", async () => {
+      const { publishAction } = await import("./publish");
+      await switchOn();
+      const t = soon();
+      const id = await approvedAt(t);
+      await authorize(id);
+      // The run starts inside the window, but by the time it reaches the post request it is past T − 10 s.
+      let calls = 0;
+      const clock = () => inWindow(t, calls++ === 0 ? 30_000 : 5_000);
+      await expect(publishAction(id, "scheduler", linkedinFetch, { mode: "auto", clock })).rejects.toThrow(/held for review/);
+      expect(posts()).toBe(0);
+      const d = (await getAction(id))!;
+      expect(d.action.status).toBe("ready_for_review");
+      expect(d.action.status_reason).toMatch(/^Held:/);
+      // A new approval and authorization are needed; the old content isn't sent later.
+      const { publishDue } = await import("./publish");
+      await publishDue("scheduler", inWindow(t, 20_000), linkedinFetch);
+      expect(posts()).toBe(0);
+    });
+
+    it("an unknown LinkedIn outcome is never retried automatically", async () => {
+      const { publishDue } = await import("./publish");
+      await switchOn();
+      const t = soon();
+      const id = await approvedAt(t);
+      await authorize(id);
+      fake.mode = "silent";
+      const r = await publishDue("scheduler", inWindow(t, 50_000), linkedinFetch);
+      expect(r.failed.map((x) => x.actionId)).toContain(id);
+      fake.mode = "ok";
+      // Later runs inside the window don't send it again.
+      await publishDue("scheduler", inWindow(t, 35_000), linkedinFetch);
+      await publishDue("scheduler", inWindow(t, 20_000), linkedinFetch);
+      expect(fake.calls.filter((c) => c.url.endsWith("/rest/posts") && c.method === "POST")).toHaveLength(1);
+      const d = (await getAction(id))!;
+      expect(d.action.status).toBe("executed");
+      expect(d.action.status_reason).toMatch(/may or may not have been published/);
+    });
+
+    it("cuts the post request off at the planned time", async () => {
+      const { postToLinkedIn } = await import("./linkedin");
+      const seen: number[] = [];
+      const timed = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+        if (String(input).endsWith("/rest/posts")) seen.push(init?.signal ? 1 : 0);
+        return linkedinFetch(input, init);
+      }) as unknown as typeof fetch;
+      const T = Date.now() + 12_000;
+      await postToLinkedIn({ token: "t", author: "urn:li:person:abc123", apiVersion: "202606", text: "Hi", media: null, deadline: { submitBy: T - 10_000, cutoffAt: T, now: () => Date.now() } }, timed);
+      expect(seen).toEqual([1]);
+      await expect(
+        postToLinkedIn({ token: "t", author: "urn:li:person:abc123", apiVersion: "202606", text: "Hi", media: null, deadline: { submitBy: Date.now() - 1, cutoffAt: Date.now() + 9_999, now: () => Date.now() } }, timed),
+      ).rejects.toThrow(/deadline passed/);
+      expect(seen).toEqual([1]);
+    });
+
+    it("an edit voids the automatic-publishing authorization, and re-approval doesn't restore it", async () => {
+      const { publishDue } = await import("./publish");
+      await switchOn();
+      const id = await approvedAt(soon());
+      await authorize(id);
+      const d = (await getAction(id))!;
+      const t2 = soon(30);
+      await addVersion(id, { ...d.current, target_at: t2 }, ME);
+      const d2 = (await getAction(id))!;
+      await approve(id, d2.current.id, d2.current.content_hash, ME);
+      const r = await publishDue("scheduler", inWindow(t2), linkedinFetch);
+      expect(r.published.map((p) => p.actionId)).not.toContain(id);
+      expect(posts()).toBe(0);
+    });
+
+    it("a direct automatic call re-checks every lock", async () => {
+      const { publishAction } = await import("./publish");
+      const t = soon();
+      const id = await approvedAt(t);
+      const due = inWindow(t);
+      await expect(publishAction(id, "scheduler", linkedinFetch, { mode: "auto", now: due })).rejects.toThrow(/switched off/);
+      await switchOn();
+      await expect(publishAction(id, "scheduler", linkedinFetch, { mode: "auto", now: due })).rejects.toThrow(/isn't authorized/);
+      await authorize(id);
+      await expect(publishAction(id, "scheduler", linkedinFetch, { mode: "auto", now: new Date(new Date(t).getTime() + 1) })).rejects.toThrow(/Outside its submission window/);
+      expect(posts()).toBe(0);
+      await expect(publishAction(id, "scheduler", linkedinFetch, { mode: "auto", now: due })).resolves.toMatchObject({ verified: false });
+    });
+
+    it("two scheduler runs at the same moment publish an authorized post once", async () => {
+      const { publishDue } = await import("./publish");
+      await switchOn();
+      const t = soon();
+      const id = await approvedAt(t);
+      await authorize(id);
+      const at = inWindow(t);
+      const [a, b] = await Promise.all([publishDue("scheduler", at, linkedinFetch), publishDue("scheduler", at, linkedinFetch)]);
+      expect([...a.published, ...b.published].filter((p) => p.actionId === id)).toHaveLength(1);
+      expect(posts()).toBe(1);
+    });
+
+    it("authorizing refuses content that isn't approved, a time too close, and a stale page", async () => {
+      const { authorizeAutoPublish } = await import("./autopublish");
+      const { actionId } = await post();
+      let d = (await getAction(actionId))!;
+      await expect(authorizeAutoPublish(actionId, d.current.id, d.current.content_hash, ME)).rejects.toThrow(/Approve the content first/);
+      const close = await approvedAt(soon(2));
+      d = (await getAction(close))!;
+      await expect(authorizeAutoPublish(close, d.current.id, d.current.content_hash, ME)).rejects.toThrow(/too close/);
+      const ok = await approvedAt(soon());
+      d = (await getAction(ok))!;
+      await expect(authorizeAutoPublish(ok, d.current.id, "0".repeat(64), ME)).rejects.toThrow(/changed since you opened it/);
+    });
+
+    it("reads planned times as Riyadh time at the window boundaries", async () => {
+      const { timing } = await import("./autopublish");
+      const target = fromRiyadhInput("2026-12-01T17:00");
+      expect(target).toBe("2026-12-01T14:00:00.000Z");
+      expect(timing(target, new Date("2026-12-01T13:58:59.999Z"))).toBe("early");
+      expect(timing(target, new Date("2026-12-01T13:59:00.000Z"))).toBe("on_time"); // T − 60 s
+      expect(timing(target, new Date("2026-12-01T13:59:50.000Z"))).toBe("on_time"); // T − 10 s
+      expect(timing(target, new Date("2026-12-01T13:59:50.001Z"))).toBe("missed");
+      expect(timing(target, new Date("2026-12-01T14:00:00.000Z"))).toBe("missed"); // at T
+      expect(timing(target, new Date("2026-12-01T14:00:00.001Z"))).toBe("missed");
+    });
+  });
+
+  it("publishes an image uploaded in the studio from its verified private copy", async () => {
+    const { publishAction } = await import("./publish");
+    const { uploadAsset } = await import("./assets");
+    const bytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 7, 7, 7, crypto.getRandomValues(new Uint8Array(1))[0]]);
+    const file = await uploadAsset(bytes, null, ME);
+    const { actionId } = await createDraft({
+      kind: "post", actionKind: "publish_post", channel: "manual", origin: "studio", author: ME,
+      content: { text: `Uploaded image post ${crypto.randomUUID()}`, assets: [file], target_at: inAnHour() },
+    });
+    const d = (await getAction(actionId))!;
+    await approve(actionId, d.current.id, d.current.content_hash, ME);
+    let sent: Uint8Array | null = null;
+    const capture = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      if (init?.method === "PUT") sent = new Uint8Array(init.body as Buffer);
+      return linkedinFetch(input, init);
+    }) as unknown as typeof fetch;
+    await publishAction(actionId, ME, capture);
+    expect(Buffer.from(sent!)).toEqual(Buffer.from(bytes));
+    expect(JSON.parse(fake.calls.find((c) => c.url.endsWith("/rest/posts"))!.body!).content).toEqual({ media: { id: "urn:li:image:C4E1" } });
   });
 
   it("uploads an image from the verified copy before posting", async () => {

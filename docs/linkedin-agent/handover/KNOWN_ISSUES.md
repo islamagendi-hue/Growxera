@@ -1,5 +1,18 @@
 # Known issues and risks (outstanding only)
 
+> **Update, 11 Oct 2026.** The maintained risk list is now [docs/studio/RISK_REGISTER.md](../../studio/RISK_REGISTER.md).
+>
+> **Changes since 10 Oct:**
+> - **H1:** resolved. The WIP is preserved on `claude/studio-wip-agent-host` and hardened in PR #19.
+> - **H3:** decided (agent.growxera.com). The deployment is gated.
+> - **H4:** mitigated by the weekly export (PR #20). Free plan kept by decision G3.
+> - **M1, M6, M7:** addressed in PR #19.
+> - **M2:** the owner has since reviewed the posts (19 approved, 1 rejected, 17 pending).
+> - **M9:** CI added in PR #20.
+> - **New High (R1 in the register):** connecting LinkedIn on the current `main` would auto-publish the 19 approvals. Fixed in PR #18. **Merge it before connecting LinkedIn.**
+>
+> The table below is the 10 Oct snapshot.
+
 As of 10 Oct 2026 ~21:50 UTC, branch head `e430e71`. Labels as in [CURRENT_STATE.md](CURRENT_STATE.md).
 
 ## Critical
