@@ -1,16 +1,16 @@
 import { timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
-import { currentAccount } from "@/lib/server/auth";
+import { studioOwner } from "@/lib/studio/access";
 import { exchangeCode, fetchMember, LinkedInError, linkedInConfig, OAUTH_STATE_COOKIE, saveConnection } from "@/lib/studio/linkedin";
-import { isOwner, studioStorageError } from "@/lib/studio/owner";
+import { studioStorageError } from "@/lib/studio/owner";
 import { audit } from "@/lib/studio/repo";
 
 const same = (a: string, b: string) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
 
 /** LinkedIn sends the owner back here with a one-time code. Everyone else: 404. */
 export async function GET(req: Request) {
-  const account = await currentAccount();
-  if (!isOwner(account)) return new Response("Not found", { status: 404 });
+  const account = await studioOwner();
+  if (!account) return new Response("Not found", { status: 404 });
   const back = (kind: "notice" | "error", message: string) =>
     Response.redirect(new URL(`/studio/capabilities?${kind}=${encodeURIComponent(message)}#linkedin`, req.url), 303);
 

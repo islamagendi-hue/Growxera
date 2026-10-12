@@ -12,12 +12,12 @@ import "server-only";
  *
  * App keys: env LINKEDIN_CLIENT_ID + LINKEDIN_CLIENT_SECRET, or entered on the Capabilities
  * page (stored encrypted, see saveAppKeys).
- * Optional env: LINKEDIN_REDIRECT_URI (default <site>/studio/linkedin/callback),
+ * Optional env: LINKEDIN_REDIRECT_URI (default <studio origin>/studio/linkedin/callback),
  *           LINKEDIN_API_VERSION (YYYYMM, sent as the LinkedIn-Version header).
  */
-import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from "node:crypto";
-import { SITE } from "@/config/site";
-import { eq, insert, selectAll, storageMode, update } from "@/lib/server/store";
+import { eq, insert, selectAll, update } from "@/lib/server/store";
+import { open, seal, serverSecret } from "./crypto";
+import { STUDIO_ORIGIN } from "./host";
 import { PUBLISHING_OFF, publishingSwitch } from "./switch";
 
 const clean = (v?: string) => v?.trim().replace(/^["']|["']$/g, "").trim() || undefined;
@@ -37,30 +37,7 @@ export interface LinkedInConfig {
 }
 
 export function redirectUri(): string {
-  return clean(process.env.LINKEDIN_REDIRECT_URI) ?? `${SITE.url}/studio/linkedin/callback`;
-}
-
-// ── Encryption (AES-256-GCM, HKDF-derived keys) ─────────────────────────────
-
-const keyFrom = (secret: string, info: string) => Buffer.from(hkdfSync("sha256", secret, "growxera-li-studio", info, 32));
-
-function seal(value: string, secret: string, info: string): string {
-  const iv = randomBytes(12);
-  const cipher = createCipheriv("aes-256-gcm", keyFrom(secret, info), iv);
-  const body = Buffer.concat([cipher.update(value, "utf8"), cipher.final()]);
-  return ["v1", iv.toString("base64url"), cipher.getAuthTag().toString("base64url"), body.toString("base64url")].join(".");
-}
-
-function open(sealed: string, secret: string, info: string): string | null {
-  try {
-    const [v, iv, tag, body] = sealed.split(".");
-    if (v !== "v1") return null;
-    const decipher = createDecipheriv("aes-256-gcm", keyFrom(secret, info), Buffer.from(iv, "base64url"));
-    decipher.setAuthTag(Buffer.from(tag, "base64url"));
-    return Buffer.concat([decipher.update(Buffer.from(body, "base64url")), decipher.final()]).toString("utf8");
-  } catch {
-    return null;
-  }
+  return clean(process.env.LINKEDIN_REDIRECT_URI) ?? `${STUDIO_ORIGIN}/studio/linkedin/callback`;
 }
 
 export const encryptToken = (token: string, clientSecret: string) => seal(token, clientSecret, "linkedin-access-token");
@@ -79,12 +56,7 @@ interface AppKeysRow {
   client_secret_enc: string;
 }
 
-function appKeysSecret(): string | null {
-  const k = clean(process.env.SUPABASE_SERVICE_ROLE_KEY);
-  if (k) return k;
-  // Local development and tests only (no Supabase): a fixed key is fine, nothing real is stored.
-  return storageMode === "local" ? "local-development-only" : null;
-}
+const appKeysSecret = serverSecret;
 
 export const isValidClientId = (v: string) => /^[A-Za-z0-9]{8,64}$/.test(v);
 export const isValidClientSecret = (v: string) => /^[\x21-\x7e]{8,256}$/.test(v);
@@ -178,7 +150,7 @@ export async function postingCredentials(now = new Date()): Promise<{ token: str
     const why: Record<ConnectionState["state"], string> = {
       not_configured: "LinkedIn isn't set up for this deployment.",
       not_connected: "LinkedIn isn't connected.",
-      expired: "The LinkedIn connection expired. Reconnect it on the Capabilities page.",
+      expired: "The LinkedIn connection expired. Reconnect it on the Integrations page.",
       unreadable: "The saved LinkedIn connection can't be read (the client secret changed?). Reconnect it.",
       connected: "",
     };

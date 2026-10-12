@@ -15,6 +15,7 @@ import "server-only";
  */
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { isStudioTable, studioDataBlocked } from "./deployment";
 
 export type Table =
   | "diagnostic_sessions"
@@ -39,7 +40,11 @@ export type Table =
   | "li_linkedin_connection"
   | "li_linkedin_app"
   | "li_settings"
-  | "li_publish_authorizations";
+  | "li_publish_authorizations"
+  | "li_access_credentials"
+  | "li_access_sessions"
+  | "li_access_setup_tokens"
+  | "li_access_attempts";
 
 type Row = Record<string, unknown>;
 
@@ -62,6 +67,13 @@ function headers(extra: Record<string, string> = {}) {
 }
 
 export class StoreError extends Error {}
+
+/** Refuses studio tables on non-production Vercel deployments that share the production database (deployment.ts). */
+function guard(table: string): void {
+  if (storageMode !== "supabase" || !isStudioTable(table)) return;
+  const blocked = studioDataBlocked();
+  if (blocked) throw new StoreError(blocked);
+}
 
 // ── Filters ─────────────────────────────────────────────────────────────────
 
@@ -146,11 +158,18 @@ function locked<T>(fn: () => Promise<T>): Promise<T> {
 }
 
 async function readTable(table: Table): Promise<Row[]> {
+  let raw: string;
   try {
-    return JSON.parse(await readFile(path.join(dataDir(), `${table}.json`), "utf8")) as Row[];
-  } catch {
-    return [];
+    raw = await readFile(path.join(dataDir(), `${table}.json`), "utf8");
+  } catch (err) {
+    // No file yet means an empty table. Anything else is a real error.
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return [];
+    throw err;
   }
+  // A damaged file must fail loudly: treating it as empty would let the next write overwrite it.
+  const rows = JSON.parse(raw) as unknown;
+  if (!Array.isArray(rows)) throw new StoreError(`Local table ${table} is damaged (not a list of rows).`);
+  return rows as Row[];
 }
 
 async function writeTable(table: Table, rows: Row[]) {
@@ -168,6 +187,7 @@ function withDefaults(table: Table, row: Row): Row {
 // ── Public API ──────────────────────────────────────────────────────────────
 
 export async function insert(table: Table, rows: Row | Row[]): Promise<boolean> {
+  guard(table);
   if (storageMode === "supabase") {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
       method: "POST",
@@ -191,6 +211,7 @@ export async function insert(table: Table, rows: Row | Row[]): Promise<boolean> 
 }
 
 export async function select<T = Row>(table: Table, filters: Filter[], opts: SelectOptions = {}): Promise<T[]> {
+  guard(table);
   if (storageMode === "supabase") {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${toQuery(filters, opts)}`, {
       headers: headers({ Prefer: "" }),
@@ -218,6 +239,7 @@ export async function select<T = Row>(table: Table, filters: Filter[], opts: Sel
  */
 export async function selectAll<T = Row>(table: Table, filters: Filter[], opts: Omit<SelectOptions, "limit"> = {}, pageSize = 1000): Promise<T[]> {
   if (storageMode !== "supabase") return select<T>(table, filters, opts);
+  guard(table);
   const order = opts.order ?? { col: "id", ascending: true };
   const out: T[] = [];
   for (let offset = 0; ; offset += pageSize) {
@@ -241,6 +263,7 @@ export async function selectOne<T = Row>(table: Table, filters: Filter[], opts: 
  */
 export async function update<T = Row>(table: Table, filters: Filter[], patch: Row): Promise<T[]> {
   if (!filters.length) throw new StoreError("update without filters is not allowed");
+  guard(table);
   if (storageMode === "supabase") {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${toQuery(filters)}`, {
       method: "PATCH",
@@ -271,6 +294,7 @@ export async function update<T = Row>(table: Table, filters: Filter[], patch: Ro
 /** Deletes every row matching all filters and returns how many were deleted. */
 export async function remove(table: Table, filters: Filter[]): Promise<number> {
   if (!filters.length) throw new StoreError("delete without filters is not allowed");
+  guard(table);
   if (storageMode === "supabase") {
     // Return only ids so deleting reports doesn't send them back over the wire.
     const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${toQuery(filters, { columns: "id" })}`, {
@@ -298,6 +322,7 @@ export async function remove(table: Table, filters: Filter[]): Promise<number> {
  */
 export async function rpc<T>(fn: "li_check_cron_secret", args: Row): Promise<T | null> {
   if (storageMode !== "supabase") return null;
+  guard(fn);
   const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {
     method: "POST",
     headers: headers({ Prefer: "return=representation" }),

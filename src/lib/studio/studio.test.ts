@@ -24,7 +24,7 @@ vi.mock("@/lib/server/store", async (orig) => {
 import { select } from "@/lib/server/store";
 import { generate, grokStatus, GrokUnavailableError } from "./grok";
 import { importSnapshot, snapshotSchema } from "./import";
-import { isOwner, studioStorageError } from "./owner";
+import { studioStorageError } from "./owner";
 import {
   addVersion,
   approve,
@@ -326,15 +326,10 @@ describe("owner gate", () => {
     expect(fs.readFileSync(path.join(process.cwd(), "src/app/studio/layout.tsx"), "utf8")).toMatch(/studioStorageError\(\)/);
   });
 
-  it("admits only the configured owner, and nobody when unset", () => {
-    const v = "2026-10-10T00:00:00Z";
-    expect(isOwner({ email: "islam@example.com", verified_at: v })).toBe(false);
-    process.env.STUDIO_OWNER_EMAIL = " Islam@Example.com ";
-    expect(isOwner({ email: "islam@example.com", verified_at: v })).toBe(true);
-    expect(isOwner({ email: "someone@example.com", verified_at: v })).toBe(false);
-    // An unverified account with the owner's address is not the owner.
-    expect(isOwner({ email: "islam@example.com", verified_at: null })).toBe(false);
-    expect(isOwner(null)).toBe(false);
+  it("no longer accepts the website's accounts: only the studio's own sign-in (access.test.ts)", () => {
+    const owner = fs.readFileSync(path.join(process.cwd(), "src/lib/studio/owner.ts"), "utf8");
+    expect(owner).not.toMatch(/currentAccount/);
+    expect(owner).toMatch(/studioOwner\(\)/);
   });
 });
 
@@ -587,7 +582,7 @@ describe("no publishing path without approval", () => {
       expect(fs.readFileSync(f, "utf8"), f).toMatch(/await requireOwner\(/);
     }
     for (const f of studio.filter((f) => f.endsWith("route.ts"))) {
-      expect(fs.readFileSync(f, "utf8"), f).toMatch(/isOwner\(await currentAccount\(\)\)|const account = await currentAccount\(\);\s*if \(!isOwner\(account\)\) return/);
+      expect(fs.readFileSync(f, "utf8"), f).toMatch(/if \(!\(await studioOwner\(\)\)\) return|const account = await studioOwner\(\);\s*if \(!account\) return/);
     }
     const actions = fs.readFileSync(path.join(src, "app/studio/actions.ts"), "utf8");
     const exported = [...actions.matchAll(/export async function (\w+)\([^)]*\)\s*\{([\s\S]*?)\n\}/g)];
@@ -596,6 +591,20 @@ describe("no publishing path without approval", () => {
       expect(/await ownerOrThrow\(\)|await run\(/.test(body), `${name} must check the owner`).toBe(true);
     }
     expect(actions).toMatch(/async function run\([\s\S]*?const owner = await ownerOrThrow\(\);/);
+  });
+});
+
+describe("capability register is honest", () => {
+  it("claims nothing available before live verification, and marks unbuilt features as not built", async () => {
+    const { CAPABILITIES } = await import("./capabilities");
+    expect(CAPABILITIES.filter((c) => c.status === "available")).toEqual([]);
+    for (const id of ["newsletter", "read_comments", "write_comments", "post_analytics", "account_metrics"]) {
+      expect(CAPABILITIES.find((c) => c.id === id)!.implementation, id).toMatch(/^Not built yet\./);
+    }
+    // Approval alone never publishes (G1, P2): the description names the switches.
+    const text = CAPABILITIES.find((c) => c.id === "publish_text")!.implementation;
+    expect(text).toMatch(/All publishing ON/);
+    expect(text).not.toMatch(/approved posts are published at their planned time/);
   });
 });
 
@@ -1192,6 +1201,27 @@ describe("LinkedIn direct publishing", () => {
       expect(timing(target, new Date("2026-12-01T14:00:00.000Z"))).toBe("missed"); // at T
       expect(timing(target, new Date("2026-12-01T14:00:00.001Z"))).toBe("missed");
     });
+  });
+
+  it("publishes an image uploaded in the studio from its verified private copy", async () => {
+    const { publishAction } = await import("./publish");
+    const { uploadAsset } = await import("./assets");
+    const bytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 7, 7, 7, crypto.getRandomValues(new Uint8Array(1))[0]]);
+    const file = await uploadAsset(bytes, null, ME);
+    const { actionId } = await createDraft({
+      kind: "post", actionKind: "publish_post", channel: "manual", origin: "studio", author: ME,
+      content: { text: `Uploaded image post ${crypto.randomUUID()}`, assets: [file], target_at: inAnHour() },
+    });
+    const d = (await getAction(actionId))!;
+    await approve(actionId, d.current.id, d.current.content_hash, ME);
+    let sent: Uint8Array | null = null;
+    const capture = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      if (init?.method === "PUT") sent = new Uint8Array(init.body as Buffer);
+      return linkedinFetch(input, init);
+    }) as unknown as typeof fetch;
+    await publishAction(actionId, ME, capture);
+    expect(Buffer.from(sent!)).toEqual(Buffer.from(bytes));
+    expect(JSON.parse(fake.calls.find((c) => c.url.endsWith("/rest/posts"))!.body!).content).toEqual({ media: { id: "urn:li:image:C4E1" } });
   });
 
   it("uploads an image from the verified copy before posting", async () => {

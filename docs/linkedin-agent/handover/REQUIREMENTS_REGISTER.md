@@ -19,7 +19,9 @@ Evidence labels as in [CURRENT_STATE.md](CURRENT_STATE.md).
 | R1 | Private tool for the owner's **personal** LinkedIn account; nothing published on growxera.com or company pages | Brief; Later ("for me, not for Growx Era") | Met | — |
 | R2 | LinkedIn only; no Facebook, no X | PLAN | Met | — |
 | R3 | Studio invisible to everyone else; not linked; noindex; no analytics | PLAN; Later ("nothing LinkedIn-related visible to anyone") | Partial | Signed-out redirect reveals `/studio` until PR #17 is merged. The header is shown on studio pages |
-| R4 | Separate address `linkedin-agent.growxera.com` with email + password + authenticator code | Later | Partial (unpushed WIP) | The subdomain name is public by nature (DNS and certificate logs). Domain not added in Vercel |
+| R4 | Separate address **agent.growxera.com** (decided 11 Oct; replaces `linkedin-agent`) with email + password + authenticator code | Later; master directive | Partial: built and tested in PR #19, not deployed | DNS (Unstoppable Domains) and Vercel domain gated (APPROVAL_GATES A3) |
+| R4b | Automatic publishing only with a global switch + per-post authorization; never late | G1, G2 (11 Oct) | Met (local tests), PR #18 | Not deployed |
+| R4c | Weekly owner-downloaded backup on Supabase Free | G3 (11 Oct) | Met (local tests), PR #20 | Not deployed |
 | R5 | Dashboard / control room as in the owner's screenshots (tabs, KPI cards, sessions grid, Today panel, Control tab; "Run now" becomes "Prepare now", no automation) | Later (screenshots) | Not started | The screenshots are not in the repository; their content is known only from the session |
 | R6 | Voice profile from history; content standard as the voice baseline | Brief; D6 | Not started (M2) | The content standard file is not in the repository (private) |
 | R7 | Editorial calendar and drafting in the owner's voice | Brief; PLAN M3 | Not started | — |
@@ -59,7 +61,7 @@ Evidence labels as in [CURRENT_STATE.md](CURRENT_STATE.md).
 | P1 | Build around LinkedIn's officially supported capabilities; don't claim direct publishing until verified | Later (Buffer retirement message) | Met | The capability register stays "Not verified" until a live post |
 | P2 | The system itself publishes (not the owner by hand) | Later ("I want the system to publish") | Partial | Built; LinkedIn not connected; unverified |
 | P3 | Manual copy-and-open fallback | D3; PLAN | Met (local tests) | — |
-| P4 | Scheduled time management | Brief | Met (local tests) | 3-hour late limit (Claude's design choice, not owner-specified) |
+| P4 | Scheduled time management | Brief | Met (local tests), PR #18 | G2 + P1: submitted only between T − 60 s and T − 10 s, never after; the 3-hour limit on `main` is replaced in PR #18 |
 
 ## Buffer
 

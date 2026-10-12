@@ -16,7 +16,7 @@ import { eq, selectOne } from "@/lib/server/store";
 import { WorkflowError } from "./workflow";
 
 export const PUBLISHING_SETTING = "publishing_enabled";
-export const PUBLISHING_OFF = "All publishing is switched off, so nothing can be posted to LinkedIn. Switch it on in Capabilities first.";
+export const PUBLISHING_OFF = "All publishing is switched off, so nothing can be posted to LinkedIn. Switch it on in Integrations first.";
 
 export interface PublishingState {
   enabled: boolean;
