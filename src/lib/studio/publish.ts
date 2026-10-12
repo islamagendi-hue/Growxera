@@ -11,27 +11,29 @@ import "server-only";
  * - No clear answer (unknown): the item stays "executed" with an unknown outcome and is
  *   never retried automatically. The owner checks LinkedIn and resolves it.
  * - Media is uploaded from the studio's verified copies only, checked by SHA-256 first.
- * - The scheduler publishes at the planned time; an item more than LATE_LIMIT late is
- *   blocked instead of posted at a time nobody approved.
+ * - Automatic publishing needs three locks open: the global switch, the owner's per-post
+ *   authorization, and the on-time window. A missed post is held, never published late
+ *   (autopublish.ts).
  */
 import { eq, insert, select, selectOne, update } from "@/lib/server/store";
 import { type AssetRow, getObject } from "./assets";
-import { LinkedInError, postingCredentials, postToLinkedIn, postUrl, type PostMedia, readBackPost } from "./linkedin";
+import { assertPublishingOn, PUBLISHING_OFF, publishingSwitch } from "./switch";
+import { authorizationsFor, autoPublishSwitch, holdMissed, isAutoAuthorized, submitDeadline, timing } from "./autopublish";
+import { LinkedInError, WindowMissedError, postingCredentials, postToLinkedIn, postUrl, type PostMedia, readBackPost } from "./linkedin";
 import {
   audit,
   describeMatch,
   type ExecutionRow,
   findPublishedMatch,
+  getAction,
   listActions,
   load,
-  markBlocked,
   transition,
   verifyExecution,
 } from "./repo";
 import { idempotencyKey, isLinkedInContentUrl, normalizeText, WorkflowError } from "./workflow";
 import { createHash } from "node:crypto";
 
-export const LATE_LIMIT_MS = 3 * 3_600_000;
 const now = () => new Date().toISOString();
 
 async function loadMedia(assets: { type: string; url: string; title?: string | null }[]): Promise<PostMedia | null> {
@@ -54,15 +56,41 @@ export interface PublishResult {
   verified: boolean;
 }
 
+/** The post was held for review instead of being sent (it missed its submission window). */
+export class HeldError extends WorkflowError {}
+
 /**
  * Publishes one approved post now. Throws WorkflowError with a message for the owner.
  * `f` is injectable for tests.
  */
-export async function publishAction(actionId: string, actor: string, f: typeof fetch = fetch): Promise<PublishResult> {
-  const creds = await postingCredentials();
+export async function publishAction(
+  actionId: string,
+  actor: string,
+  f: typeof fetch = fetch,
+  opts: { mode?: "manual" | "auto"; now?: Date; clock?: () => Date } = {},
+): Promise<PublishResult> {
+  const mode = opts.mode ?? "manual";
+  // The clock used for the timing checks. Tests and the scheduler pass their own; otherwise the
+  // real clock (a fixed `now` keeps running from the moment of this call).
+  const offset = opts.now ? opts.now.getTime() - Date.now() : 0;
+  const clock = opts.clock ?? (() => new Date(Date.now() + offset));
+  const at = clock();
+  // All publishing (manual and automatic) is blocked while the all-publishing switch is OFF.
+  await assertPublishingOn();
+  const creds = await postingCredentials(at);
   if ("error" in creds) throw new WorkflowError(creds.error);
   const d = await load(actionId);
   if (d.action.status !== "approved" || !d.approvalValid) throw new WorkflowError("This item has no valid approval for its current content.");
+  // Automatic runs re-check every lock here too, so no caller can skip them (see autopublish.ts).
+  if (mode === "auto") {
+    if (!(await autoPublishSwitch()).enabled) throw new WorkflowError("Automatic publishing is switched off.");
+    if (!isAutoAuthorized(d, await authorizationsFor(actionId))) throw new WorkflowError("This post isn't authorized for automatic publishing.");
+    if (timing(d.current.target_at!, at) !== "on_time") throw new WorkflowError("Outside its submission window (60 to 10 seconds before the planned time): never sent automatically outside it.");
+  }
+  // Automatic runs: the deadline is checked again right before the post request, and the request
+  // is cut off at the planned time (see autopublish.ts, lock 3).
+  const deadline =
+    mode === "auto" ? { submitBy: submitDeadline(d.current.target_at!), cutoffAt: new Date(d.current.target_at!).getTime(), now: () => clock().getTime() } : undefined;
   if (d.action.kind !== "publish_post") throw new WorkflowError("Only posts can be published directly. Use the manual step.");
   if (!d.current.text.trim() || d.current.text.length > 3000) throw new WorkflowError("The text must be 1 to 3,000 characters.");
 
@@ -102,8 +130,14 @@ export async function publishAction(actionId: string, actor: string, f: typeof f
   let urn: string;
   let sentCommentary: string;
   try {
-    ({ urn, sentCommentary } = await postToLinkedIn({ ...creds, text: d.current.text, media }, f));
+    ({ urn, sentCommentary } = await postToLinkedIn({ ...creds, text: d.current.text, media, deadline }, f));
   } catch (err) {
+    if (err instanceof WindowMissedError) {
+      // Nothing was sent: free the key and hold the post for review (G2); never sent late.
+      await update("li_executions", [eq("id", exec.id)], { result: "failed", error: err.message, idempotency_key: `${key}:failed:${exec.id}` });
+      await holdMissed(actionId, actor, clock(), { claimed: true });
+      throw new HeldError("It missed its submission window before anything was sent, so it is held for review. Nothing was posted.");
+    }
     const e = err instanceof LinkedInError ? err : new LinkedInError("Unexpected error while publishing.", null, false);
     if (e.definite) {
       // Nothing was created: free the key so the same content can be approved and tried again.
@@ -179,46 +213,79 @@ export async function resolveUnknown(actionId: string, outcome: { url: string } 
 }
 
 export interface DueReport {
+  /** False when nothing could be published this run (switch off or LinkedIn not connected). */
   ran: boolean;
   reason?: string;
+  switchOn: boolean;
   published: { actionId: string; url: string; verified: boolean }[];
   failed: { actionId: string; error: string }[];
-  blockedLate: string[];
+  /** Authorized posts whose time passed unpublished: back in review, never published late. */
+  held: string[];
+  /** Authorized, planned time still ahead. */
   waiting: number;
+  /** Approved but not authorized for automatic publishing (for example legacy approvals). Never touched. */
+  notAuthorized: number;
 }
 
 /**
- * Publishes approved posts whose planned time has come. Called by the scheduler
- * (/api/studio/publish-due) and by the owner's "Publish due posts now" button.
- * Items without a planned time are never published automatically.
+ * The scheduler run (/api/studio/publish-due, and the owner's "Run scheduler now" button).
+ * Only posts the owner authorized for automatic publishing are considered; approved posts
+ * without that authorization are left exactly as they are. Holding a missed post happens even
+ * while the switch is off or LinkedIn is disconnected, so nothing can fire late once they
+ * come back.
  */
 export async function publishDue(actor: string, at = new Date(), f: typeof fetch = fetch): Promise<DueReport> {
-  const report: DueReport = { ran: false, published: [], failed: [], blockedLate: [], waiting: 0 };
-  const creds = await postingCredentials(at);
-  if ("error" in creds) return { ...report, reason: creds.error };
-  report.ran = true;
+  // One clock for the whole run, running from `at`, so later posts in a long run see the real elapsed time.
+  const offset = at.getTime() - Date.now();
+  const clock = () => new Date(Date.now() + offset);
+  const sw = await autoPublishSwitch();
+  const report: DueReport = { ran: false, switchOn: sw.enabled, published: [], failed: [], held: [], waiting: 0, notAuthorized: 0 };
   const items = (await listActions(["approved"])).filter((i) => i.current?.target_at && i.action.kind === "publish_post");
   items.sort((a, b) => a.current!.target_at!.localeCompare(b.current!.target_at!));
-  for (const { action, current } of items) {
-    const due = new Date(current!.target_at!).getTime();
-    if (due > at.getTime()) {
-      report.waiting++;
+
+  const due: string[] = [];
+  for (const { action } of items) {
+    const d = await getAction(action.id);
+    if (!d || !isAutoAuthorized(d, await authorizationsFor(action.id))) {
+      report.notAuthorized++;
       continue;
     }
-    if (at.getTime() - due > LATE_LIMIT_MS) {
-      await markBlocked(action.id, "Missed its planned time, so it wasn't posted. Set a new time and approve again.", actor);
-      report.blockedLate.push(action.id);
-      continue;
-    }
-    try {
-      const r = await publishAction(action.id, actor, f);
-      report.published.push({ actionId: action.id, ...r });
-    } catch (err) {
-      report.failed.push({ actionId: action.id, error: err instanceof Error ? err.message : "Unknown error" });
+    const t = timing(d.current.target_at!, clock());
+    if (t === "early") report.waiting++;
+    else if (t === "missed") {
+      try {
+        await holdMissed(action.id, actor, clock());
+        report.held.push(action.id);
+      } catch (err) {
+        report.failed.push({ actionId: action.id, error: err instanceof Error ? err.message : "Unknown error" });
+      }
+    } else due.push(action.id);
+  }
+
+  const all = await publishingSwitch();
+  if (!all.enabled) report.reason = PUBLISHING_OFF;
+  else if (!sw.enabled) report.reason = "Automatic publishing is switched off.";
+  else {
+    const creds = await postingCredentials(at);
+    if ("error" in creds) report.reason = creds.error;
+    else report.ran = true;
+  }
+  if (report.ran) {
+    for (const id of due) {
+      try {
+        const r = await publishAction(id, actor, f, { mode: "auto", clock });
+        report.published.push({ actionId: id, ...r });
+      } catch (err) {
+        if (err instanceof HeldError) {
+          report.held.push(id);
+          continue;
+        }
+        report.failed.push({ actionId: id, error: err instanceof Error ? err.message : "Unknown error" });
+      }
     }
   }
-  if (report.published.length || report.failed.length || report.blockedLate.length) {
-    await audit(actor, "scheduler.run", "li_actions", null, { published: report.published.length, failed: report.failed.length, blockedLate: report.blockedLate.length });
+  if (report.published.length || report.failed.length || report.held.length) {
+    await audit(actor, "scheduler.run", "li_actions", null, { published: report.published.length, failed: report.failed.length, held: report.held.length, switchOn: sw.enabled });
   }
   return report;
 }
