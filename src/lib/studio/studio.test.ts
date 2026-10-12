@@ -588,9 +588,10 @@ describe("no publishing path without approval", () => {
     const exported = [...actions.matchAll(/export async function (\w+)\([^)]*\)\s*\{([\s\S]*?)\n\}/g)];
     expect(exported.length).toBeGreaterThanOrEqual(10);
     for (const [, name, body] of exported) {
-      expect(/await ownerOrThrow\(\)|await run\(/.test(body), `${name} must check the owner`).toBe(true);
+      expect(/await ownerOrThrow\(\)|await run\(|await topics\(/.test(body), `${name} must check the owner`).toBe(true);
     }
     expect(actions).toMatch(/async function run\([\s\S]*?const owner = await ownerOrThrow\(\);/);
+    expect(actions).toMatch(/async function topics\([^)]*\)[^{]*\{\s*const owner = await ownerOrThrow\(\);/);
   });
 });
 
@@ -598,9 +599,13 @@ describe("capability register is honest", () => {
   it("claims nothing available before live verification, and marks unbuilt features as not built", async () => {
     const { CAPABILITIES } = await import("./capabilities");
     expect(CAPABILITIES.filter((c) => c.status === "available")).toEqual([]);
-    for (const id of ["newsletter", "read_comments", "write_comments", "post_analytics", "account_metrics"]) {
+    for (const id of ["read_comments", "write_comments", "post_analytics", "account_metrics"]) {
       expect(CAPABILITIES.find((c) => c.id === id)!.implementation, id).toMatch(/^Not built yet\./);
     }
+    // Newsletters: drafts can be written; publishing is never claimed (no API).
+    const newsletter = CAPABILITIES.find((c) => c.id === "newsletter")!;
+    expect(newsletter.status).toBe("unavailable");
+    expect(newsletter.implementation).toMatch(/^Drafts only\..*Publishing stays manual\.$/);
     // Approval alone never publishes (G1, P2): the description names the switches.
     const text = CAPABILITIES.find((c) => c.id === "publish_text")!.implementation;
     expect(text).toMatch(/All publishing ON/);

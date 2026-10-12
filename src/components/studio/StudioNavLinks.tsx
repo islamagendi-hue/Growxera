@@ -7,6 +7,7 @@ export const STUDIO_NAV = [
   { href: "/studio/queue", label: "Posts" },
   { href: "/studio/calendar", label: "Calendar" },
   { href: "/studio/new", label: "New post" },
+  { href: "/studio/topics", label: "Topics" },
   { href: "/studio/activity", label: "Activity" },
   { href: "/studio/capabilities", label: "Integrations" },
   { href: "/studio/import", label: "Import" },

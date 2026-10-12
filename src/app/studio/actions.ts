@@ -8,7 +8,8 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { secureAssets, uploadAsset, UploadError, type UploadedAsset } from "@/lib/studio/assets";
 import { designText, isDesignFormat, renderDesign } from "@/lib/studio/design";
-import { verifyGrok } from "@/lib/studio/grok";
+import { GrokUnavailableError, verifyGrok } from "@/lib/studio/grok";
+import { addTopic, removeTopic, writeDraft, writeTopic, type WriteFormat } from "@/lib/studio/writer";
 import { importSnapshot, snapshotSchema } from "@/lib/studio/import";
 import { authorizeAutoPublish, revokeAutoPublish, setAutoPublish, setPublishing } from "@/lib/studio/autopublish";
 import { validateExport } from "@/lib/studio/export";
@@ -193,9 +194,10 @@ export async function editAction(form: FormData) {
     id,
     async (actor) => {
       if (!text) throw new WorkflowError("The text can't be empty.");
-      if (text.length > 3000) throw new WorkflowError("LinkedIn posts are limited to 3,000 characters.");
       const d = await getAction(id);
       if (!d) throw new WorkflowError("Item not found.");
+      const limit = d.action.kind === "publish_newsletter" ? 12000 : 3000;
+      if (text.length > limit) throw new WorkflowError(`This is limited to ${limit.toLocaleString("en")} characters.`);
       const target_at = target ? fromRiyadhInput(target) : null;
       let assets = d.current.assets;
       try {
@@ -231,6 +233,50 @@ export async function attachDesignAction(form: FormData) {
     },
     "Design attached as a new version. Approve it again before it can be published.",
   );
+}
+
+// ── Topics and Grok writing ─────────────────────────────────────────────────
+
+const writeFormat = (f: FormData): WriteFormat => (str(f, "format") === "newsletter" ? "newsletter" : "post");
+
+/** Redirects to the topics page with a notice or an error; Grok and workflow errors are shown as they are. */
+async function topics(fn: (actor: string) => Promise<string | void>, notice: string): Promise<never> {
+  const owner = await ownerOrThrow();
+  let q: string;
+  let target = "/studio/topics";
+  try {
+    const next = await fn(owner.email);
+    if (next) target = next;
+    q = `notice=${encodeURIComponent(notice)}`;
+  } catch (err) {
+    if (err instanceof WorkflowError || err instanceof GrokUnavailableError) q = `error=${encodeURIComponent(err.message)}`;
+    else {
+      console.error("[studio] topics action failed", safeLog(err));
+      q = `error=${encodeURIComponent("Something went wrong. Nothing was saved.")}`;
+    }
+    target = "/studio/topics";
+  }
+  revalidatePath("/studio", "layout");
+  redirect(`${target}?${q}`);
+}
+
+export async function addTopicAction(form: FormData) {
+  await topics(async (actor) => {
+    await addTopic({ text: str(form, "topic"), angle: str(form, "angle"), format: writeFormat(form) }, actor);
+  }, "Topic added.");
+}
+
+export async function removeTopicAction(form: FormData) {
+  await topics((actor) => removeTopic(str(form, "topicId"), actor), "Topic removed.");
+}
+
+/** Writes a draft with Grok, from a saved topic or straight from the form. Never publishes. */
+export async function writeWithGrokAction(form: FormData) {
+  await topics(async (actor) => {
+    const id = str(form, "topicId");
+    const r = id ? await writeTopic(id, actor) : await writeDraft({ topic: str(form, "topic"), angle: str(form, "angle"), format: writeFormat(form) }, actor);
+    return `/studio/queue/${r.actionId}`;
+  }, "Draft written by Grok. Review and edit it, then submit it for review. Nothing is published.");
 }
 
 export async function recordPublishedAction(form: FormData) {

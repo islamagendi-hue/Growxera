@@ -50,7 +50,7 @@ export const CAPABILITIES: Capability[] = [
     method: "None: LinkedIn has no public API for member articles or newsletters",
     permission: "n/a",
     status: "unavailable",
-    implementation: "Not built yet. Planned: prepare the title, body and cover for approval in the studio (Milestone 8).",
+    implementation: "Drafts only. Grok writes a newsletter draft from a topic on the Topics page (once its settings are set); the house-style cover is made on the post page. Publishing stays manual.",
     manualStep: "Paste into LinkedIn's article editor, choose the Behind the Number newsletter, schedule, paste the link back.",
     evidence: "No member article API in LinkedIn's documentation.",
   },
