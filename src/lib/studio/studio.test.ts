@@ -610,6 +610,10 @@ describe("capability register is honest", () => {
     const text = CAPABILITIES.find((c) => c.id === "publish_text")!.implementation;
     expect(text).toMatch(/All publishing ON/);
     expect(text).not.toMatch(/approved posts are published at their planned time/);
+    // The same claim must not reappear on the Integrations page (it was in the LinkedIn connection box).
+    const page = fs.readFileSync(path.join(process.cwd(), "src/app/studio/capabilities/page.tsx"), "utf8");
+    expect(page).not.toMatch(/Approved posts are published at their planned time/i);
+    expect(page).toMatch(/approval alone never publishes/);
   });
 });
 

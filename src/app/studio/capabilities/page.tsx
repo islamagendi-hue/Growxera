@@ -189,7 +189,7 @@ export default async function CapabilitiesPage({ searchParams }: PageProps<"/stu
             </p>
             <p className="text-ink-2">Permissions: {li.row.scopes}.{!li.canPost && <span className="text-alert"> Posting permission missing.</span>}</p>
             <p className="text-ink-2">
-              Approved posts are published at their planned time.{" "}
+              Posts go out only with Publish now, or automatically when both switches are ON and you scheduled that post for automatic publishing; approval alone never publishes.{" "}
               {lastApi ? `Last direct post: ${formatRiyadh(lastApi.created_at)}.` : "No post has been published through the API yet, so it stays “Not verified” until the first one succeeds."}
             </p>
           </div>
