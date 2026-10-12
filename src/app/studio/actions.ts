@@ -7,6 +7,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { secureAssets, uploadAsset, UploadError, type UploadedAsset } from "@/lib/studio/assets";
+import { designText, isDesignFormat, renderDesign } from "@/lib/studio/design";
 import { verifyGrok } from "@/lib/studio/grok";
 import { importSnapshot, snapshotSchema } from "@/lib/studio/import";
 import { authorizeAutoPublish, revokeAutoPublish, setAutoPublish, setPublishing } from "@/lib/studio/autopublish";
@@ -209,6 +210,26 @@ export async function editAction(form: FormData) {
       if (!changed) throw new WorkflowError("No changes to save.");
     },
     "Saved as a new version. Any earlier approval no longer applies.",
+  );
+}
+
+/** Renders the post's design with the owner's lines and attaches it as the post's image (a new version). */
+export async function attachDesignAction(form: FormData) {
+  const id = str(form, "actionId");
+  await run(
+    id,
+    async (actor) => {
+      const d = await getAction(id);
+      if (!d) throw new WorkflowError("Item not found.");
+      const format = str(form, "format");
+      const t = designText(d.current.text, { eyebrow: str(form, "eyebrow"), lineA: str(form, "a"), lineB: str(form, "b"), footer: str(form, "footer") });
+      if (!t.lineA) throw new WorkflowError("The first line can't be empty.");
+      const png = new Uint8Array(await (await renderDesign(t, isDesignFormat(format) ? format : "square")).arrayBuffer());
+      const file = await uploadAsset(png, `Design: ${t.lineA}`.slice(0, 200), actor);
+      const { changed } = await addVersion(id, { text: d.current.text, assets: [file], target_at: d.current.target_at }, actor, "Design attached in studio");
+      if (!changed) throw new WorkflowError("That design is already attached.");
+    },
+    "Design attached as a new version. Approve it again before it can be published.",
   );
 }
 

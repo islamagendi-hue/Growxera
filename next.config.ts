@@ -9,6 +9,10 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "4.4mb",
     },
   },
+  // Post designs (src/lib/studio/design.tsx) read their fonts from disk at request time.
+  outputFileTracingIncludes: {
+    "/studio/**": ["./src/lib/studio/fonts/*.woff"],
+  },
   async headers() {
     // Only on the studio's address (the website's own address is unchanged). It also answers for the
     // public pages (the proxy only gates studio paths), so everything there stays out of search

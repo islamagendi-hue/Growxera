@@ -159,6 +159,29 @@ test("confirming a post for automatic publishing says it won't go out while the 
   await expect(notice("Automatic publishing cancelled.")).toBeVisible();
 });
 
+test("a post gets a house-style design: preview, then attach as a new version", async () => {
+  await page.goto(postUrl);
+  const preview = page.getByRole("img", { name: "Design preview" });
+  await expect(preview).toBeVisible();
+  const res = await page.request.get((await preview.getAttribute("src"))!);
+  expect(res.status()).toBe(200);
+  expect(res.headers()["content-type"]).toBe("image/png");
+  const design = page.getByRole("region", { name: "Design" });
+  await design.getByLabel("Small heading").fill("Behind the Number · Issue 2");
+  await design.getByLabel("Format").selectOption("portrait");
+  await design.getByRole("button", { name: "Attach to post" }).click();
+  await expect(notice("Design attached as a new version.")).toBeVisible();
+  await expect(page.getByText("uploaded in the studio")).toBeVisible();
+  const status = page.getByRole("region", { name: "Publishing status" });
+  await expect(status).toContainText("doesn't cover the current version");
+  await page.getByRole("button", { name: "Approve version 3" }).click();
+  await expect(status).toContainText("Version 3 approved");
+  // Not for anyone else.
+  const anon = await page.context().browser()!.newContext();
+  expect((await anon.request.get(`http://localhost:3210${await preview.getAttribute("src")}`, { maxRedirects: 0 })).status()).not.toBe(200);
+  await anon.close();
+});
+
 test("drafts are saved, then submitted for review", async () => {
   await page.goto("/studio/new");
   await page.getByLabel("Post text").fill(`Draft idea ${Date.now()}`);
