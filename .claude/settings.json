@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__github__pull_request_read",
+      "Bash(npx tsc --noEmit)",
+      "Bash(npx vitest run)",
+      "mcp__Vercel__get_project",
+      "mcp__Vercel__list_projects",
+      "mcp__Supabase__list_projects",
+      "mcp__Vercel__web_fetch_vercel_url",
+      "mcp__Buffer__list_posts",
+      "mcp__github__actions_list",
+      "mcp__Vercel__get_domain_config",
+      "mcp__Vercel__list_deployments",
+      "mcp__github__actions_get",
+      "mcp__Buffer__get_account",
+      "mcp__Buffer__list_channels",
+      "mcp__Vercel__list_teams",
+      "mcp__Vercel__list_project_domains",
+      "mcp__Vercel__get_deployment",
+      "mcp__claude-code-remote__read_documentation"
+    ]
+  }
+}
