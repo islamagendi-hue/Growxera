@@ -3,13 +3,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 // A working cookie jar, so sessions can be exercised end to end.
 const jar = vi.hoisted(() => new Map<string, string>());
+const requestHost = vi.hoisted(() => ({ value: "agent.growxera.com" }));
 vi.mock("next/headers", () => ({
   cookies: async () => ({
     get: (name: string) => (jar.has(name) ? { name, value: jar.get(name)! } : undefined),
     set: (c: { name: string; value: string }) => void jar.set(c.name, c.value),
     delete: (c: string | { name: string }) => void jar.delete(typeof c === "string" ? c : c.name),
   }),
-  headers: async () => new Headers({ host: "agent.growxera.com" }),
+  headers: async () => new Headers({ host: requestHost.value }),
 }));
 
 import { execFile } from "node:child_process";
@@ -53,6 +54,7 @@ async function setUp(): Promise<string> {
 
 beforeEach(() => {
   jar.clear();
+  requestHost.value = "agent.growxera.com";
   vi.stubEnv("STUDIO_OWNER_EMAIL", OWNER);
 });
 afterEach(() => {
@@ -123,6 +125,14 @@ describe("one-time setup", () => {
     vi.stubEnv("STUDIO_OWNER_EMAIL", "");
     expect(await studioOwner()).toBeNull();
     expect(await startSetup(await createSetupToken())).toBeNull();
+  });
+  it("a valid session counts only on the studio's address (server actions are reachable through any host)", async () => {
+    await setUp();
+    expect(await studioOwner()).toEqual({ email: OWNER });
+    for (const host of ["www.growxera.com", "growx-abc123.vercel.app", "agent.growxera.com.evil.example", ""]) {
+      requestHost.value = host;
+      expect(await studioOwner()).toBeNull();
+    }
   });
 });
 

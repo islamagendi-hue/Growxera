@@ -6,16 +6,24 @@ exact version (text, file, planned time). Any edit cancels the approval.
 
 ## How it works
 
-1. The owner approves a post that has a planned time.
-2. A scheduler calls `/api/studio/publish-due` every few minutes. Posts whose time has come are
-   published once. A post that can't go out within 3 hours of its time is held back (blocked), not
-   posted late.
+1. The owner approves a post that has a planned time. Approval alone never publishes.
+2. The owner separately schedules that exact version for automatic publishing. Automatic
+   publishing must also be switched ON: the deployment flag `STUDIO_AUTO_PUBLISH_ALLOWED=true`
+   plus the owner's switch on Capabilities. Default: OFF.
+3. A scheduler calls `/api/studio/publish-due`. A scheduled post is sent once, **only between 60 and
+   10 seconds before its planned time** (owner decisions G2 and P1). If that window is missed, the post is held
+   back in review and needs a new time and a new approval; it is never sent late, and an unknown
+   outcome is never retried. We control when the request is sent; LinkedIn sets the time it finally
+   shows. The 15-second scheduler this needs is batch B3
+   ([docs/studio/DEPLOYMENT_RUNBOOK.md](../studio/DEPLOYMENT_RUNBOOK.md)); until then automatic
+   publishing stays off. Above all of this, the **all-publishing switch** (default OFF) blocks every
+   post, including **Publish now** (P2).
 3. The studio records the post link. It marks the post **verified** only if LinkedIn returns the post
    with the same text. Otherwise the owner opens the link and confirms.
 4. If LinkedIn gives no clear answer, the post is never re-sent automatically. The owner checks the
    profile and records what they found.
 
-Approved posts with no planned time are only posted with **Publish now** on the item page.
+Approved posts with no planned time are only posted with **Publish now** on the item page, and only while all publishing is ON.
 
 ## Limits (from LinkedIn's terms for self-serve apps)
 
@@ -36,6 +44,7 @@ Approved posts with no planned time are only posted with **Publish now** on the 
 3. **Products** tab: request **Share on LinkedIn** and **Sign In with LinkedIn using OpenID Connect**.
    Both are self-serve.
 4. **Auth** tab: under *Authorized redirect URLs* add exactly
+   `https://agent.growxera.com/studio/linkedin/callback` once PR #19 is live; before that,
    `https://www.growxera.com/studio/linkedin/callback` (the Capabilities page shows the URL this
    deployment expects).
 5. Keep the **Client ID** and **Client Secret** on that tab for step 2. Never paste them in chat,
@@ -89,4 +98,4 @@ or click **Disconnect** on the Capabilities page.
 
 ### 6. First test (owner)
 
-Approve one post and use **Publish now**. Check it on LinkedIn, then confirm it in the studio.
+Switch **all publishing** ON on Capabilities, approve one post and use **Publish now**. Check it on LinkedIn, confirm it in the studio, then switch all publishing OFF again.

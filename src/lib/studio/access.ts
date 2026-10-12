@@ -14,9 +14,11 @@ import "server-only";
  * - The email must equal STUDIO_OWNER_EMAIL.
  */
 import { cache } from "react";
-import { cookies } from "next/headers";
-import { eq, gt, insert, isNull, select, selectOne, update } from "@/lib/server/store";
+import { cookies, headers } from "next/headers";
+import { studioDataBlocked } from "@/lib/server/deployment";
+import { eq, gt, insert, isNull, select, selectOne, storageMode, update } from "@/lib/server/store";
 import { hashPassword, newTotpSecret, open, randomToken, seal, serverSecret, sha256, verifyPassword, verifyTotp } from "./crypto";
+import { isStudioHost } from "./host";
 import { ownerEmail } from "./owner-email";
 
 export const SESSION_COOKIE = process.env.NODE_ENV === "production" ? "__Host-gx_studio" : "gx_studio";
@@ -183,8 +185,13 @@ export function sessionCookie(token: string) {
 export const studioOwner = cache(async (): Promise<{ email: string } | null> => {
   const owner = ownerEmail();
   if (!owner) return null;
+  // Never on a deployment that may not touch studio data (a preview sharing the production database).
+  if (storageMode === "supabase" && studioDataBlocked()) return null;
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   if (!token || !/^[A-Za-z0-9_-]{20,100}$/.test(token)) return null;
+  // Server actions can be invoked through any page URL on any host, not only studio paths, so the
+  // proxy's 404 alone doesn't keep them on the studio's address. The session counts only there.
+  if (!isStudioHost((await headers()).get("host"))) return null;
   const s = await selectOne<SessionRow>("li_access_sessions", [eq("token_hash", sha256(token))]);
   if (!s || s.revoked_at || new Date(s.expires_at).getTime() <= Date.now()) return null;
   return { email: owner };
@@ -203,6 +210,39 @@ export async function signOutEverywhere(): Promise<number> {
   for (const s of active) await update("li_access_sessions", [eq("id", s.id)], { revoked_at: now() });
   (await cookies()).delete({ name: SESSION_COOKIE, path: "/" });
   return active.length;
+}
+
+export interface SessionOverview {
+  sessions: { created_at: string; expires_at: string; device: string; current: boolean }[];
+  passwordChangedAt: string | null;
+  failedAttempts24h: number;
+}
+
+/** For the settings page: active sessions (no tokens), when the password was set, recent failed sign-ins. */
+export async function sessionOverview(): Promise<SessionOverview> {
+  const token = (await cookies()).get(SESSION_COOKIE)?.value;
+  const mine = token ? sha256(token) : null;
+  const nowMs = Date.now();
+  const rows = await select<SessionRow & { created_at: string; user_agent: string | null }>("li_access_sessions", [isNull("revoked_at")]);
+  const cred = await selectOne<CredentialRow & { updated_at: string | null }>("li_access_credentials", []);
+  const since = new Date(nowMs - 86_400_000).toISOString();
+  const failed = await select<{ id: string }>("li_access_attempts", [gt("created_at", since), eq("ok", false)], { columns: "id", limit: 1000 });
+  return {
+    sessions: rows
+      .filter((r) => new Date(r.expires_at).getTime() > nowMs)
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      .map((r) => ({ created_at: r.created_at, expires_at: r.expires_at, device: deviceName(r.user_agent), current: r.token_hash === mine })),
+    passwordChangedAt: cred?.updated_at ?? null,
+    failedAttempts24h: failed.length,
+  };
+}
+
+/** "Chrome on macOS"-style label from a user agent; never the raw string. */
+export function deviceName(ua: string | null): string {
+  if (!ua) return "Unknown device";
+  const browser = /Edg\//.test(ua) ? "Edge" : /Firefox\//.test(ua) ? "Firefox" : /Chrome\//.test(ua) ? "Chrome" : /Safari\//.test(ua) ? "Safari" : "Browser";
+  const os = /iPhone|iPad/.test(ua) ? "iOS" : /Android/.test(ua) ? "Android" : /Mac OS X/.test(ua) ? "macOS" : /Windows/.test(ua) ? "Windows" : /Linux/.test(ua) ? "Linux" : "unknown system";
+  return `${browser} on ${os}`;
 }
 
 export async function credentialsExist(): Promise<boolean> {

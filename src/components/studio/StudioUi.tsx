@@ -1,29 +1,19 @@
-import Link from "next/link";
-import { signOutAction, signOutEverywhereAction } from "@/app/access/actions";
+import { signOutAction } from "@/app/access/actions";
+import { StudioNavLinks } from "./StudioNavLinks";
 import { STATUS_LABELS, type Status } from "@/lib/studio/workflow";
-
-const NAV = [
-  { href: "/studio", label: "Overview" },
-  { href: "/studio/queue", label: "Approval queue" },
-  { href: "/studio/import", label: "Import" },
-  { href: "/studio/capabilities", label: "Capabilities" },
-];
 
 export function StudioNav() {
   return (
-    <nav aria-label="Studio" className="flex flex-wrap gap-x-6 gap-y-2 border-b border-line pb-4 text-sm">
-      <span className="eyebrow mr-2">LinkedIn Growth Studio</span>
-      {NAV.map((n) => (
-        <Link key={n.href} href={n.href} className="font-medium underline-offset-4 hover:underline">
-          {n.label}
-        </Link>
-      ))}
-      <form action={signOutAction} className="ml-auto">
-        <button className="text-ink-3 underline-offset-4 hover:underline">Sign out</button>
-      </form>
-      <form action={signOutEverywhereAction}>
-        <button className="text-ink-3 underline-offset-4 hover:underline">Sign out everywhere</button>
-      </form>
+    <nav aria-label="Studio" className="border-b border-line pb-3">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+        <span className="eyebrow mr-auto">LinkedIn Growth Studio</span>
+        <form action={signOutAction}>
+          <button className="text-ink-3 underline-offset-4 hover:underline">Sign out</button>
+        </form>
+      </div>
+      <div className="mt-3">
+        <StudioNavLinks />
+      </div>
     </nav>
   );
 }
@@ -59,3 +49,12 @@ export function SourceLabel({ children }: { children: React.ReactNode }) {
 }
 
 export const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
+
+/** A labelled on/off state, colour plus words (never colour alone). */
+export function OnOff({ on, label }: { on: boolean; label?: string }) {
+  return (
+    <span className={`inline-block px-2 py-0.5 font-mono text-xs uppercase tracking-wide ${on ? "bg-accent text-paper" : "bg-paper-2 text-ink-2"}`}>
+      {label ?? (on ? "On" : "Off")}
+    </span>
+  );
+}

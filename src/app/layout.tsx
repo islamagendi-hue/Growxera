@@ -71,7 +71,7 @@ const jsonLd = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${dubai.variable} ${plexMono.variable} antialiased`}>
+    <html lang="en" data-scroll-behavior="smooth" className={`${dubai.variable} ${plexMono.variable} antialiased`}>
       <body className="flex min-h-dvh flex-col">
         <a
           href="#main"

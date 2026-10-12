@@ -45,3 +45,7 @@ next-env.d.ts
 # Private LinkedIn data (this repository is public). Snapshots are uploaded through /studio/import.
 /content/buffer-snapshots/
 /content/private/
+
+# Playwright output
+/test-results/
+/playwright-report/

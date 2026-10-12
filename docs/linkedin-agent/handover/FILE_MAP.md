@@ -18,6 +18,29 @@ Paths are relative to the repository root, at commit `e430e71` unless marked WIP
 | `stats.ts`, `time.ts` | History stats; Riyadh time helpers |
 | `studio.test.ts` | All studio tests (156 total in the repo run) |
 
+### Added on 11 Oct 2026 (PRs #18–#20, not merged)
+
+| File | Responsibility |
+|---|---|
+| `switch.ts` | All-publishing switch (P2): blocks manual and automatic publishing |
+| `autopublish.ts` | Automatic switch, per-post authorization, submission window T − 60 s … T − 10 s, holding missed posts, switch setters |
+| `access.ts`, `access.test.ts` | Studio sign-in (password + TOTP), sessions, lockout, setup links |
+| `crypto.ts` | AES-GCM, scrypt, TOTP, base32 |
+| `host.ts`, `owner-email.ts` | Studio host rules; owner email |
+| `export.ts`, `export.test.ts` | Weekly backup export, validation, isolated restore |
+| `src/proxy.ts` | 404 for studio paths off the studio host |
+| `src/app/access/*` | Sign-in and setup pages and actions |
+| `src/app/studio/export/*` | Backup page and download |
+| `scripts/studio-setup-link.mjs` | One-time setup link (gated on production) |
+| `supabase/migrations/20261014000000_studio_access.sql`, `20261015000000_publishing_controls.sql` | New tables (not applied) |
+| `.github/workflows/ci.yml` | CI (unit/build job and E2E job) |
+| `insights.ts`, `insights.test.ts`, `assets.test.ts` | Dashboard, calendar and activity data; upload tests (product build) |
+| `src/app/studio/{page,new,calendar,activity,settings}` | Dashboard, new post, calendar, activity, settings (product build) |
+| `src/components/studio/StudioNavLinks.tsx` | Studio navigation |
+| `e2e/*`, `playwright.config.ts` | Browser end-to-end tests |
+| `docs/studio/{PRODUCT_AUDIT,IMPLEMENTATION_PLAN,IMPLEMENTATION_STATUS,RUNBOOK,ARCHITECTURE,LAUNCH_VERIFICATION,SECURITY_REVIEW}.md` | Product audit, plan, status, runbook, architecture and security, manual launch checks, security and preview-isolation review |
+| `docs/studio/*` | Plan, risks, roadmap, tests, operations and deployment runbooks, scheduling architecture, gates, log |
+
 ## Pages and routes (`src/app/`)
 
 | Path | Responsibility |

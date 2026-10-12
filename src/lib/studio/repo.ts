@@ -430,6 +430,15 @@ export async function requestRevision(actionId: string, reason: string, actor: s
   await audit(actor, "action.needs_revision", "li_actions", actionId, { reason: reason.trim() });
 }
 
+/** Sends a draft to the review queue. Only drafts; the text must not be empty. */
+export async function submitForReview(actionId: string, actor: string) {
+  const d = await load(actionId);
+  if (d.action.status !== "draft") throw new WorkflowError("Only drafts can be submitted for review.");
+  if (!d.current.text.trim()) throw new WorkflowError("Write the post before submitting it.");
+  await transition(d.action, "ready_for_review", null);
+  await audit(actor, "action.submitted", "li_actions", actionId, { version: d.current.version });
+}
+
 /** Returns a rejected, failed or revised item to the review queue without changing it. */
 export async function reopen(actionId: string, actor: string) {
   const d = await load(actionId);
