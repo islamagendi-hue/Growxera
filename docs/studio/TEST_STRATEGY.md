@@ -45,3 +45,32 @@
 - The domain and TLS on agent.growxera.com.
 - Vercel runtime logs.
 - An end-to-end browser test of the sign-in UI (planned for M10).
+
+## End-to-end (browser)
+
+`npm run test:e2e` (Playwright, Chromium) runs the owner's journeys against `next dev` with a throwaway local store, so no external service is reached. `e2e/global-setup.ts` refuses to run when an `.env*` file or a real credential is present.
+
+Covered:
+- signed-out redirect;
+- first sign-in with the fragment setup link (the token is in no request URL);
+- dashboard with every control OFF;
+- every screen from the navigation;
+- settings;
+- past-time refusal that keeps the text;
+- write → review → approve, with every blocker shown and no Publish now;
+- an edit voids the approval;
+- drafts;
+- upload with owner-only download; a disguised file is refused;
+- the all-publishing switch and its audit entries;
+- dashboard, calendar, search and activity;
+- a backup export without secret fields;
+- phone-size layout without horizontal scroll;
+- signed-out access to every studio page (redirect) and route (404);
+- a recoverable error state without internal details;
+- calendar month navigation and a bad month value;
+- activity filters;
+- phone width on every screen;
+- no browser console errors;
+- sign out.
+
+`E2E_SCREENSHOTS=<folder>` also saves desktop and phone screenshots of every screen for review. CI runs this suite as the `e2e` job.

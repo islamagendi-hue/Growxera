@@ -150,7 +150,7 @@ export async function postingCredentials(now = new Date()): Promise<{ token: str
     const why: Record<ConnectionState["state"], string> = {
       not_configured: "LinkedIn isn't set up for this deployment.",
       not_connected: "LinkedIn isn't connected.",
-      expired: "The LinkedIn connection expired. Reconnect it on the Capabilities page.",
+      expired: "The LinkedIn connection expired. Reconnect it on the Integrations page.",
       unreadable: "The saved LinkedIn connection can't be read (the client secret changed?). Reconnect it.",
       connected: "",
     };

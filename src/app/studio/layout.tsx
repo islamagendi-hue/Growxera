@@ -15,7 +15,7 @@ export default async function StudioLayout({ children }: LayoutProps<"/studio">)
   const li = storage ? null : await connectionState();
   const liWarning =
     li?.state === "expired" || li?.state === "unreadable"
-      ? "The LinkedIn connection has stopped working, so approved posts are not being published."
+      ? "The LinkedIn connection has stopped working, so nothing can be posted through it until you reconnect."
       : li?.state === "connected" && li.expiringSoon
         ? `The LinkedIn connection expires in ${li.daysLeft} day${li.daysLeft === 1 ? "" : "s"}. LinkedIn requires reconnecting every 60 days.`
         : null;

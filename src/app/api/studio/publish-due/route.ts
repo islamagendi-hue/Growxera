@@ -1,4 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
+import { studioDataBlocked } from "@/lib/server/deployment";
 import { rpc } from "@/lib/server/store";
 import { publishDue } from "@/lib/studio/publish";
 import { studioStorageError } from "@/lib/studio/owner";
@@ -29,6 +30,8 @@ async function authorized(req: Request): Promise<boolean> {
 }
 
 async function run(req: Request) {
+  // Previews share the production database: the scheduler doesn't exist there (deployment.ts).
+  if (studioDataBlocked()) return new Response("Not found", { status: 404 });
   if (!(await authorized(req))) return new Response("Not found", { status: 404 });
   if (studioStorageError()) return Response.json({ ran: false, reason: "storage not configured" }, { status: 503 });
   try {

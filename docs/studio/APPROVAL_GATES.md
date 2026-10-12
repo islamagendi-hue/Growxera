@@ -32,6 +32,8 @@ Approve as one batch. Execute in the order below; each step has a check and a wa
 
 Batch A doesn't connect LinkedIn, publish, change Buffer, switch anything ON, or cost anything.
 
+**Product build:** `claude/studio-m2-product` (dashboard, posts, calendar, uploads, activity, settings, E2E) is stacked on #20. It can join A1, as one more collapse step before the single merge into `main`, or be merged after go-live. That is the owner's choice; either way it changes no database schema.
+
 ## Pending: batch B, "first real post" (after batch A)
 
 **After B1 (LinkedIn connected), a code rollback needs one step first:** the code on today's `main` publishes approved posts automatically within 3 hours of their time. So before any rollback, unschedule the cron job and disconnect LinkedIn (runbook).

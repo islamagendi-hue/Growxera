@@ -41,7 +41,7 @@ export default async function CapabilitiesPage({ searchParams }: PageProps<"/stu
   );
   return (
     <div className="mt-8">
-      <h1 className="text-h2 font-semibold">Capabilities</h1>
+      <h1 className="text-h2 font-semibold">Integrations and capabilities</h1>
       <p className="mt-2 max-w-[70ch] text-ink-2">
         What the studio can do on LinkedIn through official, authorized access, and the manual step you take where it can&apos;t. Last
         reviewed {CHECKED_ON}. Nothing is marked available until it has been tested with this app.

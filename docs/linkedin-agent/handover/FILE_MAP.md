@@ -33,7 +33,12 @@ Paths are relative to the repository root, at commit `e430e71` unless marked WIP
 | `src/app/studio/export/*` | Backup page and download |
 | `scripts/studio-setup-link.mjs` | One-time setup link (gated on production) |
 | `supabase/migrations/20261014000000_studio_access.sql`, `20261015000000_publishing_controls.sql` | New tables (not applied) |
-| `.github/workflows/ci.yml` | CI |
+| `.github/workflows/ci.yml` | CI (unit/build job and E2E job) |
+| `insights.ts`, `insights.test.ts`, `assets.test.ts` | Dashboard, calendar and activity data; upload tests (product build) |
+| `src/app/studio/{page,new,calendar,activity,settings}` | Dashboard, new post, calendar, activity, settings (product build) |
+| `src/components/studio/StudioNavLinks.tsx` | Studio navigation |
+| `e2e/*`, `playwright.config.ts` | Browser end-to-end tests |
+| `docs/studio/{PRODUCT_AUDIT,IMPLEMENTATION_PLAN,IMPLEMENTATION_STATUS,RUNBOOK,ARCHITECTURE,LAUNCH_VERIFICATION,SECURITY_REVIEW}.md` | Product audit, plan, status, runbook, architecture and security, manual launch checks, security and preview-isolation review |
 | `docs/studio/*` | Plan, risks, roadmap, tests, operations and deployment runbooks, scheduling architecture, gates, log |
 
 ## Pages and routes (`src/app/`)

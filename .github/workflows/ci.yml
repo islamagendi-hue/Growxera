@@ -1,12 +1,13 @@
 name: CI
 
-# Typecheck, lint, unit tests and production build on every pull request and push to main.
+# Typecheck, lint, unit tests and production build on every pull request, every push to main,
+# and every push to a studio development branch (so unreviewed work also gets CI without a PR).
 # No secrets are used: tests run against the local file store and fake external APIs
 # (no Supabase, LinkedIn, Buffer or xAI credentials, no network calls to them).
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, "claude/studio-*"]
 
 permissions:
   contents: read
@@ -36,5 +37,24 @@ jobs:
         run: npx vitest run
       - name: Build
         run: npx next build
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+
+  e2e:
+    # The owner's journeys in a real browser against `next dev` with the local file store
+    # (e2e/global-setup.ts refuses to run if any real credentials are present).
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Browser
+        run: npx playwright install --with-deps chromium
+      - name: End-to-end tests
+        run: npx playwright test
         env:
           NEXT_TELEMETRY_DISABLED: "1"

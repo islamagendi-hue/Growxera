@@ -6,7 +6,7 @@
  */
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { secureAssets } from "@/lib/studio/assets";
+import { secureAssets, uploadAsset, UploadError, type UploadedAsset } from "@/lib/studio/assets";
 import { verifyGrok } from "@/lib/studio/grok";
 import { importSnapshot, snapshotSchema } from "@/lib/studio/import";
 import { authorizeAutoPublish, revokeAutoPublish, setAutoPublish, setPublishing } from "@/lib/studio/autopublish";
@@ -18,15 +18,17 @@ import {
   addVersion,
   approve,
   audit,
+  createDraft,
   getAction,
   markFailed,
   recordManualExecution,
   reject,
   reopen,
   requestRevision,
+  submitForReview,
   verifyExecution,
 } from "@/lib/studio/repo";
-import { fromRiyadhInput } from "@/lib/studio/time";
+import { fromRiyadhInput, isPast } from "@/lib/studio/time";
 import { WorkflowError } from "@/lib/studio/workflow";
 
 /** Log line without the database's response body, which can contain post text or emails. */
@@ -71,7 +73,7 @@ export async function authorizeAutoPublishAction(form: FormData) {
       if (form.get("confirm") !== "yes") throw new WorkflowError("Tick the box to confirm automatic publishing of this exact version and time.");
       return authorizeAutoPublish(id, str(form, "versionId"), str(form, "hash"), actor);
     },
-    "Scheduled for automatic publishing. It goes out at its planned time only while automatic publishing is switched on; any edit cancels it.",
+    "Confirmed for automatic publishing. It can go out at its planned time only while both all publishing and automatic publishing are ON; otherwise it is held. Any edit cancels it.",
   );
 }
 
@@ -87,7 +89,7 @@ export async function setAutoPublishAction(form: FormData) {
   try {
     if (enable && form.get("confirm") !== "yes") throw new WorkflowError("Tick the box to confirm switching automatic publishing on.");
     await setAutoPublish(enable, owner.email);
-    q = `notice=${encodeURIComponent(enable ? "Automatic publishing is ON. Only posts you scheduled for it individually will go out, on time." : "Automatic publishing is OFF. Nothing is published automatically.")}`;
+    q = `notice=${encodeURIComponent(enable ? "Automatic publishing is ON. Only posts you confirmed one by one can go out, and only while all publishing is also ON." : "Automatic publishing is OFF. Nothing is published automatically.")}`;
   } catch (err) {
     q = `error=${encodeURIComponent(err instanceof WorkflowError ? err.message : "Changing the switch failed. Nothing changed.")}`;
     if (!(err instanceof WorkflowError)) console.error("[studio] switch failed", safeLog(err));
@@ -127,6 +129,61 @@ export async function reopenAction(form: FormData) {
   await run(id, (actor) => reopen(id, actor), "Back in the review queue.");
 }
 
+// ── Writing ─────────────────────────────────────────────────────────────────
+
+export interface NewPostState {
+  error: string | null;
+  text: string;
+  target: string;
+  note: string;
+}
+
+/** Creates a post written in the studio, as a draft or straight into review. Never publishes. */
+export async function createPostAction(_prev: NewPostState, form: FormData): Promise<NewPostState> {
+  const owner = await ownerOrThrow();
+  const text = String(form.get("text") ?? "").replace(/\r\n/g, "\n").trim();
+  const target = str(form, "target_at");
+  const note = str(form, "note").slice(0, 300);
+  const keep = { text, target, note };
+  let actionId: string;
+  try {
+    if (!text) throw new WorkflowError("Write the post first.");
+    if (text.length > 3000) throw new WorkflowError("LinkedIn posts are limited to 3,000 characters.");
+    const target_at = target ? fromRiyadhInput(target) : null;
+    if (target_at && isPast(target_at)) throw new WorkflowError("That planned time has already passed. Pick a future time or leave it empty.");
+    const file = await attachment(form, owner.email);
+    ({ actionId } = await createDraft({
+      kind: "post",
+      actionKind: "publish_post",
+      channel: "manual",
+      origin: "studio",
+      author: owner.email,
+      notes: note || null,
+      status: str(form, "intent") === "draft" ? "draft" : "ready_for_review",
+      content: { text, assets: file ? [file] : [], target_at },
+    }));
+  } catch (err) {
+    if (err instanceof WorkflowError) return { error: err.message, ...keep };
+    if (err instanceof UploadError) return { error: `${err.message} Choose the file again.`, ...keep };
+    console.error("[studio] create post failed", safeLog(err));
+    return { error: "Saving failed. Nothing was saved; try again.", ...keep };
+  }
+  revalidatePath("/studio", "layout");
+  redirect(`/studio/queue/${actionId}?notice=${encodeURIComponent(str(form, "intent") === "draft" ? "Saved as a draft." : "Submitted for review.")}`);
+}
+
+/** The uploaded file in a form ("file", optional "file_title"), stored and verified; null when none was chosen. */
+async function attachment(form: FormData, actor: string): Promise<UploadedAsset | null> {
+  const file = form.get("file");
+  if (!(file instanceof File) || file.size === 0) return null;
+  return uploadAsset(new Uint8Array(await file.arrayBuffer()), str(form, "file_title") || null, actor);
+}
+
+export async function submitForReviewAction(form: FormData) {
+  const id = str(form, "actionId");
+  await run(id, (actor) => submitForReview(id, actor), "Submitted for review.");
+}
+
 export async function editAction(form: FormData) {
   const id = str(form, "actionId");
   const text = String(form.get("text") ?? "").replace(/\r\n/g, "\n").trim();
@@ -139,7 +196,16 @@ export async function editAction(form: FormData) {
       const d = await getAction(id);
       if (!d) throw new WorkflowError("Item not found.");
       const target_at = target ? fromRiyadhInput(target) : null;
-      const { changed } = await addVersion(id, { text, assets: d.current.assets, target_at }, actor, str(form, "note") || "Edited in studio");
+      let assets = d.current.assets;
+      try {
+        const file = await attachment(form, actor);
+        if (file) assets = [file];
+        else if (form.get("remove_file") === "yes") assets = [];
+      } catch (err) {
+        if (err instanceof UploadError) throw new WorkflowError(err.message);
+        throw err;
+      }
+      const { changed } = await addVersion(id, { text, assets, target_at }, actor, str(form, "note") || "Edited in studio");
       if (!changed) throw new WorkflowError("No changes to save.");
     },
     "Saved as a new version. Any earlier approval no longer applies.",

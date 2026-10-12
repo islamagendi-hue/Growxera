@@ -4,7 +4,7 @@ import { CopyButton } from "@/components/studio/CopyButton";
 import { first, Notice, StatusBadge } from "@/components/studio/StudioUi";
 import { buttonClass } from "@/components/ui/button";
 import { requireOwner } from "@/lib/studio/owner";
-import { assetsByUrl } from "@/lib/studio/assets";
+import { assetsByUrl, UPLOAD_PREFIX } from "@/lib/studio/assets";
 import { connectionState } from "@/lib/studio/linkedin";
 import { authorizationsFor, autoPublishSwitch, isAutoAuthorized, leadTimeOk } from "@/lib/studio/autopublish";
 import { getAction } from "@/lib/studio/repo";
@@ -22,8 +22,10 @@ import {
   resolveUnknownAction,
   reviseAction,
   revokeAutoPublishAction,
+  submitForReviewAction,
   verifyAction,
 } from "../../actions";
+import { classify, loadControls, publishBlockers } from "@/lib/studio/insights";
 
 export const dynamic = "force-dynamic";
 
@@ -46,7 +48,10 @@ export default async function QueueItem({ params, searchParams }: PageProps<"/st
   const unknown = action.status === "executed" ? executions.find((e) => e.result === "unknown") : undefined;
   const sw = await autoPublishSwitch();
   const all = await publishingSwitch();
-  const autoAuthorized = isAutoAuthorized(d, await authorizationsFor(action.id));
+  const auths = await authorizationsFor(action.id);
+  const autoAuthorized = isAutoAuthorized(d, auths);
+  const blockers = publishBlockers(classify(action, draft, current, approvals, executions, auths, new Date()), await loadControls());
+  const lastApproved = approvals.find((a) => a.decision === "approved");
   const canAuthorize =
     action.status === "approved" && approvalValid && action.kind === "publish_post" && !autoAuthorized && leadTimeOk(current.target_at);
 
@@ -54,7 +59,7 @@ export default async function QueueItem({ params, searchParams }: PageProps<"/st
     <div className="mt-8 grid gap-10 lg:grid-cols-[1fr_340px]">
       <div>
         <Link href="/studio/queue" className="text-sm underline underline-offset-4">
-          ← Approval queue
+          ← Posts
         </Link>
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <StatusBadge status={action.status} />
@@ -88,10 +93,16 @@ export default async function QueueItem({ params, searchParams }: PageProps<"/st
                     ) : (
                       <span className="text-alert">not secured yet</span>
                     )}{" "}
-                    ·{" "}
-                    <a href={a.url} target="_blank" rel="noreferrer" className="underline underline-offset-4">
-                      original
-                    </a>
+                    {a.url.startsWith(UPLOAD_PREFIX) ? (
+                      <span className="text-ink-3">· uploaded in the studio</span>
+                    ) : (
+                      <>
+                        ·{" "}
+                        <a href={a.url} target="_blank" rel="noreferrer" className="underline underline-offset-4">
+                          original
+                        </a>
+                      </>
+                    )}
                   </li>
                 );
               })}
@@ -100,16 +111,47 @@ export default async function QueueItem({ params, searchParams }: PageProps<"/st
           </div>
         )}
 
+        <section aria-labelledby="status-h" className="mt-6 border border-line bg-card p-5 text-sm">
+          <h2 id="status-h" className="eyebrow">Publishing status</h2>
+          <dl className="mt-3 grid gap-x-6 gap-y-2 sm:grid-cols-[12rem_1fr]">
+            <dt className="text-ink-3">Current version</dt>
+            <dd>
+              Version {current.version} · hash <span className="font-mono">{current.content_hash.slice(0, 12)}</span>
+            </dd>
+            <dt className="text-ink-3">Approval</dt>
+            <dd>
+              {lastApproved
+                ? `Version ${versions.find((v) => v.id === lastApproved.version_id)?.version ?? "?"} approved ${formatRiyadh(lastApproved.created_at)}${approvalValid ? ", covers the current version." : ". It doesn't cover the current version: approve again after review."}`
+                : "Never approved."}
+            </dd>
+            <dt className="text-ink-3">Automatic publishing</dt>
+            <dd>{autoAuthorized ? `Confirmed for ${formatRiyadh(current.target_at)} (Riyadh).` : "Not confirmed."}</dd>
+            <dt className="text-ink-3">Publish now</dt>
+            <dd>{blockers.manual.length ? <BlockerList items={blockers.manual} /> : "Nothing in the studio blocks it."}</dd>
+            <dt className="text-ink-3">Publish automatically</dt>
+            <dd>{blockers.automatic.length ? <BlockerList items={blockers.automatic} /> : "Nothing in the studio blocks it."}</dd>
+          </dl>
+        </section>
+
+        {action.status === "draft" && (
+          <section className="mt-8 border border-ink p-6">
+            <h2 className="text-h3 font-semibold">Draft</h2>
+            <p className="mt-1 text-sm text-ink-2">Finish it below, then submit it for review. Nothing is published from here.</p>
+            <form action={submitForReviewAction} className="mt-4">
+              <input type="hidden" name="actionId" value={action.id} />
+              <button className={buttonClass("primary")}>Submit for review</button>
+            </form>
+          </section>
+        )}
+
         {action.status === "ready_for_review" && (
           <section className="mt-8 border border-ink p-6">
             <h2 className="text-h3 font-semibold">Review</h2>
             <p className="mt-1 text-sm text-ink-2">Approving applies to version {current.version} exactly as shown, including the planned time.</p>
-            {direct && current.target_at && (
-              <p className="mt-2 text-sm font-medium">
-                LinkedIn is connected: once approved, the studio posts this on your profile at {formatRiyadh(current.target_at)} (Riyadh). Any
-                later edit cancels the approval.
-              </p>
-            )}
+            <p className="mt-2 text-sm text-ink-2">
+              Approving doesn&apos;t publish anything. Afterwards you either publish it yourself, or confirm it separately for automatic publishing
+              at its planned time. Any later edit cancels the approval.
+            </p>
             <form action={approveAction} className="mt-4">
               <input type="hidden" name="actionId" value={action.id} />
               <input type="hidden" name="versionId" value={current.id} />
@@ -151,7 +193,9 @@ export default async function QueueItem({ params, searchParams }: PageProps<"/st
               <>
                 <p className="mt-3 text-sm font-medium">
                   Scheduled for automatic publishing at {formatRiyadh(current.target_at)} (Riyadh)
-                  {sw.enabled ? "." : ". It won't go out while automatic publishing is OFF."}
+                  {sw.enabled && all.enabled
+                    ? "."
+                    : `. It won't go out while ${[!all.enabled && "all publishing", !sw.enabled && "automatic publishing"].filter(Boolean).join(" and ")} ${!all.enabled && !sw.enabled ? "are" : "is"} OFF.`}
                 </p>
                 <form action={revokeAutoPublishAction} className="mt-3">
                   <input type="hidden" name="actionId" value={action.id} />
@@ -195,7 +239,7 @@ export default async function QueueItem({ params, searchParams }: PageProps<"/st
               <p className="mt-3 text-sm font-medium">
                 All publishing is OFF, so this can&apos;t be posted.{" "}
                 <Link href="/studio/capabilities#publishing" className="underline">
-                  Switch it on in Capabilities
+                  Switch it on in Integrations
                 </Link>
                 .
               </p>
@@ -207,8 +251,12 @@ export default async function QueueItem({ params, searchParams }: PageProps<"/st
           <section className="mt-8 border border-ink p-6">
             <h2 className="text-h3 font-semibold">Publish (manual step)</h2>
             <p className="mt-1 text-sm text-ink-2">
-              Direct publishing isn&apos;t verified for this app, so you publish this yourself. Planned time:{" "}
-              {formatRiyadh(current.target_at)} (Riyadh).
+              {current.assets.length > 1
+                ? "Posts with more than one file are published by hand."
+                : li.state === "connected"
+                  ? "This post can't be published directly, so you publish it yourself."
+                  : "LinkedIn isn't connected to the studio, so you publish this yourself."}{" "}
+              {current.target_at ? `Planned time: ${formatRiyadh(current.target_at)} (Riyadh).` : "No planned time."}
             </p>
             <ol className="mt-4 list-decimal space-y-1 pl-5 text-sm">
               <li>Copy the approved text{current.assets.length ? " and download the assets above" : ""}.</li>
@@ -324,6 +372,26 @@ export default async function QueueItem({ params, searchParams }: PageProps<"/st
                 Planned time (Riyadh)
                 <input type="datetime-local" name="target_at" defaultValue={toRiyadhInput(current.target_at)} className={field} />
               </label>
+              <fieldset className="mt-3 grid gap-2 border border-line p-4">
+                <legend className="px-1 text-sm font-medium">Attachment</legend>
+                <p className="text-xs text-ink-3">
+                  {current.assets.length ? `Now: ${current.assets.length} file${current.assets.length === 1 ? "" : "s"} (listed above).` : "Now: none."} A new file replaces
+                  the current ones.
+                </p>
+                <label className="text-sm">
+                  Replace with one image or PDF, up to 4 MB
+                  <input name="file" type="file" accept="image/png,image/jpeg,image/gif,image/webp,application/pdf" className="mt-1 block w-full text-sm" />
+                </label>
+                <label className="text-sm">
+                  Document title (PDFs only)
+                  <input name="file_title" maxLength={200} className={field} />
+                </label>
+                {current.assets.length > 0 && (
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" name="remove_file" value="yes" /> Remove the attachment
+                  </label>
+                )}
+              </fieldset>
               <label className="mt-3 block text-sm font-medium">
                 What changed (optional)
                 <input name="note" className={field} />
@@ -405,5 +473,15 @@ export default async function QueueItem({ params, searchParams }: PageProps<"/st
         </div>
       </aside>
     </div>
+  );
+}
+
+function BlockerList({ items }: { items: string[] }) {
+  return (
+    <ul className="list-disc space-y-0.5 pl-5 text-ink-2">
+      {items.map((b) => (
+        <li key={b}>{b}</li>
+      ))}
+    </ul>
   );
 }
